@@ -1,0 +1,79 @@
+.pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  height: 26px;
+  border: 1px solid var(--line-2);
+  background: var(--surface-1);
+  color: var(--ink-2);
+  border-radius: var(--r-pill);
+  padding: 0 9px;
+  font-family: inherit;
+  font-size: 12px;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  cursor: pointer;
+  transition: all var(--t) var(--ease);
+}
+
+.pill:hover {
+  border-color: var(--ink-4);
+}
+
+.pill:active {
+  transform: scale(0.96);
+}
+
+.mine {
+  border-color: var(--mint-2);
+  background: var(--brand-soft);
+  color: var(--brand-ink);
+}
+
+.mine:hover {
+  border-color: var(--brand-3);
+}
+
+.emoji {
+  font-size: 13px;
+  line-height: 1;
+}
+
+.title {
+  margin: 0 0 10px;
+  font-size: 12.5px;
+  font-weight: 650;
+  letter-spacing: var(--track-tight);
+  color: var(--ink);
+}
+
+/* Roomier "who reacted" tooltip: enough width for the avatar + full name so
+   nothing clips, including inside the compact pins hover card. */
+.tooltipPanel {
+  min-width: 260px;
+  max-width: 320px;
+  padding: 12px 14px;
+}
+
+.users {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.user {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.userName {
+  font-size: 13.5px;
+  color: var(--ink);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}

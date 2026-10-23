@@ -1,0 +1,533 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Planify — Design Team</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+<style>
+  :root{
+    --outer-bg:#dfe0e2;
+    --window-bg:#ffffff;
+    --border:#ebecef;
+    --text-dark:#1e2330;
+    --text-mid:#6b7280;
+    --text-muted:#9aa1ac;
+    --icon-grey:#a7adb8;
+    --bubble-bg:#ebeff8;
+    --accent-blue:#1c7efb;
+    --accent-blue-text:#3f7fe0;
+    --badge-purple:#9b5de5;
+    --badge-pink:#f368d8;
+    --badge-green:#59b96a;
+    --badge-orange:#fb724c;
+    --search-bg:#f4f5f7;
+    --avatar-1:#5bc98f;
+    --avatar-2:#f0a35a;
+    --avatar-3:#7fb3e8;
+  }
+  *{box-sizing:border-box; margin:0; padding:0;}
+  body{
+    font-family:'Poppins', sans-serif;
+    background:var(--outer-bg);
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    min-height:100vh;
+    padding:40px 16px;
+  }
+  .browser{
+    width:100%;
+    max-width:1520px;
+    background:#fff;
+    border-radius:14px;
+    overflow:hidden;
+    box-shadow:0 30px 80px rgba(20,20,30,0.18);
+  }
+  /* ---------- Browser chrome ---------- */
+  .chrome-bar{
+    display:flex;
+    align-items:center;
+    gap:18px;
+    padding:14px 20px;
+    background:#fff;
+  }
+  .dots{display:flex; gap:8px;}
+  .dots span{width:12px; height:12px; border-radius:50%; display:block;}
+  .dots .red{background:#ff5f57;}
+  .dots .yellow{background:#febc2e;}
+  .dots .green{background:#28c840;}
+  .chrome-nav{display:flex; align-items:center; gap:14px; color:#b9bec7; font-size:15px;}
+  .chrome-nav i{cursor:pointer;}
+  .sidebar-toggle{color:#c7cbd2; font-size:14px; border:1px solid #e5e7eb; border-radius:6px; padding:4px 6px;}
+  .addr-bar{
+    flex:1;
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    gap:8px;
+    background:#f2f3f5;
+    border-radius:8px;
+    padding:8px 16px;
+    color:#8b9099;
+    font-size:13px;
+  }
+  .addr-bar i{font-size:11px;}
+  .chrome-actions{display:flex; align-items:center; gap:16px; color:#b9bec7; font-size:14px;}
+
+  /* ---------- App shell ---------- */
+  .app{
+    display:flex;
+    border-top:1px solid var(--border);
+    min-height:820px;
+  }
+
+  /* ---------- Icon nav ---------- */
+  .icon-nav{
+    width:210px;
+    padding:26px 18px;
+    border-right:1px solid var(--border);
+    display:flex;
+    flex-direction:column;
+  }
+  .logo{
+    display:flex;
+    align-items:center;
+    gap:10px;
+    font-size:21px;
+    font-weight:700;
+    color:var(--text-dark);
+    margin-bottom:30px;
+    padding:0 4px;
+  }
+  .logo-mark{
+    width:30px; height:30px; border-radius:50%;
+    background:conic-gradient(from 200deg, #3b82f6, #60a5fa 40%, #3b82f6 70%);
+    position:relative;
+    display:flex; align-items:center; justify-content:center;
+  }
+  .logo-mark::after{
+    content:"";
+    width:12px; height:12px; border-radius:50%;
+    background:#ff5b93;
+  }
+  .nav-list{list-style:none; display:flex; flex-direction:column; gap:4px;}
+  .nav-list li{
+    display:flex; align-items:center; justify-content:space-between;
+    padding:10px 10px;
+    border-radius:10px;
+    color:var(--text-mid);
+    font-size:14.5px;
+    font-weight:500;
+    cursor:pointer;
+    position:relative;
+  }
+  .nav-list li .left{display:flex; align-items:center; gap:12px;}
+  .nav-list li i{width:18px; text-align:center; color:var(--icon-grey); font-size:15px;}
+  .nav-list li.active{color:var(--accent-blue); background:#f2f7ff;}
+  .nav-list li.active i{color:var(--accent-blue);}
+  .nav-list li.active::before{
+    content:"";
+    position:absolute; left:-18px; top:6px; bottom:6px; width:3px;
+    background:var(--accent-blue); border-radius:0 4px 4px 0;
+  }
+  .badge{
+    font-size:10.5px; font-weight:600; color:#fff;
+    padding:2px 8px; border-radius:20px; min-width:24px; text-align:center;
+  }
+  .badge.orange{background:var(--badge-orange);}
+  .badge.purple{background:var(--badge-purple);}
+  .badge.green{background:var(--badge-green);}
+  .badge.pink{background:var(--badge-pink);}
+
+  .nav-bottom{margin-top:auto; display:flex; flex-direction:column; gap:16px;}
+  .help-row{display:flex; align-items:center; gap:10px; color:var(--text-mid); font-size:14px; font-weight:500;}
+  .help-row i{width:18px; text-align:center; color:var(--icon-grey);}
+  .theme-toggle{
+    display:flex; align-items:center; justify-content:space-between;
+    background:var(--search-bg); border-radius:20px; padding:6px 10px;
+    font-size:13px; color:var(--text-mid); font-weight:500;
+  }
+  .theme-toggle .pill{
+    display:flex; align-items:center; gap:6px;
+    background:#fff; border-radius:14px; padding:4px 10px;
+    box-shadow:0 1px 3px rgba(0,0,0,0.08); font-size:12px;
+  }
+
+  /* ---------- Channel list ---------- */
+  .channel-panel{
+    width:250px;
+    border-right:1px solid var(--border);
+    padding:22px 18px;
+    display:flex;
+    flex-direction:column;
+  }
+  .search-box{
+    display:flex; align-items:center; gap:10px;
+    background:var(--search-bg); border-radius:10px;
+    padding:10px 14px; margin-bottom:18px;
+    color:var(--text-muted); font-size:13.5px;
+  }
+  .search-box i{font-size:13px;}
+  .quick-list{list-style:none; display:flex; flex-direction:column; gap:2px; margin-bottom:18px;}
+  .quick-list li{
+    display:flex; align-items:center; justify-content:space-between;
+    padding:8px 4px; color:var(--text-mid); font-size:14px; font-weight:500;
+  }
+  .quick-list li .left{display:flex; align-items:center; gap:12px;}
+  .quick-list li i{width:16px; text-align:center; color:var(--icon-grey); font-size:14px;}
+
+  .section-label{
+    display:flex; align-items:center; justify-content:space-between;
+    color:var(--text-dark); font-size:14px; font-weight:600;
+    margin:10px 0 10px;
+  }
+  .section-label .left{display:flex; align-items:center; gap:10px;}
+  .section-label i.chev{color:var(--icon-grey); font-size:12px;}
+
+  .channel-list{list-style:none; display:flex; flex-direction:column; gap:6px; margin-bottom:22px;}
+  .channel-list li{
+    display:flex; align-items:center; justify-content:space-between;
+    padding:6px 4px; color:var(--text-mid); font-size:14px; font-weight:500;
+  }
+  .channel-list li .left{display:flex; align-items:center; gap:12px;}
+  .channel-list li i{width:14px; text-align:center; color:var(--icon-grey); font-size:13px;}
+  .channel-list li.active{color:var(--accent-blue-text); font-weight:600;}
+  .channel-list li.active i{color:var(--accent-blue-text);}
+
+  .dm-list{list-style:none; display:flex; flex-direction:column; gap:14px;}
+  .dm-list li{display:flex; align-items:center; gap:12px; font-size:14px; font-weight:500; color:var(--text-dark);}
+  .avatar{width:30px; height:30px; border-radius:50%; flex-shrink:0; display:flex; align-items:center; justify-content:center; color:#fff; font-size:12px; font-weight:600;}
+  .add-member{color:var(--badge-orange); font-weight:500; display:flex; align-items:center; gap:12px;}
+  .add-member .plus-circle{
+    width:30px; height:30px; border-radius:50%; background:var(--badge-orange);
+    display:flex; align-items:center; justify-content:center; color:#fff; font-size:13px;
+  }
+
+  /* ---------- Chat column ---------- */
+  .chat-col{flex:1; display:flex; flex-direction:column; min-width:0;}
+  .chat-header{
+    display:flex; align-items:flex-start; justify-content:space-between;
+    padding:22px 26px 0;
+  }
+  .chat-title h2{font-size:19px; font-weight:600; color:var(--text-dark); display:flex; align-items:center; gap:8px;}
+  .chat-title h2 i{font-size:15px; color:var(--icon-grey); font-weight:400;}
+  .chat-title p{font-size:12.5px; color:var(--text-muted); margin-top:4px; margin-left:22px;}
+  .header-icons{display:flex; gap:10px;}
+  .header-icons .circle-btn{
+    width:34px; height:34px; border-radius:50%; border:1px solid var(--border);
+    display:flex; align-items:center; justify-content:center; color:var(--icon-grey); font-size:13px;
+  }
+  .tabs{display:flex; gap:26px; padding:16px 26px 0; border-bottom:1px solid var(--border);}
+  .tab{display:flex; align-items:center; gap:8px; font-size:14px; font-weight:500; color:var(--text-muted); padding-bottom:12px;}
+  .tab i{font-size:13px;}
+  .tab.active{color:var(--accent-blue); border-bottom:2px solid var(--accent-blue);}
+
+  .messages{flex:1; padding:22px 26px; display:flex; flex-direction:column; gap:20px; overflow-y:auto;}
+  .msg{display:flex; gap:12px; max-width:640px;}
+  .msg .avatar{width:34px; height:34px; font-size:13px;}
+  .msg-body{display:flex; flex-direction:column; gap:6px;}
+  .msg-meta{display:flex; align-items:center; gap:8px; font-size:13px;}
+  .msg-meta .name{font-weight:600; color:var(--text-dark);}
+  .msg-meta .time{color:var(--text-muted); font-size:11.5px;}
+  .msg-meta .dot{color:var(--text-muted); font-size:5px;}
+  .bubble{
+    background:var(--bubble-bg); padding:11px 16px; border-radius:14px;
+    font-size:13.5px; color:var(--text-dark); line-height:1.5; display:inline-block; width:fit-content;
+  }
+  .plain-text{font-size:13.5px; color:var(--text-dark); line-height:1.5;}
+
+  .reactions{
+    display:flex; align-items:center; gap:8px; background:#fff;
+    border-radius:20px; padding:6px 10px; box-shadow:0 3px 10px rgba(20,20,30,0.12);
+    width:fit-content; font-size:15px; margin-top:-2px;
+  }
+  .reactions .plus-btn{
+    width:20px; height:20px; border-radius:50%; border:1px solid var(--border);
+    display:flex; align-items:center; justify-content:center; color:var(--icon-grey); font-size:10px;
+  }
+
+  .date-divider{align-self:center; background:var(--search-bg); color:var(--text-muted); font-size:11.5px; padding:4px 16px; border-radius:20px;}
+
+  .msg.own{align-self:flex-end; flex-direction:column; align-items:flex-end; gap:8px;}
+  .own-meta{display:flex; align-items:center; gap:8px; font-size:12px; color:var(--text-muted); justify-content:flex-end;}
+  .own-meta .you{color:var(--text-dark); font-weight:600;}
+  .own-bubble{background:var(--bubble-bg); padding:11px 18px; border-radius:14px 14px 2px 14px; font-size:13.5px; color:var(--text-dark); align-self:flex-end;}
+
+  .attachment{
+    align-self:flex-end; width:260px; height:170px; border-radius:14px; overflow:hidden;
+    box-shadow:0 6px 20px rgba(20,20,30,0.12); border:1px solid var(--border); background:#f4f5f7;
+  }
+  .attachment img{width:100%; height:100%; object-fit:cover; display:block;}
+
+  .composer{
+    display:flex; align-items:center; gap:12px;
+    padding:16px 26px; border-top:1px solid var(--border);
+  }
+  .composer i.smile{color:var(--icon-grey); font-size:20px;}
+  .composer input{
+    flex:1; border:none; outline:none; background:var(--search-bg);
+    padding:12px 16px; border-radius:10px; font-family:'Poppins',sans-serif; font-size:13.5px; color:var(--text-dark);
+  }
+  .composer input::placeholder{color:var(--text-muted);}
+  .send-btn{
+    width:38px; height:38px; border-radius:10px; background:var(--accent-blue);
+    display:flex; align-items:center; justify-content:center; color:#fff; font-size:14px; flex-shrink:0;
+  }
+
+  /* ---------- Right panel ---------- */
+  .right-panel{width:270px; border-left:1px solid var(--border); padding:24px 22px; overflow-y:auto;}
+  .panel-top{display:flex; align-items:center; justify-content:space-between; margin-bottom:20px;}
+  .panel-user{display:flex; align-items:center; gap:10px;}
+  .panel-user .avatar{width:34px; height:34px;}
+  .panel-user .name{font-size:13.5px; font-weight:600; color:var(--text-dark);}
+  .panel-user .role{font-size:11px; color:var(--text-muted);}
+  .fab{width:36px; height:36px; border-radius:50%; background:var(--accent-blue); color:#fff; display:flex; align-items:center; justify-content:center; font-size:15px;}
+  .bell-btn{width:36px; height:36px; border-radius:50%; border:1px solid var(--border); display:flex; align-items:center; justify-content:center; color:var(--icon-grey); font-size:14px;}
+  .panel-topbar{display:flex; align-items:center; justify-content:flex-end; gap:12px; margin-bottom:26px;}
+
+  .channel-id{display:flex; flex-direction:column; align-items:center; text-align:center; margin-bottom:22px;}
+  .channel-id .hash-circle{
+    width:64px; height:64px; border-radius:50%; background:#8fd19e;
+    display:flex; align-items:center; justify-content:center; color:#fff; font-size:26px; font-weight:700; margin-bottom:12px;
+  }
+  .channel-id h3{font-size:16px; font-weight:600; color:var(--text-dark);}
+  .channel-id p{font-size:12px; color:var(--text-muted); margin-top:2px;}
+
+  .panel-section{margin-bottom:22px;}
+  .panel-section h4{font-size:13px; font-weight:600; color:var(--text-dark); display:flex; align-items:center; justify-content:space-between; margin-bottom:10px;}
+  .panel-section h4 i{color:var(--icon-grey); font-size:11px; font-weight:400;}
+  .desc-text{font-size:12.5px; color:var(--text-mid); line-height:1.6;}
+  .desc-text .more{color:var(--accent-blue-text); font-weight:500;}
+
+  .team-list{list-style:none; display:flex; flex-direction:column; gap:12px;}
+  .team-list li{display:flex; align-items:center; gap:10px; font-size:13px; font-weight:500; color:var(--text-dark);}
+  .team-list .avatar{width:28px; height:28px; font-size:11px;}
+
+  .media-grid{display:grid; grid-template-columns:1fr 1fr; gap:10px;}
+  .media-grid div{
+    border-radius:10px; aspect-ratio:1/0.85; background:#eef1f5;
+    display:flex; align-items:center; justify-content:center; overflow:hidden;
+    border:1px solid var(--border);
+  }
+  .media-grid img{width:100%; height:100%; object-fit:cover;}
+
+  @media (max-width: 1200px){
+    .right-panel{display:none;}
+  }
+  @media (max-width: 900px){
+    .channel-panel{display:none;}
+  }
+</style>
+</head>
+<body>
+
+<div class="browser">
+
+  <div class="chrome-bar">
+    <div class="dots"><span class="red"></span><span class="yellow"></span><span class="green"></span></div>
+    <span class="sidebar-toggle"><i class="fa-solid fa-table-columns"></i></span>
+    <div class="chrome-nav">
+      <i class="fa-solid fa-chevron-left"></i>
+      <i class="fa-solid fa-chevron-right"></i>
+    </div>
+    <div class="addr-bar"><i class="fa-solid fa-lock"></i> www.planify.com</div>
+    <div class="chrome-actions">
+      <i class="fa-solid fa-arrow-down"></i>
+      <i class="fa-solid fa-plus"></i>
+      <i class="fa-regular fa-clone"></i>
+    </div>
+  </div>
+
+  <div class="app">
+
+    <!-- ICON NAV -->
+    <nav class="icon-nav">
+      <div class="logo">
+        <span class="logo-mark"></span>
+        Planify
+      </div>
+      <ul class="nav-list">
+        <li><span class="left"><i class="fa-solid fa-table-cells-large"></i>Dashboard</span></li>
+        <li><span class="left"><i class="fa-solid fa-list-check"></i>My Tasks</span><span class="badge orange">68</span></li>
+        <li><span class="left"><i class="fa-solid fa-folder"></i>Projects</span><span class="badge purple">15</span></li>
+        <li><span class="left"><i class="fa-regular fa-calendar-check"></i>Calendar</span></li>
+        <li><span class="left"><i class="fa-solid fa-bars"></i>Feed</span></li>
+        <li class="active"><span class="left"><i class="fa-regular fa-comment-dots"></i>Messages</span><span class="badge green">08</span></li>
+        <li><span class="left"><i class="fa-regular fa-circle"></i>Goals</span></li>
+        <li><span class="left"><i class="fa-solid fa-users"></i>Members</span><span class="badge purple" style="background:#b9bfc9">50</span></li>
+        <li><span class="left"><i class="fa-solid fa-gear"></i>Settings</span></li>
+      </ul>
+      <div class="nav-bottom">
+        <div class="help-row"><i class="fa-regular fa-circle-question"></i>Help</div>
+        <div class="theme-toggle">
+          Light/Dark Mode
+          <span class="pill"><i class="fa-solid fa-sun" style="color:#f5a623"></i><i class="fa-solid fa-moon" style="color:#8b93a1"></i></span>
+        </div>
+      </div>
+    </nav>
+
+    <!-- CHANNEL LIST -->
+    <aside class="channel-panel">
+      <div class="search-box"><i class="fa-solid fa-magnifying-glass"></i> Search</div>
+      <ul class="quick-list">
+        <li><span class="left"><i class="fa-solid fa-at"></i>Mentions</span><span class="badge orange">05</span></li>
+        <li><span class="left"><i class="fa-regular fa-pen-to-square"></i>Draft</span></li>
+        <li><span class="left"><i class="fa-regular fa-bookmark"></i>Bookmarks</span></li>
+        <li><span class="left"><i class="fa-solid fa-ellipsis"></i>More...</span></li>
+      </ul>
+
+      <div class="section-label">
+        <span class="left"><i class="fa-regular fa-comment"></i>Channels</span>
+        <i class="fa-solid fa-chevron-down chev"></i>
+      </div>
+      <ul class="channel-list">
+        <li><span class="left"><i class="fa-solid fa-hashtag"></i>General</span></li>
+        <li class="active"><span class="left"><i class="fa-solid fa-hashtag"></i>Design Team</span><span class="badge purple">15</span></li>
+        <li><span class="left"><i class="fa-solid fa-lock"></i>Tester Team</span></li>
+        <li><span class="left"><i class="fa-solid fa-lock"></i>Core Team</span><span class="badge pink">18</span></li>
+        <li><span class="left"><i class="fa-solid fa-lock"></i>General</span></li>
+      </ul>
+
+      <div class="section-label">
+        <span class="left"><i class="fa-solid fa-user"></i>Team Messages</span>
+        <i class="fa-solid fa-chevron-down chev"></i>
+      </div>
+      <ul class="dm-list">
+        <li><span class="avatar" style="background:#5bc98f;">JS</span>Jessica Smith</li>
+        <li><span class="avatar" style="background:#f0a35a;">RA</span>Ryan Anderson</li>
+        <li><span class="avatar" style="background:#f5c451;">MB</span>Michael Brown</li>
+        <li><span class="avatar" style="background:#5bc98f;">EJ</span>Emily Jones</li>
+        <li><span class="avatar" style="background:#e0895c;">DW</span>David Wilson</li>
+        <li><span class="avatar" style="background:#7fb3e8;">MW</span>Mark Wood</li>
+        <li class="add-member"><span class="plus-circle"><i class="fa-solid fa-plus"></i></span>Add Member</li>
+      </ul>
+    </aside>
+
+    <!-- CHAT COLUMN -->
+    <section class="chat-col">
+      <div class="chat-header">
+        <div class="chat-title">
+          <h2><i class="fa-solid fa-hashtag"></i>Design Team</h2>
+          <p>15 Members</p>
+        </div>
+        <div class="header-icons">
+          <span class="circle-btn"><i class="fa-solid fa-magnifying-glass"></i></span>
+          <span class="circle-btn"><i class="fa-regular fa-bell"></i></span>
+        </div>
+      </div>
+
+      <div class="tabs">
+        <div class="tab active"><i class="fa-regular fa-comment-dots"></i>Chat</div>
+        <div class="tab"><i class="fa-regular fa-bookmark"></i>Bookmarks</div>
+      </div>
+
+      <div class="messages">
+
+        <div class="msg">
+          <span class="avatar" style="background:#7fb3e8;">J</span>
+          <div class="msg-body">
+            <div class="msg-meta"><span class="name">Jessica</span><span class="dot">●</span><span class="time">09:45 AM</span></div>
+            <div class="bubble">Hi everyone, I'm excited to be here for our demo chat! 🎉</div>
+          </div>
+        </div>
+
+        <div class="msg">
+          <span class="avatar" style="background:#5bc98f;">E</span>
+          <div class="msg-body">
+            <div class="msg-meta"><span class="name">Emily</span><span class="dot">●</span><span class="time">09:46 AM</span></div>
+            <div class="plain-text">Hey Jessica, great to see you here! Looking forward to our discussion.</div>
+          </div>
+        </div>
+
+        <div class="date-divider">Today</div>
+
+        <div class="msg">
+          <span class="avatar" style="background:#e0895c;">R</span>
+          <div class="msg-body">
+            <div class="msg-meta"><span class="name">Ryan</span><span class="dot">●</span><span class="time">09:46 AM</span></div>
+            <div class="plain-text">Hi Jessica and Emily! Glad to join the conversation.</div>
+            <div class="reactions">👍 😂 🤙 👏 😎 <span class="plus-btn">+</span></div>
+          </div>
+        </div>
+
+        <div class="msg">
+          <span class="avatar" style="background:#7fb3e8;">J</span>
+          <div class="msg-body">
+            <div class="msg-meta"><span class="name">Jessica</span><span class="dot">●</span><span class="time">09:48 AM</span></div>
+            <div class="bubble">Mark guys can you please share latest update design of dashboard?</div>
+          </div>
+        </div>
+
+        <div class="msg own">
+          <div class="own-meta"><span class="time">09:50 AM</span><span class="dot">●</span><span class="you">You</span><i class="fa-solid fa-ellipsis-vertical"></i></div>
+          <div class="own-bubble">Yes Sure!</div>
+          <div class="attachment">
+            <img src="https://images.unsplash.com/photo-1551288049-bebda4e38f71?w=400&q=60" alt="dashboard preview">
+          </div>
+        </div>
+
+      </div>
+
+      <div class="composer">
+        <i class="fa-regular fa-face-smile smile"></i>
+        <input type="text" placeholder="Write Message...">
+        <span class="send-btn"><i class="fa-solid fa-paper-plane"></i></span>
+      </div>
+    </section>
+
+    <!-- RIGHT PANEL -->
+    <aside class="right-panel">
+      <div class="panel-topbar">
+        <span class="fab"><i class="fa-solid fa-plus"></i></span>
+        <span class="bell-btn"><i class="fa-regular fa-bell"></i></span>
+        <div class="panel-user">
+          <span class="avatar" style="background:#b98a63;">MW</span>
+          <div>
+            <div class="name">Mark Wood</div>
+            <div class="role">Project Manager</div>
+          </div>
+        </div>
+      </div>
+
+      <div class="channel-id">
+        <span class="hash-circle">#</span>
+        <h3>Design Team</h3>
+        <p>15 Members</p>
+      </div>
+
+      <div class="panel-section">
+        <h4>Description</h4>
+        <p class="desc-text">This channel is your space to collaborate, brainstorm, and discuss all things design-related with your fellow<span class="more"> …More</span></p>
+      </div>
+
+      <div class="panel-section">
+        <h4>Team Messages <i class="fa-solid fa-chevron-up"></i></h4>
+        <ul class="team-list">
+          <li><span class="avatar" style="background:#5bc98f;">JS</span>Jessica Smith</li>
+          <li><span class="avatar" style="background:#f0a35a;">RA</span>Ryan Anderson</li>
+          <li><span class="avatar" style="background:#f5c451;">MB</span>Michael Brown</li>
+          <li><span class="avatar" style="background:#5bc98f;">EJ</span>Emily Jones</li>
+          <li><span class="avatar" style="background:#e0895c;">DW</span>David Wilson</li>
+        </ul>
+      </div>
+
+      <div class="panel-section">
+        <h4>Media <i class="fa-solid fa-chevron-up"></i></h4>
+        <div class="media-grid">
+          <div><img src="https://images.unsplash.com/photo-1551288049-bebda4e38f71?w=200&q=60"></div>
+          <div><img src="https://images.unsplash.com/photo-1512941937669-90a1b58e7e9c?w=200&q=60"></div>
+          <div><img src="https://images.unsplash.com/photo-1460925895917-afdab827c52f?w=200&q=60"></div>
+          <div><img src="https://images.unsplash.com/photo-1554224155-6726b3ff858f?w=200&q=60"></div>
+        </div>
+      </div>
+    </aside>
+
+  </div>
+</div>
+
+</body>
+</html>

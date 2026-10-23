@@ -1,0 +1,66 @@
+.bar {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin: 10px 24px 0;
+  padding: 8px 8px 8px 12px;
+  border-radius: var(--r-md);
+  box-shadow: var(--sh-2);
+  min-width: 0;
+}
+
+.live {
+  flex: none;
+  padding: 2px 8px;
+  border-radius: var(--r-pill);
+  background: var(--pos-soft);
+  border: 1px solid var(--pos-line);
+  color: var(--pos);
+  font-size: 10.5px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
+
+.text {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: var(--fs-small);
+  color: var(--ink-2);
+}
+
+/* demo .btn-mint .btn-sm */
+.join {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  flex: none;
+  height: 32px;
+  padding: 0 13px;
+  border: 0;
+  border-radius: 9px;
+  background: var(--mint);
+  color: var(--brand-ink);
+  font: inherit;
+  font-size: var(--fs-small);
+  font-weight: 600;
+  cursor: pointer;
+  transition: background var(--t) var(--ease);
+}
+
+.join:hover:not(:disabled) {
+  background: var(--mint-2);
+}
+
+.join:disabled {
+  opacity: 0.6;
+}
+
+@media (max-width: 640px) {
+  .bar {
+    margin: 8px 12px 0;
+  }
+}

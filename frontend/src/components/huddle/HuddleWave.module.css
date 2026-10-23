@@ -1,0 +1,51 @@
+.wave {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  contain: layout paint;
+}
+
+.wave i {
+  display: block;
+  width: 3px;
+  height: 100%;
+  border-radius: 2px;
+  background: var(--pos);
+  transform-origin: center;
+  will-change: transform;
+  animation: bounce 1s var(--ease) infinite;
+}
+
+.sm {
+  height: 12px;
+}
+
+.md {
+  height: 18px;
+}
+
+.lg {
+  height: 34px;
+  gap: 5px;
+}
+
+.lg i {
+  width: 5px;
+}
+
+@keyframes bounce {
+  0%,
+  100% {
+    transform: scaleY(0.3);
+  }
+  50% {
+    transform: scaleY(1);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .wave i {
+    animation: none;
+    transform: scaleY(0.6);
+  }
+}

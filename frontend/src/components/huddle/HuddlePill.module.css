@@ -1,0 +1,21 @@
+/* demo .pill-ok */
+.pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  flex: none;
+  height: 20px;
+  padding: 0 7px;
+  border-radius: var(--r-pill);
+  border: 1px solid var(--pos-line);
+  background: var(--pos-soft);
+  color: var(--pos);
+  font-size: 11px;
+  font-weight: 650;
+}
+
+.joined {
+  background: var(--brand);
+  border-color: var(--brand);
+  color: var(--on-brand);
+}

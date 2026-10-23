@@ -1,0 +1,48 @@
+/* Rail icon button (demo .rail-btn). Shared by rail nav + bottom actions. */
+.btn {
+  position: relative;
+  width: 46px;
+  height: 46px;
+  border: 0;
+  border-radius: 14px;
+  background: transparent;
+  color: rgba(255, 255, 255, 0.55);
+  cursor: pointer;
+  display: grid;
+  place-items: center;
+  text-decoration: none;
+  transition: all var(--t) var(--ease);
+}
+
+.btn:hover {
+  background: rgba(255, 255, 255, 0.08);
+  color: #ffffff;
+}
+
+.btn[aria-current='true'],
+.btn[aria-current='page'] {
+  background: rgba(255, 255, 255, 0.12);
+  color: #ffffff;
+}
+
+.btn:focus-visible {
+  outline: 2px solid var(--mint-2);
+  outline-offset: 2px;
+}
+
+.badge {
+  position: absolute;
+  top: 7px;
+  right: 7px;
+  min-width: 16px;
+  height: 16px;
+  padding: 0 4px;
+  border-radius: 99px;
+  background: #f06a6a;
+  color: #ffffff;
+  font-size: 10px;
+  font-weight: 700;
+  display: grid;
+  place-items: center;
+  box-shadow: 0 0 0 2px var(--rail-ring);
+}

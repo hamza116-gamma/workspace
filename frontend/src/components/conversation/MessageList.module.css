@@ -1,0 +1,431 @@
+.listWrap {
+  position: relative;
+  flex: 1;
+  min-height: 0;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.scroll {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  overflow-x: hidden;
+  padding: 6px 0 10px;
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+}
+
+/* Jump-to-latest arrow, centered at the bottom of the message list.
+   Sits above hovered rows (z 40) and their toolbars (z 50). */
+.jumpButton {
+  position: absolute;
+  left: 50%;
+  bottom: 14px;
+  transform: translateX(-50%);
+  z-index: 60;
+  width: 38px;
+  height: 38px;
+  border: 1px solid var(--line-2);
+  border-radius: var(--r-pill);
+  background: var(--surface-1);
+  color: var(--ink-2);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  box-shadow: var(--sh-2);
+  transition: all var(--t) var(--ease);
+  animation: qlPop var(--t) var(--ease);
+}
+
+.jumpButton:hover {
+  background: var(--surface-3);
+  color: var(--ink);
+}
+
+.group + .group {
+  margin-top: 0;
+}
+
+.center {
+  margin: auto;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.empty {
+  margin: 0;
+  font-size: 13.5px;
+  color: var(--ink-3);
+}
+
+.day {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 16px var(--msg-px, 22px) 6px;
+}
+
+.day::before,
+.day::after {
+  content: '';
+  flex: 1;
+  height: 1px;
+  background: var(--line);
+}
+
+.day span {
+  font-size: 11.5px;
+  font-weight: 600;
+  color: var(--ink-2);
+  padding: 4px 11px;
+  border: 1px solid var(--line);
+  border-radius: var(--r-pill);
+  background: var(--surface-1);
+}
+
+:global(.dark) .day span {
+  background: var(--surface-2);
+}
+
+.unread {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px var(--msg-px, 22px) 6px;
+}
+
+.unread::before,
+.unread::after {
+  content: '';
+  flex: 1;
+  height: 1px;
+  background: var(--neg-line);
+}
+
+.unread span {
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  color: var(--neg);
+  background: var(--neg-soft);
+  border: 1px solid var(--neg-line);
+  padding: 3px 10px;
+  border-radius: var(--r-pill);
+}
+
+.row {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  padding: 8px var(--msg-px, 22px);
+  min-width: 0;
+  max-width: 100%;
+  min-height: 36px;
+  transition: background var(--t) var(--ease);
+}
+
+.cont {
+  padding-top: 2px;
+  min-height: 0;
+}
+
+.row:hover,
+.row:focus-within {
+  z-index: 40;
+  background: var(--surface-2);
+}
+
+:global(.dark) .row:hover,
+:global(.dark) .row:focus-within {
+  background: var(--surface-3);
+}
+
+/* Highlight when jumping to a message (pins / deep links). */
+.flash {
+  background: var(--warn-soft);
+  box-shadow: inset 3px 0 0 var(--warn-c);
+  animation: flash-fade 2.2s var(--ease) forwards;
+}
+
+@keyframes flash-fade {
+  0%,
+  70% {
+    background: var(--warn-soft);
+    box-shadow: inset 3px 0 0 var(--warn-c);
+  }
+  100% {
+    background: transparent;
+    box-shadow: inset 3px 0 0 transparent;
+  }
+}
+
+.avatarCol {
+  width: 36px;
+  flex: none;
+  display: flex;
+  justify-content: flex-end;
+}
+
+.avatarCol > :first-child:not(.hoverTime) > :not(:last-child:nth-child(n + 2)) {
+  border-radius: 11px;
+}
+
+/* Grouped (non-first) messages show their time in the gutter on hover. */
+.hoverTime {
+  font-family: inherit;
+  font-size: 10.5px;
+  color: var(--ink-3);
+  line-height: 1.4;
+  padding-top: 3px;
+  white-space: nowrap;
+  font-variant-numeric: tabular-nums;
+  opacity: 0;
+  transition: opacity var(--t) var(--ease);
+}
+
+.row:hover .hoverTime,
+.row:focus-within .hoverTime {
+  opacity: 1;
+}
+
+.stack {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+  flex: 1;
+}
+
+.meta {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  min-width: 0;
+}
+
+.name {
+  font-size: 14px;
+  font-weight: 640;
+  letter-spacing: var(--track-tight);
+  color: var(--ink);
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.time {
+  font-size: 11.5px;
+  color: var(--ink-3);
+  white-space: nowrap;
+  font-variant-numeric: tabular-nums;
+}
+
+.role {
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  padding: 2px 6px;
+  border-radius: 6px;
+  background: var(--brand-soft);
+  color: var(--brand-ink);
+}
+
+.dot {
+  display: none;
+}
+
+.bubble {
+  color: var(--ink);
+  font-size: 14px;
+  line-height: 1.55;
+  max-width: 72ch;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  min-width: 0;
+}
+
+.deleted {
+  color: var(--ink-3);
+}
+
+.edited {
+  color: var(--ink-3);
+  font-size: 11.5px;
+}
+
+.reactions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 5px;
+  align-self: flex-start;
+}
+
+.pinBadge {
+  align-self: flex-start;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--warn-c);
+}
+
+.threadLink {
+  align-self: flex-start;
+  display: inline-flex;
+  align-items: center;
+  gap: 9px;
+  margin-top: 6px;
+  margin-left: -6px;
+  padding: 5px 10px 5px 6px;
+  border: 1px solid transparent;
+  border-radius: 12px;
+  background: transparent;
+  color: var(--brand-3);
+  font-family: inherit;
+  font-size: 12.5px;
+  font-weight: 640;
+  cursor: pointer;
+  transition: all var(--t) var(--ease);
+}
+
+.threadLink:hover {
+  border-color: var(--line-2);
+  background: var(--surface-1);
+}
+
+.actions {
+  position: absolute;
+  top: -14px;
+  right: var(--msg-px, 22px);
+  z-index: 50;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity var(--t) var(--ease);
+}
+
+.row:hover .actions,
+.row:focus-within .actions {
+  opacity: 1;
+  pointer-events: auto;
+}
+
+/*
+ * Compact variant (pins hover card): dense rows, smaller typography and
+ * tighter padding so an entire pinned message - text + attachments - fits
+ * inside the small dropdown.
+ */
+.scrollCompact {
+  padding: 8px 12px 6px;
+  gap: 0;
+}
+
+.scrollCompact .row {
+  padding: 4px 8px;
+  gap: 8px;
+  min-height: 22px;
+}
+
+.scrollCompact .avatarCol {
+  width: 26px;
+}
+
+.scrollCompact .avatarCol > :first-child:not(.hoverTime) > :not(:last-child:nth-child(n + 2)) {
+  border-radius: 8px;
+}
+
+.scrollCompact .cont {
+  padding-top: 1px;
+}
+
+.scrollCompact .meta {
+  gap: 6px;
+}
+
+.scrollCompact .name {
+  font-size: var(--fs-small);
+}
+
+.scrollCompact .time {
+  font-size: 10px;
+}
+
+.scrollCompact .dot {
+  font-size: 8px;
+}
+
+.scrollCompact .bubble {
+  font-size: var(--fs-small);
+  line-height: 1.45;
+}
+
+.scrollCompact .pinBadge {
+  font-size: 10px;
+}
+
+.scrollCompact .threadLink {
+  font-size: var(--fs-tiny);
+  padding: 1px 0;
+}
+
+.scrollCompact .empty {
+  font-size: var(--fs-small);
+}
+
+/* History paging (scroll up / "Load older messages") */
+.older {
+  display: flex;
+  justify-content: center;
+  padding: 6px 0 10px;
+}
+
+.olderButton {
+  border: 1px solid var(--line-2);
+  border-radius: var(--r-sm);
+  background: var(--surface-1);
+  color: var(--ink-2);
+  font-family: inherit;
+  font-size: 12.5px;
+  font-weight: 560;
+  height: 30px;
+  padding: 0 14px;
+  cursor: pointer;
+  transition: all var(--t) var(--ease);
+}
+
+.olderButton:hover {
+  background: var(--surface-3);
+  color: var(--ink);
+}
+
+/* Thread panel: "N replies" divider under the thread starter. */
+.separator {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 8px var(--msg-px, 22px);
+}
+
+.separator::after {
+  content: '';
+  flex: 1;
+  height: 1px;
+  background: var(--line);
+}
+
+.separator span {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--ink-3);
+}

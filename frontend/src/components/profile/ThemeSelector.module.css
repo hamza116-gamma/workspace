@@ -1,0 +1,100 @@
+.options {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(180px, 100%), 1fr));
+  gap: 12px;
+}
+
+.option {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  text-align: left;
+  font-family: inherit;
+  border: 1px solid var(--line);
+  border-radius: var(--r-md);
+  background: var(--surface-1);
+  padding: 12px 14px;
+  cursor: pointer;
+  transition: all var(--t) var(--ease);
+}
+
+.option:hover {
+  background: var(--surface-2);
+  border-color: var(--line-2);
+  transform: translateY(-2px);
+  box-shadow: var(--sh-2);
+}
+
+.option.selected {
+  background: var(--brand-soft);
+  border-color: var(--brand-3);
+  box-shadow: 0 0 0 3px var(--brand-soft);
+}
+
+.swatch {
+  width: 34px;
+  height: 34px;
+  border-radius: 10px;
+  border: 1px solid var(--line-2);
+  flex-shrink: 0;
+}
+
+/* Swatches preview fixed themes, so they use literal colours on purpose. */
+.LIGHT {
+  background: #ffffff;
+}
+
+.DARK {
+  background: #0f2119;
+}
+
+.SYSTEM {
+  background: linear-gradient(90deg, #ffffff 50%, #0f2119 50%);
+}
+
+.optionInfo {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.optionLabel {
+  font-size: 13.5px;
+  font-weight: 600;
+  color: var(--ink);
+}
+
+.option.selected .optionLabel {
+  color: var(--brand-ink);
+}
+
+.optionHint {
+  font-size: 12px;
+  color: var(--ink-3);
+}
+
+.check {
+  position: absolute;
+  top: 10px;
+  right: 10px;
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  background: var(--brand);
+  color: var(--on-brand);
+  animation: qlPop 220ms var(--ease);
+}
+
+.check::after {
+  content: "";
+  position: absolute;
+  left: 6px;
+  top: 3.5px;
+  width: 4px;
+  height: 8px;
+  border-right: 2px solid currentColor;
+  border-bottom: 2px solid currentColor;
+  transform: rotate(45deg);
+}

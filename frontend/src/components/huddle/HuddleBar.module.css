@@ -1,0 +1,218 @@
+/* Floating huddle box: top right, under the chat header. */
+.box {
+  position: fixed;
+  top: 128px;
+  right: 20px;
+  z-index: 90;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  width: 360px;
+  max-width: calc(100vw - 24px);
+  max-height: calc(100vh - 148px);
+  overflow: auto;
+  padding: 14px;
+  border-radius: var(--r-lg);
+  box-shadow: var(--sh-3);
+}
+
+/* Beside the thread panel (380px column) instead of on top of it. */
+@media (min-width: 1201px) {
+  .besideThread {
+    right: 400px;
+  }
+}
+
+.header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+}
+
+.live {
+  flex: none;
+  padding: 2px 8px;
+  border-radius: var(--r-pill);
+  background: var(--pos-soft);
+  border: 1px solid var(--pos-line);
+  color: var(--pos);
+  font-size: 10.5px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
+
+.title {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: var(--ink);
+  font-size: var(--fs-body);
+  font-weight: 600;
+  text-decoration: none;
+}
+
+.title:hover {
+  text-decoration: underline;
+}
+
+.timer {
+  flex: none;
+  font-size: var(--fs-small);
+  font-variant-numeric: tabular-nums;
+  color: var(--ink-2);
+}
+
+.iconButton {
+  display: grid;
+  place-items: center;
+  width: 30px;
+  height: 30px;
+  border: 0;
+  border-radius: 9px;
+  background: transparent;
+  color: var(--ink-2);
+  cursor: pointer;
+}
+
+.iconButton:hover {
+  background: var(--surface-3);
+  color: var(--ink);
+}
+
+.stage {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 6px;
+}
+
+.waveStage {
+  display: grid;
+  place-items: center;
+  height: 72px;
+  border-radius: var(--r-md);
+  background: rgba(0, 0, 0, 0.16);
+}
+
+.sharing {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 12px;
+  border-radius: var(--r-md);
+  background: var(--pos-soft);
+  border: 1px solid var(--pos-line);
+  color: var(--pos);
+  font-size: var(--fs-small);
+  font-weight: 600;
+}
+
+.sharing span {
+  flex: 1;
+}
+
+.stopShare {
+  flex: none;
+  height: 28px;
+  padding: 0 10px;
+  border: 0;
+  border-radius: 8px;
+  background: var(--mint);
+  color: var(--brand-ink);
+  font: inherit;
+  font-size: var(--fs-tiny);
+  font-weight: 650;
+  cursor: pointer;
+}
+
+.error {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 0;
+  padding: 6px 10px;
+  border-radius: var(--r-xs);
+  background: var(--neg-soft);
+  color: var(--neg);
+  font-size: var(--fs-small);
+}
+
+.error button,
+.notice button {
+  display: grid;
+  place-items: center;
+  margin-left: auto;
+  padding: 3px;
+  border: 0;
+  background: transparent;
+  color: inherit;
+  cursor: pointer;
+}
+
+/* Minimised pill. */
+.mini {
+  position: fixed;
+  top: 128px;
+  right: 20px;
+  z-index: 90;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  max-width: calc(100vw - 24px);
+  padding: 6px 6px 6px 14px;
+  border-radius: var(--r-pill);
+  box-shadow: var(--sh-3);
+}
+
+.liveDot {
+  flex: none;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--pos);
+}
+
+.miniTitle {
+  min-width: 0;
+  max-width: 160px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: var(--fs-small);
+  font-weight: 600;
+}
+
+/* Caller notice ("X declined" / "No answer"). */
+.notice {
+  position: fixed;
+  top: 128px;
+  right: 20px;
+  z-index: 90;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 10px 8px 14px;
+  border-radius: var(--r-pill);
+  box-shadow: var(--sh-3);
+  font-size: var(--fs-small);
+  font-weight: 600;
+}
+
+@media (max-width: 900px) {
+  .box,
+  .mini,
+  .notice {
+    top: auto;
+    right: 12px;
+    bottom: 12px;
+  }
+
+  .box {
+    left: 12px;
+    width: auto;
+    max-height: calc(100vh - 90px);
+  }
+}

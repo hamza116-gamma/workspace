@@ -1,0 +1,136 @@
+/* Bottom-right corner (like Slack), clear of the chat header and composer
+   area's left side; slides up into view. */
+.stack {
+  position: fixed;
+  right: 24px;
+  bottom: 24px;
+  z-index: 200;
+  display: flex;
+  flex-direction: column-reverse;
+  gap: 10px;
+  width: 340px;
+  max-width: calc(100vw - 24px);
+  animation: qlRise 260ms var(--ease);
+}
+
+@media (max-width: 640px) {
+  .stack {
+    right: 12px;
+    left: 12px;
+    bottom: 12px;
+    width: auto;
+  }
+}
+
+.card {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: 14px;
+  border-radius: var(--r-lg);
+  box-shadow: var(--sh-3);
+}
+
+.live {
+  align-self: flex-start;
+  padding: 2px 8px;
+  border-radius: var(--r-pill);
+  background: var(--pos-soft);
+  border: 1px solid var(--pos-line);
+  color: var(--pos);
+  font-size: 10.5px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
+
+.caller {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-width: 0;
+}
+
+/* Pulsing green ring around the caller (rounded square). */
+.ring {
+  display: inline-flex;
+  border-radius: 14px;
+  box-shadow: 0 0 0 2px var(--pos);
+  animation: pulse 1.6s var(--ease) infinite;
+}
+
+@keyframes pulse {
+  0%,
+  100% {
+    box-shadow: 0 0 0 2px var(--pos);
+  }
+  50% {
+    box-shadow:
+      0 0 0 2px var(--pos),
+      0 0 0 8px rgba(110, 224, 168, 0.2);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .ring {
+    animation: none;
+  }
+}
+
+.text {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-width: 0;
+  font-size: var(--fs-small);
+  color: var(--ink-2);
+}
+
+.text strong {
+  color: var(--ink);
+  font-size: var(--fs-body);
+  font-weight: 600;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.actions {
+  display: flex;
+  gap: 8px;
+}
+
+.decline,
+.join {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  flex: 1;
+  height: 36px;
+  border-radius: var(--r-sm);
+  font: inherit;
+  font-size: var(--fs-small);
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.decline {
+  border: 1px solid var(--line-2);
+  background: transparent;
+  color: var(--ink);
+}
+
+.decline:hover:not(:disabled) {
+  background: var(--surface-3);
+}
+
+.join {
+  border: 0;
+  background: var(--mint);
+  color: var(--brand-ink);
+}
+
+.join:hover:not(:disabled) {
+  background: var(--mint-2);
+}

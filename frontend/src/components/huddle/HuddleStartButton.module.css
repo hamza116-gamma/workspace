@@ -1,0 +1,61 @@
+/* demo .btn .btn-ghost .btn-sm */
+.button {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  flex: none;
+  height: 34px;
+  padding: 0 12px;
+  border-radius: var(--r-sm);
+  border: 1px solid var(--line-2);
+  background: var(--surface-1);
+  color: var(--ink);
+  font: inherit;
+  font-size: var(--fs-small);
+  font-weight: 560;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: all var(--t) var(--ease);
+}
+
+.button:hover:not(:disabled) {
+  background: var(--surface-3);
+}
+
+.button:disabled {
+  opacity: 0.6;
+  cursor: default;
+}
+
+.button:focus-visible {
+  outline: 2px solid var(--brand);
+  outline-offset: 2px;
+}
+
+.live {
+  background: var(--pos-soft);
+  border-color: var(--pos-line);
+  color: var(--pos);
+}
+
+.live:hover:not(:disabled) {
+  background: var(--pos-soft);
+  filter: brightness(0.97);
+}
+
+.leave {
+  background: var(--neg-soft);
+  border-color: var(--neg-line);
+  color: var(--neg);
+}
+
+.leave:hover:not(:disabled) {
+  background: var(--neg-soft);
+  filter: brightness(0.97);
+}
+
+@media (max-width: 640px) {
+  .label {
+    display: none;
+  }
+}

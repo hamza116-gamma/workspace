@@ -1,0 +1,203 @@
+/* ============================================================
+   "Quiet Luxury" design system
+   Ink-first colour, layered surfaces, hairline structure,
+   generous radii, motion on state change.
+   Source of truth: design/workspace-redesign.html
+   ============================================================ */
+:root {
+  /* ---- core palette ---- */
+  --canvas: #f4f6f3;
+  --surface-1: #ffffff;
+  --surface-2: #fafbf9;
+  --surface-3: #f1f4f0;
+
+  --ink: #0f2119;
+  --ink-2: #5b6b62;
+  --ink-3: #93a098;
+  --ink-4: #bcc6c0;
+
+  --line: #e6ebe6;
+  --line-2: #dce3dd;
+
+  --brand: #173d32;
+  --brand-2: #1e5649;
+  --brand-3: #2a7561;
+  --brand-soft: #e7f2ed;
+  --brand-ink: #0f2e25;
+  --on-brand: #ffffff;
+
+  --mint: #d8f3dc;
+  --mint-2: #b8e8c8;
+
+  --pos: #0e9f6e;
+  --pos-soft: #e1f6ed;
+  --pos-line: #bfe8d6;
+  --neg: #de4c4c;
+  --neg-soft: #fdecec;
+  --neg-line: #f6cfcf;
+  --warn-c: #c07708;
+  --warn-soft: #fdf2df;
+  --warn-line: #f2ddb4;
+  --info: #3d6fe0;
+  --info-soft: #eaf0fd;
+  --info-line: #cbd9f7;
+
+  /* rail (always dark green, both themes) */
+  --rail-bg: linear-gradient(180deg, #173d32 0%, #12332a 100%);
+  --rail-ring: #12332a;
+
+  /* ---- radius / elevation / motion ---- */
+  --r-xs: 8px;
+  --r-sm: 11px;
+  --r-md: 15px;
+  --r-lg: 20px;
+  --r-xl: 26px;
+  --r-pill: 999px;
+
+  --sh-1: 0 1px 2px rgba(15, 33, 25, 0.05);
+  --sh-2: 0 1px 2px rgba(15, 33, 25, 0.04), 0 10px 26px -14px rgba(15, 33, 25, 0.22);
+  --sh-3: 0 2px 6px rgba(15, 33, 25, 0.05), 0 28px 56px -28px rgba(15, 33, 25, 0.35);
+  --sh-brand: 0 6px 16px -8px rgba(23, 61, 50, 0.7);
+
+  --ease: cubic-bezier(0.2, 0.8, 0.2, 1);
+  --t: 180ms;
+
+  --track-display: -0.032em;
+  --track-tight: -0.02em;
+
+  /* ---- legacy names, remapped onto the new palette ----
+     Every component module reads these, so the whole app follows. */
+  --paper: var(--surface-1);
+  --surface: var(--surface-3);
+  --surface-container: var(--surface-3);
+  --surface-container-high: var(--line);
+  --outer-bg: var(--canvas);
+  --ink-secondary: var(--ink-2);
+  --ink-tertiary: var(--ink-3);
+  --outline: var(--ink-4);
+  --outline-variant: var(--line-2);
+
+  --good: var(--pos);
+  --good-tint: var(--pos-soft);
+  --data: var(--info);
+  --data-tint: var(--info-soft);
+  --warn: var(--warn-c);
+  --warn-tint: var(--warn-soft);
+  --alert: var(--neg);
+  --alert-tint: var(--neg-soft);
+  --error: var(--neg);
+  --error-container: var(--neg-soft);
+  --live: var(--pos);
+  --dot: var(--pos);
+
+  --text-dark: var(--ink);
+  --text-mid: var(--ink-2);
+  --text-muted: var(--ink-3);
+  --border: var(--line-2);
+  --input-bg: var(--surface-1);
+  --accent: var(--brand);
+  --accent-strong: var(--brand-2);
+  --accent-text: var(--brand-ink);
+  --danger: var(--neg);
+  --danger-bg: var(--neg-soft);
+  --danger-border: var(--neg-line);
+  --success: var(--pos);
+  --success-bg: var(--pos-soft);
+  --success-border: var(--pos-line);
+
+  /* Typography scale (fixed sizes from the redesign) */
+  --fs-hero: 34px;
+  --fs-display: 27px;
+  --fs-title: 20px;
+  --fs-heading: 16px;
+  --fs-body: 14px;
+  --fs-small: 12.5px;
+  --fs-tiny: 11.5px;
+  --fs-control: 13.5px;
+
+  --radius-sm: var(--r-xs);
+  --radius: var(--r-sm);
+  --radius-card: var(--r-lg);
+  --radius-lg: var(--r-xl);
+  --radius-pill: var(--r-pill);
+  --shadow-card: var(--sh-1);
+  --shadow-float: var(--sh-3);
+  --font-sans: var(--font-work), 'Work Sans', system-ui, -apple-system, 'Segoe UI', sans-serif;
+}
+
+.dark {
+  --canvas: #080d0b;
+  --surface-1: #0f1714;
+  --surface-2: #131d19;
+  --surface-3: #18241f;
+
+  --ink: #e9f1ec;
+  --ink-2: #96a69d;
+  --ink-3: #6b7b73;
+  --ink-4: #4a5851;
+
+  --line: #1c2723;
+  --line-2: #26332d;
+
+  --brand: #3fa37c;
+  --brand-2: #4cb98e;
+  --brand-3: #6acba3;
+  --brand-soft: #12241d;
+  --brand-ink: #cfefe1;
+  --on-brand: #06231a;
+
+  --mint: #1c3a2e;
+  --mint-2: #265041;
+
+  --pos: #3fc98e;
+  --pos-soft: #0f2a20;
+  --pos-line: #1d4b39;
+  --neg: #f87171;
+  --neg-soft: #2a1414;
+  --neg-line: #4a2222;
+  --warn-c: #e5a64a;
+  --warn-soft: #2a1f0c;
+  --warn-line: #4a3a17;
+  --info: #7ca4f5;
+  --info-soft: #131c2e;
+  --info-line: #22355c;
+
+  --rail-bg: linear-gradient(180deg, #12241d 0%, #0d1a16 100%);
+  --rail-ring: #0d1a16;
+
+  --sh-1: 0 1px 2px rgba(0, 0, 0, 0.4);
+  --sh-2: 0 1px 2px rgba(0, 0, 0, 0.4), 0 10px 26px -14px rgba(0, 0, 0, 0.7);
+  --sh-3: 0 2px 6px rgba(0, 0, 0, 0.45), 0 28px 56px -28px rgba(0, 0, 0, 0.85);
+  --sh-brand: 0 6px 16px -8px rgba(0, 0, 0, 0.6);
+}
+
+/* ---- huddle surface ----
+   Deep-green floating surface for live huddles (box, join bar, live card,
+   incoming ring). Re-points the colour tokens so everything inside renders
+   on the rail green in BOTH themes. */
+.huddle-surface {
+  --surface-1: #173d32;
+  --surface-2: #1b463a;
+  --surface-3: #215244;
+  --ink: #f1f7f3;
+  --ink-2: #b9cdc3;
+  --ink-3: #8fab9f;
+  --ink-4: #5f7f72;
+  --line: rgba(255, 255, 255, 0.1);
+  --line-2: rgba(255, 255, 255, 0.16);
+  --brand: #d8f3dc;
+  --brand-2: #b8e8c8;
+  --brand-soft: rgba(216, 243, 220, 0.14);
+  --brand-ink: #0f2e25;
+  --on-brand: #0f2e25;
+  --mint: #d8f3dc;
+  --mint-2: #b8e8c8;
+  --pos: #6ee0a8;
+  --pos-soft: rgba(110, 224, 168, 0.16);
+  --pos-line: rgba(110, 224, 168, 0.35);
+  --neg: #ff9b9b;
+  --neg-soft: rgba(255, 155, 155, 0.14);
+  --neg-line: rgba(255, 155, 155, 0.35);
+  background: var(--rail-bg);
+  color: var(--ink);
+}

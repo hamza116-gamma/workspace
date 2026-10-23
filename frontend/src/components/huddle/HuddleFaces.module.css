@@ -1,0 +1,19 @@
+.faces {
+  display: inline-flex;
+  align-items: center;
+  padding-left: 6px;
+}
+
+.face {
+  display: inline-flex;
+  margin-left: -6px;
+  border-radius: 9px;
+  box-shadow: 0 0 0 2px var(--surface-1);
+}
+
+.more {
+  margin-left: 6px;
+  font-size: var(--fs-tiny);
+  font-weight: 600;
+  color: var(--ink-2);
+}

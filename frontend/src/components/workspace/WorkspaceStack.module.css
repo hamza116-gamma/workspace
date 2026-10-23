@@ -1,0 +1,72 @@
+/* Deck of workspace tiles: active in front, others peeking behind. */
+.stack {
+  position: relative;
+  display: flex;
+  justify-content: center;
+  width: 40px;
+  height: 40px;
+  margin-bottom: 6px;
+}
+
+.stack > button {
+  position: relative;
+  z-index: 3;
+}
+
+.layer {
+  position: absolute;
+  inset: 0;
+  border-radius: 13px;
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  pointer-events: none;
+  transition: transform var(--t) var(--ease);
+}
+
+.layer1 {
+  z-index: 2;
+  background: rgba(216, 243, 220, 0.34);
+  transform: translate(4px, 5px) rotate(6deg);
+}
+
+.layer2 {
+  z-index: 1;
+  background: rgba(216, 243, 220, 0.16);
+  transform: translate(7px, 9px) rotate(11deg);
+}
+
+.stack:hover .layer1 {
+  transform: translate(6px, 6px) rotate(9deg);
+}
+
+.stack:hover .layer2 {
+  transform: translate(10px, 11px) rotate(15deg);
+}
+
+.count {
+  position: absolute;
+  z-index: 4;
+  right: -9px;
+  bottom: -9px;
+  min-width: 18px;
+  height: 16px;
+  padding: 0 4px;
+  border-radius: 99px;
+  background: #12332a;
+  color: #b8e8c8;
+  border: 1px solid rgba(184, 232, 200, 0.4);
+  font-size: 9.5px;
+  font-weight: 700;
+  display: grid;
+  place-items: center;
+}
+
+/* While the switcher is open, an invisible bridge spans the gap between the
+   tile and the card so the pointer never "leaves" on its way across. */
+.stack.open::after {
+  content: '';
+  position: absolute;
+  left: 100%;
+  top: -8px;
+  width: 24px;
+  height: calc(100% + 16px);
+}

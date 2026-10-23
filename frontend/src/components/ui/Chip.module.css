@@ -1,0 +1,45 @@
+/* Status pill — demo .pill */
+.chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  height: 24px;
+  padding: 0 9px;
+  border: 1px solid transparent;
+  border-radius: var(--r-pill);
+  font-size: 11.5px;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.dot {
+  display: block;
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: currentColor;
+}
+
+.neutral {
+  background: var(--surface-3);
+  color: var(--ink-2);
+  border-color: var(--line);
+}
+
+.good {
+  background: var(--pos-soft);
+  color: var(--pos);
+  border-color: var(--pos-line);
+}
+
+.data {
+  background: var(--info-soft);
+  color: var(--info);
+  border-color: var(--info-line);
+}
+
+.warn {
+  background: var(--warn-soft);
+  color: var(--warn-c);
+  border-color: var(--warn-line);
+}

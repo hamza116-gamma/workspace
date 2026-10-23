@@ -1,0 +1,31 @@
+.alert {
+  border: 1px solid transparent;
+  border-radius: var(--r-sm);
+  padding: 10px 13px;
+  font-size: 13px;
+  line-height: 1.5;
+}
+
+.alert a {
+  color: inherit;
+  font-weight: 600;
+  text-decoration: underline;
+}
+
+.error {
+  background: var(--neg-soft);
+  border-color: var(--neg-line);
+  color: var(--neg);
+}
+
+.success {
+  background: var(--pos-soft);
+  border-color: var(--pos-line);
+  color: var(--pos);
+}
+
+.info {
+  background: var(--info-soft);
+  border-color: var(--info-line);
+  color: var(--info);
+}

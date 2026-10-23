@@ -1,0 +1,92 @@
+.panel {
+  --msg-px: 16px;
+  width: 100%;
+  height: 100%; /* fill the card, not the viewport */
+  min-width: 0;
+  background: var(--surface-2);
+  border-left: 1px solid var(--line);
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  animation: qlFade var(--t) var(--ease);
+}
+
+:global(.dark) .panel {
+  background: var(--surface-1);
+}
+
+.header {
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 14px 16px;
+  border-bottom: 1px solid var(--line);
+}
+
+.title {
+  margin: 0;
+  flex: 1;
+  min-width: 0;
+  font-size: 14.5px;
+  font-weight: 650;
+  letter-spacing: var(--track-tight);
+  color: var(--ink);
+}
+
+.iconBtn {
+  display: grid;
+  place-items: center;
+  width: 32px;
+  height: 32px;
+  flex: none;
+  border: none;
+  border-radius: 10px;
+  background: transparent;
+  color: var(--ink-3);
+  cursor: pointer;
+  transition: all var(--t) var(--ease);
+}
+
+.iconBtn:hover {
+  background: var(--surface-3);
+  color: var(--ink);
+}
+
+.following,
+.following:hover {
+  color: var(--warn-c);
+}
+
+.center {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.alertWrap {
+  padding: 14px 16px;
+}
+
+.also {
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 20px 2px;
+  font-size: 12.5px;
+  color: var(--ink-2);
+  cursor: pointer;
+}
+
+.also input {
+  accent-color: var(--brand);
+}
+
+@media (max-width: 900px) {
+  .panel {
+    width: 100%;
+    max-width: 100%;
+  }
+}

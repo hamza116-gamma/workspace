@@ -1,0 +1,390 @@
+========================================================================
+SMALL ORGANIZATION COMMUNICATION & COLLABORATION PLATFORM
+IMPLEMENTATION PHASES
+========================================================================
+
+Version      : 2.0
+Target       : All in-scope features at Slack-parity behavior
+               + MULTI-ORGANIZATION (multi-tenancy)
+Stack        : Next.js (frontend) | Node.js + Express (backend, JavaScript)
+               MongoDB + Mongoose | Cloudinary | Socket.IO (in-memory)
+               No Redis
+Source Spec  : project.md (SRS v1.2, see sections 59-60)
+========================================================================
+
+------------------------------------------------------------------------
+HOW TO READ THIS PLAN
+------------------------------------------------------------------------
+Each phase lists:
+  - Goal        : what the phase delivers
+  - Slack parity: the behaviors that make this feature "Slack-like"
+  - Tasks       : concrete work items
+  - Deliverable : what is demonstrably working at the end
+  - Depends on  : prerequisites
+
+Conventions (operator rules): keep files small and reusable; no test
+scripts; no dependency installation by the AI; backend is JavaScript;
+every backend update also updates memory.txt and till.txt.
+
+========================================================================
+PHASE 0 - PROJECT SETUP & FOUNDATION  [DONE]
+========================================================================
+Goal
+  Two independent projects (backend/, frontend/) + skeleton.
+
+Delivered
+  - backend/ JavaScript (Express, Mongoose, Socket.IO, Cloudinary,
+    config/logger/db/cloudinary, error handling, /api/health).
+  - frontend/ Next.js + TypeScript + Tailwind + design tokens (Poppins).
+  - memory.txt / till.txt / DESIGN.md / project.md / phases.txt.
+
+========================================================================
+PHASE 1 - AUTHENTICATION, PROFILES & PRESENCE FIELDS  [DONE]
+========================================================================
+Goal
+  Secure sessions and editable profiles.
+
+Slack parity
+  - Profile: full name, email, image, job title, department, presence,
+    status emoji + status message with optional clear-after.
+  - Presence values ACTIVE / AWAY / DND / OFFLINE (field added now,
+    driven by Socket.IO in Phase 4).
+  - Session management and password change as Slack-like account settings.
+
+Delivered
+  - scrypt hashing, signed HttpOnly cookie sessions, register-first-admin,
+    login/logout, password reset/change, profile + Cloudinary avatar.
+  - Phase 1 auth UI (login/register/forgot/reset) with per-page CSS.
+
+Note (multi-tenancy)
+  - Users are global identities; organization membership arrives in
+    Phase 2. Session will carry an `activeOrganizationId`.
+
+========================================================================
+PHASE 2 - ORGANIZATIONS, MULTI-TENANCY, ROLES & USER MANAGEMENT
+========================================================================
+Goal
+  Full multi-organization support with per-org roles and tenant isolation.
+
+Slack parity
+  - Workspace switcher; a user can belong to several organizations.
+  - Create organization (self-serve onboarding) + invite members.
+  - Roles per organization: Owner, Admin, Moderator, Member.
+  - Admin can invite/disable/reactivate/remove and assign roles.
+
+Tasks
+  [ ] Models: Organization (name, slug, logo, settings, status),
+      OrganizationMember (user, organization, role, status, joinedAt).
+  [ ] Add `organizationId` to every tenant-owned model and enforce it in
+      every service query/mutation (tenant isolation).
+  [ ] Session: store and resolve `activeOrganizationId`; default to the
+      user's first membership.
+  [ ] Middleware: `requireOrganization` (resolve active org + membership)
+      and `requireOrgRole(...)` (replaces ad-hoc role checks).
+  [ ] Endpoints:
+        POST   /organizations                 (create)
+        GET    /organizations                 (mine)
+        GET    /organizations/:id
+        PATCH  /organizations/:id
+        POST   /organizations/:id/switch
+        POST   /organizations/:id/invitations
+        GET    /organizations/:id/members
+        PATCH  /organizations/:id/members/:userId
+  [ ] Invitations: token-based invite + accept flow.
+  [ ] Onboarding route for users with no membership.
+  [ ] Slug uniqueness + org settings defaults.
+
+Deliverable
+  Users create/join/switch organizations; all data isolated per org;
+  admins manage members and roles within their org only.
+
+Depends on
+  Phase 1.
+
+========================================================================
+PHASE 3 - CHANNELS, MEMBERSHIP, TOPICS & PREFS
+========================================================================
+Goal
+  Slack-like channels within the active organization.
+
+Slack parity
+  - Public/private channels; join/leave; member management; archive.
+  - Editable Topic and Purpose shown in channel details.
+  - Per-user, per-channel notification preference (All / Mentions / Mute).
+  - Unread divider and bold unread channel names.
+
+Tasks
+  [ ] Models: Channel (org, name, topic, purpose, type, creator, status),
+      ChannelMember (channel, user, role, joinedAt, notifyPreference).
+  [ ] Unique (organizationId, name) index.
+  [ ] Endpoints: CRUD + join/leave + member add/remove + archive.
+  [ ] Private-channel access checks via requireOrganization + membership.
+  [ ] Pinned messages surface (model `channelPins` used from Phase 5).
+  [ ] Channel notification preference stored per member.
+
+Deliverable
+  Channels behave like Slack channels, scoped to the active org.
+
+Depends on
+  Phase 2.
+
+========================================================================
+PHASE 4 - MESSAGING, DMS & REAL-TIME
+========================================================================
+Goal
+  Real-time channel messaging plus 1:1 and group DMs.
+
+Slack parity
+  - Message list grouped by author/time; full timestamp; edited marker.
+  - 1:1 and group direct messages (3+ participants).
+  - Typing indicators and presence (ACTIVE/AWAY/DND/OFFLINE).
+  - Unread divider ("new messages since…").
+
+Tasks
+  [ ] Models: Conversation (org, type DIRECT/GROUP, participants,
+      lastActivity), Message (org, channel|conversation, sender, content,
+      parentMessageId, timestamps).
+  [ ] Endpoints:
+        GET/POST /channels/:id/messages
+        GET      /conversations
+        POST     /conversations
+        GET      /conversations/:id/messages
+  [ ] Socket.IO: authenticate, join per-org/user rooms, emit:
+        message.created/updated/deleted, typing.updated, presence.updated,
+        notification.created, channel.updated, thread.updated
+  [ ] In-memory presence (with DND) and typing with expiry.
+  [ ] All events scoped to active organization.
+
+Deliverable
+  Users chat in channels and DMs in real time with presence/typing.
+
+Depends on
+  Phase 3.
+
+========================================================================
+PHASE 5 - MESSAGE ACTIONS, THREADS, REACTIONS, MENTIONS, FILES
+========================================================================
+Goal
+  Slack-like message interactions.
+
+Slack parity
+  - Hover actions: edit, delete, copy link, pin, save, reply in thread.
+  - Thread panel: parent + replies, reply count, also-send-to-channel,
+    follow/unfollow, thread notifications.
+  - Reactions with counts and "who reacted".
+  - Mentions @user/@channel/@here with autocomplete + highlight.
+  - Files: size/MIME/extension validation, previews, download, media grid.
+
+Tasks
+  [ ] Edit/delete: PATCH/DELETE /messages/:id (+ edited marker, audit).
+  [ ] Threads: GET /messages/:id/thread; reply via parentMessageId;
+      thread follow model; also-send-to-channel.
+  [ ] Reactions: POST/DELETE /messages/:id/reactions; counts.
+  [ ] Mentions: parser for @user/@channel/@here + notification hooks.
+  [ ] Pins: POST/DELETE /channels/:id/pins; pin list.
+  [ ] Saved items: POST/DELETE /bookmarks (personal).
+  [ ] Attachments: Attachment model; Cloudinary signed upload; metadata.
+  [ ] Media browser data for the context panel.
+
+Deliverable
+  Messages can be edited/deleted/threaded/reacted/mentioned/pinned/saved
+  and carry Cloudinary files.
+
+Depends on
+  Phase 4.
+
+========================================================================
+PHASE 6 - NOTIFICATIONS, UNREAD, SEARCH, DRAFTS, DND
+========================================================================
+Goal
+  Slack-like awareness and retrieval.
+
+Slack parity
+  - Notification center; mark read / mark all read.
+  - Per-channel prefs honored; DND/snooze holds notifications.
+  - Unread badges for channels, DMs, notifications (real time).
+  - Search across messages/channels/users/files with operators
+    (from:, in:, has:, before:, after:), scoped to authorization.
+  - Auto-saved per-conversation drafts.
+
+Tasks
+  [ ] Models: Notification, Bookmark(saved), Draft.
+  [ ] Endpoints: GET /notifications, PATCH /notifications/:id/read,
+      POST /notifications/read-all, GET /search, /drafts CRUD.
+  [ ] Unread tracking per channel/DM/notification; real-time updates.
+  [ ] MongoDB text indexes scoped by organization + access.
+  [ ] DND/snooze preference on the user; queue notifications during DND.
+  [ ] Theme preference per user (light/dark/system).
+
+Deliverable
+  Notifications, unread, search, drafts and DND behave like Slack.
+
+Depends on
+  Phase 5.
+
+========================================================================
+PHASE 6.6 - HUDDLES (AUDIO / VIDEO / SCREEN SHARE)  [DONE]
+========================================================================
+Goal
+  Slack-style huddles inside channels and DMs (1:1 + group).
+
+Slack parity
+  - Start a huddle from a channel or DM (headphone button in header).
+  - Join / leave; a live-huddle pill on sidebar rows; Join bar in-channel.
+  - Mic / camera / screen-share toggles; auto-end when the last of person
+    leaves; only the starter can end it for everyone.
+  - One live huddle per conversation; "Huddle ended · 3 min" chat card
+    posted to the transcript.
+
+Architecture
+  - Signaling over the existing Socket.IO (rooms `huddle:<id>`, relay
+    `huddle:signal` offer/answer/ICE; `huddle:media` media states).
+  - WebRTC P2P mesh client-side (no SFU); free Google STUN + optional
+    TURN via NEXT_PUBLIC_TURN_URL. <= 8 participants recommended.
+  - REST: POST /huddles, GET /huddles/active, GET /huddles/history,
+    POST /huddles/:id/{join,leave,end}.
+  - Models: Huddle; Message.huddle links the ended-huddle card.
+
+Out of MVP
+  - SFU (large calls), video tiles > 8, thread huddles, recording,
+    captions, DND-aware "huddle started" notifications (land with 6.3).
+
+Deliverable
+  Working audio/video/screen-share huddles; summary card in chat.
+
+Depends on
+  Phase 6.5 (drafts) - intentionally slotted after it in the roadmap.
+
+========================================================================
+PHASE 7 - ADMIN, AUDIT & MEMBER DIRECTORY
+========================================================================
+Goal
+  Organization-scoped administration.
+
+Slack parity
+  - Org owner/admin console; workspace settings; member management.
+  - Channel administration (create/edit/archive/manage membership).
+  - Audit log of administrative actions.
+  - Member directory with search and profile cards.
+
+Tasks
+  [ ] Model: AuditLog (org, actor, action, target, metadata, timestamp).
+  [ ] Record: USER_INVITED, USER_DISABLED, USER_ROLE_CHANGED,
+      CHANNEL_CREATED, CHANNEL_ARCHIVED, MEMBER_ADDED, MEMBER_REMOVED,
+      ADMIN_SETTING_CHANGED, ORG_CREATED, ORG_SETTING_CHANGED.
+  [ ] Admin endpoints under /admin, scoped to active org.
+  [ ] Member directory endpoints (org members, search, profile card).
+  [ ] Session management / basic access policies.
+
+Deliverable
+  Admins manage their organization; sensitive actions are audited;
+  directory is browsable/searchable.
+
+Depends on
+  Phase 6.
+
+========================================================================
+PHASE 8 - FRONTEND (NEXT.JS)
+========================================================================
+Goal
+  Four-zone Slack-like workspace matching DESIGN.md.
+
+Slack parity
+  - Org switcher in the top bar; four-zone shell.
+  - Conversation view with grouped messages, hover actions, threads panel.
+  - Channel details (topic/purpose, members, pins, files/media).
+  - Notification center with DND, saved items, drafts.
+  - Search UI with operators; directory; profile card.
+  - Admin console; responsive tablet/mobile drawers.
+
+Tasks
+  [ ] App shell: global nav + comms nav + conversation + context panel.
+  [ ] Screens: login/reset, workspace, channel, DM, threads, search,
+      notifications, saved, drafts, members, profile, settings,
+      create channel, invite, channel details, admin, audit, errors.
+  [ ] Org switcher + onboarding (create/accept invite).
+  [ ] Real-time UX: messages, typing, presence/DND, unread.
+  [ ] Reconnect banner (FR-031); meaningful errors (FR-030).
+  [ ] Accessibility (NFR-007); per-page CSS modules.
+  [ ] Theme light/dark/system.
+
+Deliverable
+  Responsive Slack-like web client.
+
+Depends on
+  Phases 1-7.
+
+========================================================================
+PHASE 9 - TESTING, HARDENING & DEPLOYMENT
+========================================================================
+Goal
+  Verify correctness/security (incl. tenant isolation) and ship.
+
+Tasks
+  Unit: auth, authorization, tenant isolation, message validation,
+        channel permissions, mention parsing, reactions, notifications.
+  Integration: login, org create/switch, channel creation, message
+        persistence, threads, group DM, Cloudinary upload, search
+        authorization, Socket.IO events.
+  E2E: full workflows per project.md section 53 plus multi-org switching.
+  Security: cross-org access attempts, unauthorized channel/private access,
+        file upload abuse, injection/XSS, auth attacks, rate limiting.
+  NFRs: performance, security, privacy, availability, maintainability,
+        accessibility.
+  Deploy: reverse proxy + HTTPS, managed MongoDB, backups, monitoring.
+
+Deliverable
+  MVP meets project.md section 54 acceptance criteria.
+
+Depends on
+  Phase 8.
+
+========================================================================
+SLACK-PARITY CHECKLIST (definition of done per feature)
+========================================================================
+  [ ] Channels: topic/purpose, prefs (All/Mentions/Mute), unread divider
+  [ ] Messages: grouping, hover actions, edited marker, copy link
+  [ ] Threads: side panel, reply count, also-send, follow
+  [ ] Mentions: @user, @channel, @here, autocomplete, highlight
+  [ ] Reactions: counts + who reacted
+  [ ] DMs: 1:1 and group
+  [ ] Presence: ACTIVE/AWAY/DND/OFFLINE + status emoji/clear-after
+  [ ] Search: operators, scoped, open-in-context
+  [ ] Notifications: center, per-channel prefs, DND/snooze, mark read
+  [ ] Files: previews, download, media browser
+  [ ] Pins + saved items + auto-saved drafts
+  [ ] Directory + profile card
+  [ ] Admin + audit (org-scoped)
+  [ ] Shell: four zones, org switcher, responsive, reconnect banner
+
+========================================================================
+MULTI-TENANCY CHECKLIST (must hold in every phase)
+========================================================================
+  [ ] Every tenant model has organizationId
+  [ ] Every query/mutation filtered by active organization
+  [ ] Roles resolved from OrganizationMember (per org)
+  [ ] Socket.IO rooms scoped per organization
+  [ ] Cloudinary assets namespaced per organization
+  [ ] Search constrained to org + access
+  [ ] Cross-org access attempts return 403/404, never data
+
+========================================================================
+OUT OF SCOPE (v1.2)
+========================================================================
+Cross-organization federation (Slack Connect-style), SSO/SAML/SCIM,
+voice/video (Huddles/calls), apps/marketplace/Workflow Builder,
+compliance/eDiscovery, Slack-AI-style features, mobile apps (v1.2),
+large-scale public communities.
+
+========================================================================
+ROADMAP (project.md section 55)
+========================================================================
+Version 1.1
+  Improved search UX + saved searches, file browser, rich text/code,
+  custom emoji + user groups, reminders + scheduled send.
+Version 1.2
+  Mobile apps, push notifications, calendar + task integration.
+Version 2.0
+  Cross-org federation, voice/video, integrations, workflow automation,
+  AI-assisted search/summaries, advanced administration.
+========================================================================

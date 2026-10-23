@@ -1,0 +1,57 @@
+.form {
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+}
+
+.group {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.hint {
+  font-size: 11.5px;
+  color: var(--ink-3);
+}
+
+.link {
+  font-size: 13px;
+  color: var(--brand-3);
+  font-weight: 600;
+  text-decoration: none;
+  transition: color var(--t) var(--ease);
+}
+
+.link:hover {
+  color: var(--brand-2);
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+
+.center {
+  text-align: center;
+  font-size: 13px;
+  color: var(--ink-2);
+}
+
+.eye {
+  display: flex;
+  padding: 4px;
+  border: none;
+  border-radius: var(--r-xs);
+  background: transparent;
+  color: var(--ink-3);
+  cursor: pointer;
+  transition: color var(--t) var(--ease);
+}
+
+.eye:hover {
+  color: var(--ink);
+}
+
+.eye:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 3px var(--brand-soft);
+  color: var(--brand-3);
+}

@@ -1,0 +1,121 @@
+.wrap {
+  position: relative;
+  display: inline-flex;
+}
+
+.trigger {
+  display: grid;
+  place-items: center;
+  width: 32px;
+  height: 32px;
+  border: 1px solid transparent;
+  border-radius: 9px;
+  background: transparent;
+  color: var(--ink-2);
+  cursor: pointer;
+  transition: all var(--t) var(--ease);
+}
+
+.trigger:hover {
+  background: var(--surface-3);
+  color: var(--ink);
+}
+
+.trigger:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 3px var(--brand-soft);
+  border-color: var(--brand-3);
+}
+
+.menu {
+  position: fixed;
+  z-index: 1200;
+  width: 228px;
+  max-width: calc(100vw - 16px);
+  max-height: calc(100vh - 16px);
+  overflow-y: auto;
+  background: var(--surface-1);
+  border: 1px solid var(--line-2);
+  border-radius: var(--r-md);
+  box-shadow: var(--sh-3);
+  padding: 6px;
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  animation: qlPop 180ms var(--ease);
+}
+
+.item {
+  display: flex;
+  align-items: center;
+  gap: 11px;
+  width: 100%;
+  min-height: 34px;
+  padding: 0 10px;
+  border: none;
+  background: transparent;
+  border-radius: 9px;
+  font-family: inherit;
+  font-size: 13.5px;
+  font-weight: 450;
+  color: var(--ink-2);
+  text-align: left;
+  cursor: pointer;
+  transition: all var(--t) var(--ease);
+}
+
+.item:hover:not(:disabled) {
+  background: var(--surface-3);
+  color: var(--ink);
+}
+
+.item:disabled {
+  color: var(--ink-4);
+  cursor: not-allowed;
+}
+
+.danger {
+  color: var(--neg);
+}
+
+.danger:hover:not(:disabled) {
+  background: var(--neg-soft);
+  color: var(--neg);
+}
+
+.icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 16px;
+  flex-shrink: 0;
+  color: var(--ink-3);
+}
+
+.item:hover:not(:disabled) .icon {
+  color: var(--ink-2);
+}
+
+.danger .icon,
+.danger:hover:not(:disabled) .icon {
+  color: var(--neg);
+}
+
+.label {
+  flex: 1;
+}
+
+.heading {
+  padding: 8px 10px 4px;
+  font-size: 10.5px;
+  font-weight: 650;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  color: var(--ink-3);
+}
+
+.separator {
+  height: 1px;
+  margin: 5px 4px;
+  background: var(--line);
+}

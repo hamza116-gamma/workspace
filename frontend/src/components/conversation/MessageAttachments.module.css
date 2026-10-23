@@ -1,0 +1,205 @@
+.wrap {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-top: 8px;
+  min-width: 0;
+  max-width: 100%;
+}
+
+.images {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+/* Wraps one media item so the hover download button can be positioned. */
+.media {
+  position: relative;
+  display: inline-block;
+  line-height: 0;
+  max-width: 100%;
+}
+
+.thumb {
+  display: block;
+  max-width: 100%;
+  padding: 0;
+  border: none;
+  background: transparent;
+  border-radius: var(--r-md);
+  overflow: hidden;
+  cursor: zoom-in;
+  box-shadow: var(--sh-1);
+  line-height: 0;
+}
+
+/* Download button appears on the media on hover (Slack behavior). */
+.download {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  z-index: 2;
+  width: 30px;
+  height: 30px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 9px;
+  background: rgba(8, 18, 14, 0.6);
+  backdrop-filter: blur(6px);
+  color: #ffffff;
+  text-decoration: none;
+  opacity: 0;
+  transition: opacity var(--t) var(--ease), background var(--t) var(--ease);
+}
+
+.media:hover .download,
+.media:focus-within .download {
+  opacity: 1;
+}
+
+.download:hover {
+  background: rgba(8, 18, 14, 0.82);
+}
+
+/* Full, uncropped image: capped but keeps its aspect ratio. */
+.image {
+  display: block;
+  width: auto;
+  height: auto;
+  /* Never wider than the message column (narrow thread panel). */
+  max-width: min(240px, 100%);
+  max-height: 240px;
+  border-radius: var(--r-md);
+}
+
+.single .image {
+  max-width: min(360px, 100%);
+  max-height: 360px;
+}
+
+/* Compact variant (pins hover card): smaller media so the whole message
+   fits inside the dropdown AND inside the row's hover highlight.
+   .compact .single .image (0,3,0) outranks .single .image (0,2,0) regardless
+   of source order, so a pinned image can never render at the large size. */
+.compact .wrap,
+.compact .images {
+  max-width: 100%;
+}
+
+.compact .media {
+  max-width: 100%;
+}
+
+.compact .image {
+  max-width: 190px;
+  max-height: 190px;
+}
+
+.compact .single .image {
+  max-width: 190px;
+  max-height: 190px;
+}
+
+.compact .video {
+  max-width: 280px;
+}
+
+.compact .file {
+  padding: 6px 10px;
+}
+
+.compact .fileIcon {
+  width: 28px;
+  height: 28px;
+  border-radius: 8px;
+}
+
+.compact .fileName {
+  font-size: 12.5px;
+}
+
+.video {
+  width: 100%;
+  max-width: 420px;
+  border-radius: var(--r-md);
+  background: #000;
+}
+
+.file {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  width: 100%;
+  max-width: 380px;
+  min-width: 0;
+  text-align: left;
+  font-family: inherit;
+  cursor: pointer;
+  text-decoration: none;
+  background: var(--surface-1);
+  border: 1px solid var(--line);
+  border-radius: var(--r-md);
+  box-shadow: var(--sh-1);
+  padding: 10px 12px;
+  transition: all var(--t) var(--ease);
+  color: var(--ink);
+  /* .media sets line-height:0 (to remove image gaps); reset it here (after
+     font declarations) or the filename (overflow:hidden) collapses. */
+  line-height: 1.4;
+}
+
+.file:hover {
+  border-color: var(--line-2);
+  box-shadow: var(--sh-2);
+}
+
+.file:focus-visible {
+  outline: 2px solid var(--brand-3);
+  outline-offset: 1px;
+}
+
+.fileIcon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 38px;
+  height: 38px;
+  border-radius: 10px;
+  background: var(--info-soft);
+  color: var(--info);
+  flex-shrink: 0;
+}
+
+.fileInfo {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  flex: 1;
+}
+
+.fileName {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--ink);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.fileMeta {
+  font-size: 11.5px;
+  color: var(--ink-3);
+}
+
+.fileDownload {
+  display: inline-flex;
+  color: var(--ink-3);
+  flex-shrink: 0;
+  transition: color var(--t) var(--ease);
+}
+
+.file:hover .fileDownload {
+  color: var(--ink);
+}

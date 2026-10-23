@@ -1,0 +1,29 @@
+.form {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(220px, 100%), 1fr));
+  gap: 14px;
+}
+
+.statusRow {
+  display: grid;
+  grid-template-columns: 110px minmax(0, 1fr) 210px;
+  gap: 14px;
+}
+
+.actions {
+  display: flex;
+  justify-content: flex-end;
+  padding-top: 2px;
+}
+
+@media (max-width: 860px) {
+  .statusRow {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}

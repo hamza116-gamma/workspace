@@ -1,0 +1,38 @@
+const { Router } = require('express');
+const healthRoutes = require('./health.routes');
+const authRoutes = require('./auth.routes');
+const userRoutes = require('./users.routes');
+const organizationRoutes = require('./organizations.routes');
+const invitationRoutes = require('./invitations.routes');
+const channelRoutes = require('./channels.routes');
+const conversationRoutes = require('./conversations.routes');
+const messageRoutes = require('./messages.routes');
+const attachmentRoutes = require('./attachments.routes');
+const bookmarkRoutes = require('./bookmarks.routes');
+const unreadRoutes = require('./unread.routes');
+const notificationRoutes = require('./notifications.routes');
+const searchRoutes = require('./search.routes');
+const draftRoutes = require('./drafts.routes');
+const scheduledRoutes = require('./scheduled.routes');
+const huddleRoutes = require('./huddles.routes');
+
+const router = Router();
+
+router.use('/health', healthRoutes);
+router.use('/auth', authRoutes);
+router.use('/users', userRoutes);
+router.use('/organizations', organizationRoutes);
+router.use('/invitations', invitationRoutes);
+router.use('/channels', channelRoutes);
+router.use('/conversations', conversationRoutes);
+router.use('/messages', messageRoutes);
+router.use('/attachments', attachmentRoutes);
+router.use('/bookmarks', bookmarkRoutes);
+router.use('/unread', unreadRoutes);
+router.use('/notifications', notificationRoutes);
+router.use('/search', searchRoutes);
+router.use('/drafts', draftRoutes);
+router.use('/scheduled', scheduledRoutes);
+router.use('/huddles', huddleRoutes);
+
+module.exports = router;

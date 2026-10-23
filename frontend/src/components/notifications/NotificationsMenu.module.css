@@ -1,0 +1,46 @@
+/* Rail icon button (matches WorkspaceRail .logout). */
+.trigger {
+  position: relative;
+  width: 46px;
+  height: 46px;
+  border: 0;
+  border-radius: 14px;
+  background: transparent;
+  color: rgba(255, 255, 255, 0.55);
+  cursor: pointer;
+  display: grid;
+  place-items: center;
+  transition: all var(--t) var(--ease);
+}
+
+.trigger:hover {
+  background: rgba(255, 255, 255, 0.08);
+  color: #ffffff;
+}
+
+.trigger:focus-visible {
+  outline: 2px solid var(--mint-2);
+  outline-offset: 2px;
+}
+
+/* DND: notifications paused */
+.paused {
+  color: #b8e8c8;
+  background: rgba(255, 255, 255, 0.06);
+}
+
+.badge {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  display: grid;
+  place-items: center;
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  background: #b8e8c8;
+  color: #12332a;
+  font-size: 9px;
+  font-weight: 700;
+  line-height: 1;
+}

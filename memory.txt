@@ -1,0 +1,1835 @@
+========================================================================
+PROJECT MEMORY  -  Small Organization Communication & Collaboration Platform
+========================================================================
+Last updated : Huddles re-implemented on this machine (see section 26)
+Purpose      : Single source of truth so any AI/developer can understand the
+               project WITHOUT reading every source file. READ THIS FIRST.
+Companions   : project.md (full SRS), phases.txt (implementation phases),
+               till.txt (progress log / what is done so far)
+========================================================================
+
+
+------------------------------------------------------------------------
+1. OPERATOR INSTRUCTIONS (MUST FOLLOW AT ALL TIMES)
+------------------------------------------------------------------------
+These are the product owner's explicit rules. Do not break them.
+
+  [R1] Follow the phase plan in phases.txt. Work phase by phase.
+  [R2] DO NOT test the code by writing test scripts. Do not create unit,
+       integration, or E2E test scripts. (Testing is a later phase and
+       will be handled separately.)
+  [R3] Keep the code clean, with small files and reusable components.
+       One responsibility per file/module. Prefer shared/reusable pieces.
+  [R4] DO NOT install any dependencies. Only declare them in
+       package.json. Never run npm/yarn/pnpm install.
+  [R5] Maintain memory.txt (this file): store all project memory here so
+       other AIs understand the project without analyzing all code.
+  [R6] Maintain till.txt: store what has been done so far, phase by phase.
+  [R7] EVERY time any functionality is completed, update BOTH memory.txt
+       and till.txt. Never leave them stale.
+  [R8] These instructions must be mentioned/stated in BOTH memory.txt and
+       till.txt (they are, as section 1 in each).
+  [R9] BACKEND and FRONTEND must be SEPARATE TOP-LEVEL FOLDERS:
+       ./backend and ./frontend. They are independent projects, each with
+       its own package.json. There is NO monorepo / workspaces setup.
+  [R10] The BACKEND MUST BE PLAIN JAVASCRIPT (Node.js/CommonJS), NOT
+        TypeScript. The frontend is TypeScript (Next.js) as normal.
+  [R11] Never overwrite the real backend/.env (it holds the owner's live
+        credentials). Only backend/.env.example carries placeholders.
+        Never copy secret values from .env into memory.txt / till.txt.
+
+
+------------------------------------------------------------------------
+2. WHAT THE PROJECT IS
+------------------------------------------------------------------------
+An internal web-based communication & collaboration platform for
+organizations (a focused alternative to large enterprise tools), built to
+**Slack-parity behavior** for all in-scope features and supporting
+**multiple organizations (multi-tenancy)**.
+
+Core capabilities (MVP): authentication, profiles/status, roles,
+MULTIPLE organizations + switching, public/private channels, channel
+membership, topics/purposes + channel notification prefs, real-time
+messages, 1:1 and group direct messages, message edit/delete, THREADS,
+reactions, mentions (@user/@channel/@here), file/media attachments,
+pins + saved items, search (with operators), notifications, unread counts,
+presence (ACTIVE/AWAY/DND/OFFLINE), typing indicators, drafts, member
+directory, admin + audit logs, responsive UI, light/dark mode.
+
+Out of scope for MVP: cross-organization federation (Slack Connect),
+SSO/SAML/SCIM, voice/video, apps/marketplace/workflow automation,
+compliance/eDiscovery, Slack-AI-style features, mobile apps.
+
+Full details: project.md (SRS **v1.2**, see sections 59-60) and
+phases.txt (v2.0). Target scope = all project.md features at Slack
+behavior + multi-org.
+
+
+------------------------------------------------------------------------
+3. CHOSEN TECHNOLOGY STACK
+------------------------------------------------------------------------
+Frontend : Next.js (App Router) + React + TypeScript + Tailwind CSS
+           + Socket.IO client        (folder: frontend/)
+Backend  : Node.js + Express + JAVASCRIPT (CommonJS) + Socket.IO
+                                       (folder: backend/)
+Database : MongoDB + Mongoose (document database)
+Storage  : Cloudinary (files/media/avatars; NEVER stored in MongoDB).
+           Avatar upload uses Cloudinary SIGNED DIRECT UPLOAD: backend
+           only issues a signature, frontend uploads directly, backend
+           stores the returned publicId/url.
+Cache    : NONE. Redis is intentionally NOT used. Realtime presence and
+           typing state are in-memory on a single backend instance.
+           Rate limiting is also in-memory.
+Auth     : Password hashing with Node built-in crypto.scrypt (salt +
+           timing-safe compare). NO bcrypt dependency.
+           Session strategy: opaque 256-bit random token; only its
+           sha256 hash is stored in the Session collection. The raw
+           token travels in an HMAC-SHA256 signed, HttpOnly, SameSite=Lax
+           cookie (name from COOKIE_NAME, default "sid"). Cookies are
+           implemented with Node crypto (NO cookie-parser dependency).
+           Session TTL default 7 days; TTL index auto-expires documents.
+Email    : Optional. A mail util lazily requires "nodemailer" (declared
+           in package.json but NOT installed yet). If nodemailer or the
+           EMAIL_* config is missing, password-reset links are logged in
+           non-production instead of emailed.
+Deploy   : Linux/container + reverse proxy + HTTPS + managed MongoDB.
+Tenancy  : MULTI-ORGANIZATION (multi-tenancy). Users are global
+           identities; role/membership is per organization via
+           OrganizationMember; every tenant document carries
+           organizationId; each session carries activeOrganizationId.
+           See project.md section 59 and the multi-tenancy checklist in
+           phases.txt. STRICT tenant isolation is mandatory on all reads
+           and writes.
+
+
+------------------------------------------------------------------------
+4. REPOSITORY LAYOUT (two separate projects, NO monorepo)
+------------------------------------------------------------------------
+D:\projects\com\
+├── project.md              # SRS v1.2 (requirements)
+├── phases.txt              # implementation plan (Phases 0-9)
+├── DESIGN.md               # visual design system (from design/ mockups)
+├── memory.txt              # THIS FILE - project memory
+├── till.txt                # progress log
+├── design/                 # owner-supplied reference mockups
+│   ├── planify-dashboard.html  # 4-zone dashboard mockup
+│   └── demo.jfif               # rendered demo image (font: Poppins)
+├── .prettierrc / .prettierignore / .gitignore
+│
+├── backend/                # Node.js + Express (JAVASCRIPT, CommonJS)
+│   ├── package.json
+│   ├── .eslintrc.cjs
+│   ├── .env                # REAL credentials (never overwrite)
+│   ├── .env.example        # placeholders only
+│   └── src/
+│       ├── config/
+│       │   ├── env.js             # env loader + required() checks
+│       │   ├── logger.js          # dependency-free logger
+│       │   ├── db.js              # Mongoose connect/health/disconnect
+│       │   ├── cloudinary.js      # Cloudinary SDK config
+│       │   └── constants.js       # ROLES, PRESENCE_STATES, THEMES
+│       ├── models/
+│       │   ├── user.model.js      # User schema
+│       │   ├── session.model.js   # Session schema (+ TTL index)
+│       │   ├── organization*.js   # Organization/Member/Invitation
+│       │   ├── channel.model.js   # Channel schema (org-scoped)
+│       │   ├── channelMember.model.js # ChannelMember (role + notify pref)
+│       │   ├── conversation.model.js  # DM/group (participants, keys)
+│       │   ├── message.model.js   # Message (channel XOR conversation)
+│       │   ├── reaction.model.js  # Reaction (message,user,emoji)
+│       │   ├── attachment.model.js # Attachment (message + org/channel/conv)
+│       │   ├── channelPin.model.js # ChannelPin (channel,message,pinnedBy)
+│       │   ├── bookmark.model.js  # Bookmark (user,message) - saved items
+│       │   └── threadFollow.model.js # ThreadFollow (threadRoot,user)
+│       ├── services/
+│       │   ├── user.service.js    # user CRUD/profile, toPublicUser()
+│       │   ├── session.service.js # create/find/revoke sessions
+│       │   ├── auth.service.js    # login/register/reset/change pwd
+│       │   ├── organization.service.js
+│       │   ├── invitation.service.js
+│       │   ├── channel.service.js # channels + members + prefs
+│       │   ├── conversation.service.js # DMs/group, dedupe, add people
+│       │   ├── message.service.js # list/create/edit/delete messages
+│       │   ├── reaction.service.js # toggle + aggregate reactions
+│       │   ├── attachment.service.js # attachments CRUD + media lists
+│       │   ├── pin.service.js     # channel pins
+│       │   ├── saved.service.js   # personal saved items (bookmarks)
+│       │   ├── serialize.service.js # shared message serializer (reactions+attachments)
+│       │   ├── thread.service.js  # follow/unfollow/isFollowing
+│       │   └── presence.service.js # in-memory presence (Phase 4)
+│       ├── controllers/
+│       │   ├── auth.controller.js
+│       │   ├── user.controller.js
+│       │   ├── organization.controller.js
+│       │   ├── invitation.controller.js
+│       │   ├── channel.controller.js
+│       │   ├── conversation.controller.js
+│       │   ├── message.controller.js
+│       │   ├── attachment.controller.js
+│       │   ├── pin.controller.js   # channel pins
+│       │   └── saved.controller.js # bookmarks / saved items
+│       ├── middleware/
+│       │   ├── auth.js            # requireAuth, requireRole
+│       │   ├── organization.js    # requireOrganization/Membership/Role
+│       │   ├── channel.js         # requireChannel(+Moderator/OrSelf)
+│       │   ├── conversation.js    # requireConversation (participant)
+│       │   ├── rateLimit.js       # in-memory rate limiter factory
+│       │   └── errorHandler.js    # notFound + central error handler
+│       ├── routes/
+│       │   ├── index.js           # /api router aggregator
+│       │   ├── health.routes.js
+│       │   ├── auth.routes.js
+│       │   ├── users.routes.js
+│       │   ├── organizations.routes.js
+│       │   ├── invitations.routes.js
+│       │   ├── channels.routes.js  # + /:channelId/messages
+│       │   ├── conversations.routes.js
+│       │   ├── messages.routes.js  # PATCH/DELETE + reactions
+│       │   ├── attachments.routes.js # POST /signature
+│       │   └── bookmarks.routes.js  # saved items CRUD
+│       ├── sockets/
+│       │   └── index.js           # Socket.IO auth + rooms + typing + presence
+│       ├── utils/
+│       │   ├── AppError.js        # operational error class
+│       │   ├── asyncHandler.js    # async route wrapper
+│       │   ├── password.js        # scrypt hash/verify
+│       │   ├── token.js           # random token + sha256 hash
+│       │   ├── validation.js      # assertEmail/Password/String/etc.
+│       │   ├── response.js        # success(res, data)
+│       │   ├── cookies.js         # sign/parse/serialize session cookie
+│       │   ├── media.js           # Cloudinary signature + destroy
+│       │   ├── mentions.js        # parse <@id>/<!channel>/<!here> tokens
+│       │   ├── attachments.js     # upload/ref validation + kind/public mappers
+│       │   ├── mail.js            # optional nodemailer sender
+│       │   └── emailTemplates.js  # Ink & Paper HTML emails (inline styles)
+│       ├── app.js                 # createApp(): middleware + routes
+│       └── server.js              # http server + socket + shutdown
+│
+└── frontend/               # Next.js (TypeScript, App Router)
+    ├── package.json
+    ├── tsconfig.json
+    ├── .eslintrc.json
+    ├── next.config.js        # reactStrictMode + Cloudinary image host
+    ├── postcss.config.js
+    ├── tailwind.config.ts    # darkMode:'class', brand color
+    ├── .env.local            # local dev URLs (port 5000)
+    ├── .env.example
+    └── src/
+        ├── styles/tokens.css         # design tokens (light + .dark)
+        ├── app/
+        │   ├── layout.tsx            # Poppins font + tokens + AuthProvider
+        │   ├── globals.css           # tailwind + base body only
+        │   ├── (auth)/layout.tsx     # RedirectIfAuth guard
+        │   ├── (auth)/login/page.tsx      + page.module.css
+        │   ├── (auth)/register/page.tsx   + page.module.css
+        │   ├── (auth)/forgot-password/page.tsx + page.module.css
+        │   ├── (auth)/reset-password/page.tsx  + page.module.css
+        │   ├── (app)/layout.tsx      # RequireAuth + Org + Socket + Channels
+        │   │                         #   + Conversations + ActiveChannel
+        │   │                         #   + WorkspaceShell
+        │   ├── (app)/page.tsx        # protected home (Ink & Paper)
+        │   ├── (app)/profile/page.tsx
+        │   ├── (app)/channels/page.tsx     # channel directory / welcome
+        │   ├── (app)/channels/new/page.tsx # create channel
+        │   ├── (app)/channels/[channelId]/page.tsx  # ChannelWorkspace
+        │   ├── (app)/dm/new/page.tsx               # NewMessageView
+        │   ├── (app)/dm/[conversationId]/page.tsx   # DirectMessageWorkspace
+        │   ├── (app)/members/page.tsx               # MembersView
+        │   ├── (app)/saved/page.tsx                 # SavedView (saved items)
+        │   # (invite is PUBLIC: app/invite/page.tsx -> AcceptInvite (?token=))
+        ├── components/
+        │   ├── ui/{Button,Input,Select,Alert,Spinner,Chip,Modal,
+        │   │       DropdownMenu,Popover,Lightbox,Avatar}.tsx + Icon.tsx
+        │   │       + *.module.css
+        │   ├── workspace/WorkspaceShell.tsx   # 4-zone grid (rail|panel|main|ctx)
+        │   ├── workspace/{WorkspaceRail,WorkspaceButton,WorkspaceHoverCard,
+        │   │            CreateWorkspaceDialog,AcceptInvite}.tsx + *.module.css
+        │   ├── members/{MembersView,InviteMembersDialog}.tsx + *.module.css
+        │   ├── navigation/{ChannelPanel,DirectMessageListItem}.tsx
+        │   │            + *.module.css
+        │   ├── conversation/{ConversationView,ChannelWorkspace,
+        │   │            DirectMessageWorkspace,NewMessageView,
+        │   │            ConversationHeader,MessageList,MessageContent,
+        │   │            MessageComposer,MessageActions,ReactionPill,
+        │   │            MessageAttachments,MediaGallery,EmojiPicker,
+        │   │            ThreadPanel,ConversationDetailsPanel,
+        │   │            MemberPickerDialog,ConnectionBanner}.tsx
+        │   │            + *.module.css
+        │   ├── channels/{ChannelListItem,ChannelAboutCard,DetailsPanel,
+        │   │            ChannelDetailsPanel,ChannelPins,ChannelMembers,
+        │   │            ChannelForm,CreateChannelForm,CreateChannelDialog}.tsx
+        │   │            + *.module.css
+        │   ├── saved/SavedView.tsx + *.module.css   # /saved page
+        │   ├── auth/AuthCard.tsx + AuthCard.module.css
+        │   ├── auth/authForm.module.css (shared form primitives)
+        │   ├── auth/{LoginForm,RegisterForm,
+        │   │        ForgotPasswordForm,ResetPasswordForm}.tsx
+        │   ├── profile/{AvatarUploader,ProfileForm,
+        │   │          ChangePasswordForm,ThemeSelector}.tsx
+        │   └── guards/{RequireAuth,RedirectIfAuth}.tsx
+        ├── context/{AuthContext,OrgContext,ChannelsContext,
+        │   │          ConversationsContext,ActiveChannelContext,
+        │   │          ActiveConversationContext,PinsContext,SavedContext,
+        │   │          FocusMessageContext,
+        │   │          WorkspaceUiContext,UnreadContext,ThreadContext,
+        │   │          SocketContext}.tsx
+        ├── hooks/{useAuth,useHealth,useOrg,useChannels,useConversations,
+        │   │        useActiveChannel,useActiveConversation,useWorkspaceUi,
+        │   │        useUnread,useThread,useThreadPanel,useMentionables,
+        │   │        useAttachments,usePins,useSaved,useFocusMessage,
+        │   │        useSocket,useMessages}.ts
+        ├── lib/{api,auth,users,organizations,channels,conversations,
+        │   │       messages,attachments,pins,bookmarks,initials,theme,socket}.ts
+        └── types/{user,organization,channel,conversation,message,saved}.ts
+
+
+------------------------------------------------------------------------
+5. CONVENTIONS
+------------------------------------------------------------------------
+- Backend language: JavaScript (CommonJS: require / module.exports).
+  Frontend language: TypeScript.
+- Backend layering: routes -> controllers -> services -> models.
+- Small files, single responsibility, reuse via utils/services.
+- Errors: throw new AppError(statusCode, message). Async route handlers
+  are wrapped with asyncHandler(); the central errorHandler formats the
+  JSON response ({ success:false, message }); 500 details hidden in prod.
+- Responses: controllers use success(res, data, statusCode) ->
+  { success:true, data }.
+- Avoid new dependencies: prefer Node built-ins (crypto) for password
+  hashing and cookies. Only express/mongoose/socket.io/cloudinary/helmet/
+  cors/dotenv are installed; nodemailer is declared but not installed.
+- API base path: /api (e.g. http://localhost:5000/api).
+- Backend port default 5000 (matches .env; frontend env points to 5000).
+- No dependency installation performed by the AI ([R4]).
+- No test scripts written ([R2]). Files are syntax-checked with
+  `node --check`; modules smoke-loaded with `node -e` only.
+- STYLING (see DESIGN.md): font is Poppins (next/font, --font-poppins).
+  Design tokens live in frontend/src/styles/tokens.css (light + .dark).
+  EVERY page must have its own co-located `page.module.css` (Next CSS
+  Modules); reusable components have their own `*.module.css`. Global CSS
+  holds only tokens + base body rules. Components use CSS variables, not
+  raw hex. Tailwind stays available for utility/nested layout.
+
+
+------------------------------------------------------------------------
+6. ENVIRONMENT VARIABLES
+------------------------------------------------------------------------
+backend/.env  (real; backend/.env.example has placeholders):
+  NODE_ENV, PORT=5000, CLIENT_URL=http://localhost:3000
+  MONGO_URI
+  SESSION_SECRET, SESSION_TTL_DAYS=7, COOKIE_NAME=sid
+  EMAIL_HOST, EMAIL_PORT, EMAIL_SECURE, EMAIL_USER, EMAIL_PASSWORD,
+  EMAIL_FROM  (optional - enables password-reset emails)
+  MAX_UPLOAD_BYTES=26214400
+  TRUST_PROXY  (empty = clients connect directly; set e.g. 1 behind a
+    reverse proxy so req.ip / rate limits use the real client IP)
+  CLOUDINARY_CLOUD_NAME, CLOUDINARY_API_KEY, CLOUDINARY_API_SECRET
+
+frontend/.env (copy from frontend/.env.example):
+  NEXT_PUBLIC_API_URL=http://localhost:5000/api
+  NEXT_PUBLIC_SOCKET_URL=http://localhost:5000
+
+
+------------------------------------------------------------------------
+7. KEY COMMANDS
+------------------------------------------------------------------------
+Backend (inside backend/):
+  npm run dev      # node --watch src/server.js -> :5000
+  npm start        # node src/server.js
+  npm run lint
+Frontend (inside frontend/):
+  npm run dev | build | start | lint
+  npm run format   # prettier --write .
+Running requires dependencies (backend has them installed; nodemailer is
+declared only). Installing is the operator's action, not the AI's.
+
+
+------------------------------------------------------------------------
+8. DATA MODEL & API (current)
+------------------------------------------------------------------------
+Models implemented:
+  User    : fullName, email(unique), passwordHash(select:false),
+            avatarUrl, avatarPublicId, jobTitle, department, presence,
+            statusMessage, theme, role, isDisabled, disabledAt,
+            lastLoginAt, passwordChangedAt, passwordResetTokenHash,
+            passwordResetExpiresAt, timestamps.
+  Session : user(ref), activeOrganization(ref Organization), tokenHash(unique),
+            userAgent, ipAddress, expiresAt (TTL), revokedAt, timestamps.
+  Organization       : name, slug(unique), logoUrl, logoPublicId, settings
+                       (allowMemberChannelCreation, defaultChannelType),
+                       status(ACTIVE/ARCHIVED), timestamps.
+  OrganizationMember : organization(ref), user(ref), role(ORG_ROLES),
+                       status(ACTIVE/DISABLED), joinedAt; unique
+                       (organization,user).
+  Invitation         : organization(ref), email, role, tokenHash, invitedBy,
+                       status(PENDING/ACCEPTED/REVOKED), expiresAt; timestamps.
+  Channel            : organization(ref), name, topic, purpose,
+                       type(PUBLIC/PRIVATE), createdBy(ref User),
+                       status(ACTIVE/ARCHIVED); unique (organization,name).
+  ChannelMember      : organization(ref), channel(ref), user(ref),
+                       role(MODERATOR/MEMBER),
+                       notifyPreference(ALL/MENTIONS/MUTE),
+                       status(ACTIVE/REMOVED), joinedAt, lastReadAt;
+                       unique (channel,user). Removal sets REMOVED (not
+                       delete) so the channel stays hidden/denied for that
+                       user; admins can re-add (reactivates).
+  Conversation       : organization(ref), type(DIRECT/GROUP),
+                       participants[{user(ref), joinedAt, lastReadAt}],
+                       directKey(unique sparse "<org>:<sorted user ids>"
+                       -> 1:1 dedupe), groupKey(unique sparse, same format,
+                       -> exact-set group dedupe), createdBy(ref User),
+                       lastActivityAt.
+  Message            : organization(ref), channel(ref) XOR conversation(ref),
+                       sender(ref User), content(max 4000; optional when the
+                       message carries attachments, validated in the service),
+                       parentMessageId(ref Message|null; flat thread ->
+                       the ROOT id), alsoSentToChannel(bool), replyCount,
+                       lastReplyAt, replyUserIds[] (denormalized on the root),
+                       mentionedUserIds[](ref User), mentionAll(bool),
+                       mentionHere(bool), editedAt, deletedAt; timestamps.
+                       Mentions are parsed from content tokens <@id>/<!channel>/
+                       <!here> (utils/mentions.js) + filtered to members;
+                       @channel/@here gated to channel moderators/org admins.
+                       Serializable message exposes mentions[{id,fullName}],
+                       mentionAll, mentionHere and attachments[].
+  ThreadFollow       : organization(ref), threadRoot(ref Message),
+                       user(ref), lastReadAt; unique (threadRoot,user).
+  Reaction           : organization(ref), message(ref), user(ref), emoji;
+                       unique (message,user,emoji). Messages serialize a
+                       reactions[] ({emoji,count,users,reactedByMe}).
+  Attachment         : organization(ref), message(ref), channel(ref|null) XOR
+                       conversation(ref|null) (denormalized for the media
+                       browser), uploader(ref User), kind (IMAGE/VIDEO/AUDIO/
+                       FILE), url, publicId, resourceType, format, bytes,
+                       originalName, mimeType, width, height, duration;
+                       timestamps. Stored from a Cloudinary signed DIRECT
+                       upload (folder org/<orgId>/attachments, resource type
+                       "auto"); files never live in MongoDB. Deleting a message
+                       removes its Attachment rows and Cloudinary assets.
+                       Serialized as attachments[] ({id,kind,url,publicId,
+                       name,mimeType,bytes,width,height,duration,createdAt}).
+  ChannelPin         : organization(ref), channel(ref), message(ref),
+                       pinnedBy(ref User); unique (channel,message). Channel
+                       pinned messages. Serialized with the pinned message.
+  Bookmark           : organization(ref), user(ref), message(ref); unique
+                       (user,message). Personal "saved items" (Save for later).
+                       Deleting a message removes its pins and bookmarks.
+
+Endpoints under /api:
+  GET    /health
+  POST   /auth/register              # OPEN signup. Creates a global user;
+                                     # optional organizationName -> creates an
+                                     # org (user becomes OWNER) and sets it active
+  POST   /auth/login
+  POST   /auth/logout
+  POST   /auth/password/reset        # request
+  POST   /auth/password/reset/confirm# token + newPassword
+  POST   /auth/password/change       # auth required
+  GET    /users/me                   # auth
+  PATCH  /users/me                   # auth (fullName, jobTitle,
+                                     #   department, statusMessage, theme)
+  GET    /users/me/avatar/signature  # auth -> Cloudinary signed params
+  PATCH  /users/me/avatar            # auth (publicId, url)
+  POST   /organizations              # create org (creator becomes OWNER) +
+                                     #   sets session activeOrganization
+  GET    /organizations              # my memberships (each has isActive flag)
+  GET    /organizations/:id          # membership required
+  PATCH  /organizations/:id          # OWNER/ADMIN
+  POST   /organizations/:id/switch   # sets session activeOrganization
+  GET    /organizations/:id/members  # membership required
+  PATCH  /organizations/:id/members/:userId  # OWNER/ADMIN (role/status)
+  DELETE /organizations/:id/members/:userId  # OWNER/ADMIN
+  POST   /organizations/:id/invitations      # OWNER/ADMIN (email, role)
+  GET    /organizations/:id/invitations      # OWNER/ADMIN (pending)
+  DELETE /organizations/:id/invitations/:invitationId  # OWNER/ADMIN revoke
+  GET    /invitations/:token         # PUBLIC lookup: { email, organizationName,
+                                     #   role, expiresAt } for the invite/register UI
+  POST   /invitations/accept         # auth; token -> membership + active org
+
+Channels (Phase 3; scoped to session active organization):
+  GET    /channels                   # public channels + private where member
+                                     #   (?joined=true => only my channels)
+  POST   /channels                   # create (blocked for MEMBER if org
+                                     #   settings.allowMemberChannelCreation=false)
+  GET    /channels/:channelId        # private => member only
+  PATCH  /channels/:channelId        # channel MODERATOR or org OWNER/ADMIN
+  DELETE /channels/:channelId        # archive (MODERATOR or OWNER/ADMIN)
+  POST   /channels/:channelId/join   # public + ACTIVE only
+  POST   /channels/:channelId/leave  # guards last member of a private channel
+  GET    /channels/:channelId/members
+  POST   /channels/:channelId/members            # MODERATOR/OWNER/ADMIN (userIds[])
+  PATCH  /channels/:channelId/members/me         # own notifyPreference
+  GET    /channels/:channelId/candidates         # MODERATOR/OWNER/ADMIN
+  DELETE /channels/:channelId/members/:userId    # MODERATOR/OWNER/ADMIN or self
+  Middleware middleware/channel.js: requireChannel (loads org-scoped channel
+  + access), requireChannelModerator, requireChannelModeratorOrSelf.
+
+Messages & DMs (Phase 4 backend; scoped to session active organization):
+  GET    /channels/:channelId/messages            # requireChannel
+  POST   /channels/:channelId/messages            # send -> emits message.created
+  GET    /conversations                           # my DMs/group DMs
+  POST   /conversations                           # { userIds } -> 1:1 or GROUP,
+                                                  #   find-or-create (directKey/groupKey)
+  POST   /conversations/find                      # find-only, never creates
+                                                  #   ({ userIds } -> conversation|null)
+  GET    /conversations/candidates                # org members for DM picker
+  GET    /conversations/:conversationId           # participant only
+  POST   /conversations/:conversationId/participants  # add people; a 1:1 becomes GROUP
+  GET    /conversations/:conversationId/messages
+  POST   /conversations/:conversationId/messages
+  GET    /messages/:messageId/thread             # parent + replies + following
+  POST   /messages/:messageId/follow             # follow the thread
+  DELETE /messages/:messageId/follow             # unfollow
+  PATCH  /messages/:messageId                    # own message: edit (editedAt)
+  DELETE /messages/:messageId                    # own message: soft delete
+  POST   /messages/:messageId/reactions          # { emoji } toggle reaction
+  Pins (Phase 5.8; channel access via requireChannel):
+    GET    /channels/:channelId/pins                # { pins: [{id, messageId,
+                                                    #   pinnedBy, message}] }
+    POST   /channels/:channelId/pins/:messageId     # pin (+ emits pin.updated)
+    DELETE /channels/:channelId/pins/:messageId     # unpin (+ pin.updated)
+  Saved items (Phase 5.9; personal; requireAuth + requireOrganization):
+    GET    /bookmarks                              # { bookmarks: [{id,
+                                                   #   messageId, message}] }
+    POST   /bookmarks/:messageId                   # save (201)
+    DELETE /bookmarks/:messageId                   # unsave
+  Attachments (Phase 5.6; signature = active org; lists = channel/DM access):
+    POST   /attachments/signature                  # { originalName, mimeType, size }
+                                                   #   validated -> Cloudinary signed params
+                                                   #   (folder org/<orgId>/attachments, auto)
+    GET    /channels/:channelId/attachments        # requireChannel (media browser)
+    GET    /conversations/:conversationId/attachments # requireConversation
+    # Send attachments with a message via body.attachments[] (Cloudinary refs);
+    # createMessage validates + stores them; content may be empty.
+  # Thread replies: POST /channels/:id/messages or /conversations/:id/messages
+  #   with { parentMessageId, alsoSendToChannel? }. Main list hides replies
+  #   unless alsoSentToChannel. Socket rooms: thread:<rootId>; events
+  #   message.created + thread.updated.
+  Middleware middleware/conversation.js: requireConversation (participant-only).
+  Socket.IO sockets/index.js: session-cookie auth; rooms org:<id>, user:<id>,
+  channel:<id>, conversation:<id>; events message.created,
+  conversation.updated, typing.updated, presence.updated; client events
+  channel:join/leave, conversation:join/leave, typing.start/stop,
+  presence.update. Presence + typing are in-memory (single instance).
+
+Planned collections (later phases), all tenant-owned carrying
+organizationId: notifications, drafts, auditLogs.
+See project.md section 47 for indexes/relationships.
+
+MULTI-TENANCY (Phase 2, implemented): Users are global; access is via
+OrganizationMember (role + status). Session carries activeOrganization,
+set at login to the user's first membership and changeable via
+POST /organizations/:id/switch. Middleware in middleware/organization.js:
+requireOrganization (active org from session), requireMembership (from
+:orgId), requireOrgRole(...roles). Authorization is per-organization.
+
+
+------------------------------------------------------------------------
+9. CURRENT STATE (high level)
+------------------------------------------------------------------------
+Phase 0 (Project Setup & Foundation): COMPLETE.
+Phase 1 (Authentication & User Profiles): COMPLETE (backend + a working
+  Phase 1 frontend built early so the owner can test auth):
+  - Backend: scrypt password hashing; session creation/validation/
+    revocation; signed HttpOnly cookie sessions (custom crypto, no
+    cookie-parser); register-first-admin, login, logout, password reset
+    (request/confirm), password change, get/update profile, avatar
+    signature + avatar update via Cloudinary signed upload; in-memory
+    rate limiting on auth endpoints.
+  - Frontend: reusable UI (Button/Input/Alert/Spinner), AuthCard, auth
+    forms (login/register/forgot/reset), AuthProvider + useAuth,
+    RequireAuth/RedirectIfAuth guards, protected home, and profile page
+    (photo upload, details, theme, change password). Dark/light/system
+    theme applied via the `dark` class.
+  - No tests written, no installs performed (per instructions).
+Frontend routes: /login, /register, /forgot-password,
+  /reset-password?token=..., / (protected home), /profile.
+Design system: AUTHORITATIVE spec is design/DESIGN.md = "Ink & Paper"
+  (ink-first, minimal; color only for status/brand; green dot #1E6846;
+  no shadows, tonal layering; pill buttons/chips; single typeface
+  Schibsted Grotesk). Root DESIGN.md is the implementation guide.
+  Tokens live in frontend/src/styles/tokens.css (light + .dark inverse);
+  font loaded via next/font as --font-schibsted. Auth pages use a
+  form-left (paper) / showcase-right (tonal surface) split: left has the
+  brand mark + live status chip, big ink title, form, footer; right has an
+  "Enterprise Ready" chip, the FLOATING browser/chat window (bobbing),
+  and a testimonial with pager dots. Each auth page's page.module.css sets
+  --showcase-bg (a surface tone). Login form: Work email, Password with
+  show/hide eye and a "Forgot password?" label action, ink pill "Sign in",
+  "Create workspace" link. Register form: Full name, Work email, Password
+  + Confirm (eyes), 8-char hint, ink pill "Create account", "Sign in"
+  link. Reusable EyeToggle shared by both. Old Planify/WorkOS styling is
+  discarded.
+
+SCOPE CHANGE (v1.2 / phases v2.0): project.md, phases.txt and this memory
+were updated to target ALL project.md features at Slack-parity behavior
+PLUS multi-organization. Phase 2 is now "Organizations, Multi-Tenancy,
+Roles & User Management". Phase 1's session/model will be extended to
+carry organizationId + activeOrganizationId. Out of scope remains:
+cross-org federation, SSO/SAML/SCIM, voice/video, apps/workflows,
+compliance, AI, mobile apps.
+
+PHASE 0/1 v1.2 ALIGNMENT (done): backend presence states are now
+ACTIVE/AWAY/DND/OFFLINE; User has statusEmoji + statusClearAt;
+login sets presence ACTIVE; profile update accepts statusEmoji,
+statusClearAt and manual presence. Frontend User/PresenceState/ProfileForm
+updated. project.md section 45 (backend = JavaScript) and section 58
+(Phase 0/1) reconciled. organizationId + activeOrganizationId are
+deliberately deferred to Phase 2.
+
+Phase 2 (Organizations, Multi-Tenancy, Roles & User Management): COMPLETE.
+  - Models Organization, OrganizationMember, Invitation; Session gains
+    activeOrganization. Users are global identities.
+  - Services: organization (create/list/get/update/members/last-owner
+    guard), invitation (create/list/accept), session setActiveOrganization.
+  - Middleware: requireOrganization, requireMembership, requireOrgRole.
+  - Routes: /organizations (+ members, invitations), /invitations/accept.
+  - Registration is OPEN (multi-org self-serve): POST /auth/register creates
+    a global user and, if organizationName is supplied, creates an
+    organization with the user as OWNER and sets it active. Join existing
+    orgs via invitation accept. Login selects the first membership as the
+    active organization.
+Phase 3 (Channels, Membership, Topics & Prefs): COMPLETE (backend + a
+  working frontend so the owner can test).
+  - Models Channel + ChannelMember (org-scoped, unique (organization,name)
+    and (channel,user)).
+  - Services: channel.service.js (create/list/update/archive/join/leave/
+    members/candidates/notify preference, private-channel access checks,
+    last-member guard, allowMemberChannelCreation guard).
+  - Middleware: requireChannel, requireChannelModerator,
+    requireChannelModeratorOrSelf.
+  - Routes: /channels/* (active-org scoped); mounted in routes/index.js.
+  - GET /organizations now returns an isActive flag per membership.
+  - Frontend: channels pages (/channels, /channels/new,
+    /channels/[channelId]) with channel components and shared UI.
+UI REDESIGN - Slack-style 4-zone shell (frontend; part of Phase 8 done
+  early so Phase 3 is testable):
+  - WorkspaceShell = grid [72px rail | 264px channel panel | main | 300px
+    context]; context hides <1200px, channel panel <900px.
+  - Zone 1 WorkspaceRail (LIGHT paper rail): Slack-style workspace tiles
+    per Organization (logo or monogram; active = ink tile + left bar),
+    a red unread pill slot (wired in Phase 6), a "+" create-workspace tile
+    (CreateWorkspaceDialog -> POST /organizations -> switch), and the
+    user avatar (profile) + logout at the bottom. Hover/focus on a tile
+    shows WorkspaceHoverCard (horizontal popover) with the workspace name,
+    role, and a switch action.
+  - Zone 2 ChannelPanel: active workspace name + create-channel, channel
+    search, quick links (Mentions/Drafts/Bookmarks - placeholders), the
+    Channels list (public # / private lock), and a Team Messages section
+    (MVP placeholder; DMs land in Phase 4).
+  - Zone 3 main: /channels welcome, /channels/new form, and
+    ChannelWorkspace (ChannelHeader + Chat/Bookmarks tabs + empty
+    conversation + disabled composer placeholder until Phase 4).
+  - Zone 4 ChannelDetailsPanel: channel identity, About (topic/purpose
+    edit), Members (add/remove), and a Media placeholder.
+  - ActiveChannelContext shares the loaded channel between zone 3 and
+    zone 4 (single fetch); reloads on org switch and clears on leave.
+  - Design stays Ink & Paper (Schibsted, ink/paper, green dot); the
+    mockup is used for layout only.
+  - Conversation header (Slack-like, reusable ConversationHeader): sticky
+    top bar with star toggle (local only for now), type icon, name, member
+    meta, a Messages/Bookmarks tab row, and a kebab (3-dot) DropdownMenu.
+    The menu holds Notifications (All/Mentions/Mute, checked), Channel
+    details, Join/Leave, and Archive (managers). DM headers will reuse it.
+  - Composer is fixed at the bottom of the conversation; messages scroll
+    between header and composer (main is height:100vh, workspace flex col).
+  - Right details sidebar is hidden by default; "Channel details" in the
+    kebab opens it (WorkspaceUiContext toggles the shell's 4th column),
+    with a close chevron in its own bar. Applies to channel + future DM.
+  - Message list is final Slack-style: ALL messages (own + others) are
+    left-aligned with NO bubbles (plain text); grouped by author/time;
+    meta is "Name • time"; the whole row highlights (--surface) on hover so
+    the hover toolbar's target is obvious; toolbar floats at the row's
+    top-right; centered day dividers; typing line; fixed bottom composer.
+  - Custom thin scrollbars for the whole app (globals.css).
+  - Fixed the workspace hover popover clipping: removed `overflow:hidden`
+    from the shell grid and top-aligned the card (was cut at the top);
+    z-index already high, rail is its own stacking context.
+  - Removed now-unused ChannelHeader + NotifyPreferenceSelect.
+  - Responsive typography: fluid clamp() tokens in tokens.css
+    (--fs-hero/-display/-title/-heading/-body/-small/-tiny/-control) applied
+    across pages/UI modules so text scales down on smaller viewports and
+    caps on large ones. Radii/spacing unchanged.
+  - Private channels: the create-channel form (ChannelForm) shows an inline
+    workspace-member picker when Private is chosen; on submit the selected
+    people are added via POST /channels/:id/members so only they can see it.
+  - Sidebar shows all channels in one list, no "Browse" heading: every
+    PUBLIC channel you weren't removed from + private channels you're an
+    active member of (useChannels / listForUser applies status).
+  - Removal is enforced everywhere: removeMember sets status REMOVED, so
+    the channel disappears from that user's sidebar and getAccessContext
+    denies access (public included); joinChannel refuses a REMOVED user;
+    addMembers reactivates. Socket events channel.updated (room) and
+    channel.membership.updated (user room) refresh sidebars; a removed user
+    currently viewing is sent back to /channels.
+  - Channel header tabs: Messages | Bookmarks, plus Members ONLY for channel
+    moderators / org admins. The Members tab (ChannelMembers via
+    ConversationView `panel`) lets them add AND remove members; removal
+    deletes ChannelMember so the channel leaves their sidebar and access is
+    revoked server-side.
+  - Channels are shared state: ChannelsContext/useChannels (provider in
+    (app) layout) so creating a channel refreshes the sidebar list
+    immediately. ChannelPanel: a hover "+" appears on the "Channels"
+    section header (and the header +) opening CreateChannelDialog
+    (Modal + reusable ChannelForm), which creates, refreshes the list,
+    and navigates to the new channel. /channels/new reuses ChannelForm.
+  - Terminology (Slack parity): user-facing copy says "workspace";
+    "Organization" stays only as the internal model/API name. Register
+    field is "Workspace name" (payload still organizationName); subtitle,
+    channel-member empty state, create-workspace/-channel copy updated.
+  - Removed: AppShell, OrgSwitcher, ChannelsShell, ChannelSidebar,
+    ChannelView; `tsc --noEmit` passes.
+
+Phase 4 (Messaging, DMs (1:1+group) & Realtime): COMPLETE (backend +
+  frontend).
+  - Models Conversation (DIRECT/GROUP, participants + directKey) and
+    Message (channel XOR conversation, parentMessageId for threads later).
+  - Services conversation.service (find-or-create deduped 1:1, group DMs,
+    add people -> 1:1 converts to GROUP, candidates) and message.service
+    (cursor-paginated list, create).
+  - REST: /channels/:channelId/messages and /conversations (+ candidates,
+    + participants, + messages); middleware/conversation.js requireConversation.
+  - Realtime sockets/index.js: session-cookie auth, org/user/channel/
+    conversation rooms, message.created + conversation.updated broadcasts,
+    typing.updated (5s expiry), presence.updated; in-memory presence.service.
+  - server.js wires the io instance onto the app (req.app.get('io')).
+  - Frontend: SocketProvider (socket client + presence map + reconnect
+    state), ConversationsProvider (DM list), useMessages (load + join room +
+    live append + send + typing). Reusable ConversationView + MessageList
+    (author/time grouping, day dividers, auto-scroll, typing line) +
+    MessageComposer (multiline, Enter to send, typing events). Channels and
+    DMs both use ConversationView; DM header reuses ConversationHeader with
+    an avatar `leading` slot. DM list + "+" (MemberPickerDialog) in the
+    panel; route /dm/[conversationId]; Add-people for group DMs; app-wide
+    reconnect banner (FR-031). Types message/conversation + libs.
+Workspace invites & members UI (Phase 2 backend surfaces; built now):
+  - Separate members page /members (MembersView): panel-header users button
+    links here (visible to all members). Lists members with avatar/name/
+    email. Admins (OWNER/ADMIN) get role select (PATCH), Disable/Reactivate
+    (status), Remove (DELETE) and a pending-invitations section with Revoke;
+    non-admins see read-only role chips.
+  - Self-protection: you can NEVER see controls on yourself (UI hides them)
+    and the backend rejects acting on yourself: removeMember(actor) refuses
+    self-removal; updateMember(actor) refuses self-disable and self role
+    change (guardLastOwner still protects the last owner).
+  - Invite is a popup (InviteMembersDialog: email + role -> POST
+    invitations) launched from the members page. Pending list Revoke ->
+    DELETE /organizations/:id/invitations/:invitationId (PENDING only).
+    Invite link is logged in the backend console when email isn't set.
+  - Email templates: utils/emailTemplates.js renders Ink & Paper HTML
+    (paper card on tonal bg, ink text, green dot, pill button, inline
+    styles + table layout for email clients) for invitationEmail and
+    passwordResetEmail; invitation.service and auth.service use them.
+  - Accept flow (public): /invite?token=... is a TOP-LEVEL route (not inside
+    the guarded (app) group). AcceptInvite: if signed in -> POST
+    /invitations/accept then /channels; if NOT signed in -> redirects to
+    /register?invite=<token>.
+  - Register with an invite: RegisterForm reads `invite`, looks up the
+    invitation (GET /invitations/:token), pre-FILLS and LOCKS the email
+    (readOnly, "Invited" tag), HIDES the Workspace-name field, and on submit
+    registers (no org) then accepts the invitation and goes to /channels.
+    Register page title/subtitle switch to "Join workspace" when invited.
+    "Sign in" link carries next=/invite?token= so existing users log in and
+    accept.
+  - RequireAuth preserves the intended path via /login?next=..., and
+    LoginForm/RegisterForm honor `next` (so invite links survive login).
+  - Membership stays per-organization (OrganizationMember), so each
+    workspace has its own members; a user can belong to many.
+DM "New message" flow (Slack parity):
+  - Panel "+" (header + Team Messages section) -> /dm/new NewMessageView.
+  - "To:" field: people (multi-select chips, search by name/email) and
+    channels (clicking navigates to the channel). Backspace removes the
+    last chip.
+  - Live-resolves the conversation for the selected set via POST
+    /conversations/find; if one exists (1:1 or exact-set group) its messages
+    show below while the header stays "New message"; otherwise an empty
+    "beginning of conversation" state. Composer is fixed at the bottom with
+    a dynamic placeholder ("Message Jane", "Message Jane, Omar"). Sending
+    find-or-creates the conversation, sends, then moves to /dm/[id].
+  - Backend: Conversation.groupKey (unique sparse) de-dupes exact group
+    participant sets; addParticipants keeps groupKey in sync; new
+    POST /conversations/find (find-only, never creates).
+
+Message actions + DM details (Phase 5/6 work pulled forward on request):
+  - Hover toolbar (MessageActions) on every message: quick reaction emojis
+    + kebab menu; own messages also get Edit/Delete. Actions: Mark as
+    unread, Copy text, Copy link, Edit (inline), Delete (soft).
+  - DropdownMenu renders its menu in a PORTAL on document.body with fixed
+    positioning + viewport clamping (flips up when short on space), z-index
+    1000. This makes every 3-dot menu appear in front on all screens
+    (no clipping by scroll/overflow containers); it repositions on
+    scroll/resize and closes on outside click / Escape.
+  - Reactions are REAL: Reaction collection; POST /messages/:id/reactions
+    toggles; reactions render as pills under the bubble (reactedByMe
+    highlighted); edits/deletes/reactions broadcast message.updated /
+    message.deleted over the socket; useMessages upserts by id.
+  - Edit inline via PATCH /messages/:id (own); delete via DELETE (own,
+    soft deletedAt -> "This message was deleted.").
+  - Mark as unread: client-side session marker (UnreadContext) -> "New
+    messages" divider + bold sidebar item; cleared when the channel/DM is
+    opened. (Real unread counts -> Phase 6.)
+  - DM header kebab: "Conversation details" (opens the right sidebar via
+    WorkspaceUiContext) + "Add people" + "Block" (placeholder no-op).
+  - DetailsPanel picks right-side content by route: ChannelDetailsPanel for
+    channels, ConversationDetailsPanel for DMs (1:1 profile card: avatar,
+    presence, email, job title, department, status; group: participant
+    list). ActiveConversationContext + UnreadContext providers added.
+Phase 5 (Message Experience): IN PROGRESS, built in sub-phases.
+  5.1 Reactions completion DONE: reactions serialize reactor users
+  ({id,fullName,avatarUrl}); reusable ui/Popover (portal, z-index 1000);
+  EmojiPicker (add-reaction palette) in the hover toolbar; ReactionPill with
+  a "who reacted" hover popover. 5.2+ next: threads, mentions, attachments,
+  pins, saved items (see till.txt for the sub-phase plan/decisions).
+  5.2 Threads backend DONE: Message got parentMessageId(root)/alsoSentToChannel/
+  replyCount/lastReplyAt/replyUserIds; ThreadFollow model + thread.service;
+  GET /messages/:id/thread, POST/DELETE /messages/:id/follow; replies via the
+  normal send endpoints with { parentMessageId, alsoSentToChannel? }; main
+  list hides replies unless alsoSentToChannel; socket room thread:<rootId> +
+  thread:join/leave + thread typing; message.created/thread.updated events.
+  5.3 Threads frontend DONE: ThreadContext/useThreadPanel + useThread; right-
+  docked ThreadPanel (root + replies, also-send checkbox, follow bell,
+  composer); reply-count button + a visible "Reply in thread" thread icon in
+  the hover toolbar (not in the kebab); ThreadPanel DOCKs as a right grid
+  column (380px) on >=1200px (main shrinks, message toolbars stay visible),
+  a right drawer 900-1200px, full-screen <=900px; message rows highlight on
+  hover with a light-grey toolbar (white button hover); useMessages listens
+  thread.updated   for live reply counts.
+  5.4 Mentions backend DONE: utils/mentions.js parses <@userId>/<!channel>/
+  <!here> (and plain @channel/@here); message.service filters mentioned ids
+  to channel members / conversation participants, gates @channel/@here to
+  channel moderators or org admins (403 otherwise), stores mentionedUserIds/
+  mentionAll/mentionHere (also re-parsed on edit), and exposes
+  mentions[{id,fullName}]. create controllers emit notification.created to
+  mentioned users' rooms (and all members for @channel/@here) - persistence
+  is Phase 6.
+  5.5 Mentions frontend DONE: MessageContent renders content with highlighted
+  mention pills (<@id>/<!channel>/<!here> + plain @channel/@here; self
+  mention warn-tinted); MessageComposer has "@" autocomplete driven by
+  useMentionables(target) (channel members / DM participants) plus
+  @channel/@here when the user canManage (allowChannelMention); wired in
+  ConversationView/ThreadPanel/NewMessageView.
+  Composer mentions show names (inserts "@Full Name"; lib/mentions.
+  displayToTokens converts to <@id> at send). Delete uses a confirmation
+  modal with a Slack-style preview (DeleteMessageDialog; Button 'danger').
+  Message.content is required only when not deleted (fixes delete save).
+  Deleted messages are removed from the list entirely (socket + local).
+   Mention colours: chat mentions = BLACK (ink) by default (green removed);
+   mentions inside a message you wrote = moderate grey. The composer renders a
+   transparent textarea over a highlight backdrop so typed mentions show a
+   black mark (a plain textarea cannot style substrings).
+  5.6 Attachments backend DONE: Attachment model + attachment.service;
+   utils/attachments.js validation (blocked extensions/MIME, size limit,
+   Cloudinary-URL refs) + utils/media createAttachmentSignature (folder
+   org/<orgId>/attachments, resourceType "auto") and resourceType-aware
+   destroyAsset. Message.content is optional when attachments exist (validated
+   in the service); createMessage stores attachments; deleteMessage cascades
+   the DB rows + Cloudinary assets; toPublicMessage/controllers/broadcasts
+   serialize attachments[]. Endpoints: POST /attachments/signature,
+   GET /channels/:id/attachments, GET /conversations/:id/attachments.
+  5.7 Attachments frontend DONE: lib/attachments.ts (validate -> direct
+   Cloudinary "auto" upload -> PendingAttachment), MessageComposer paperclip +
+   multi-file upload with pending chips/remove/errors and attachment-only send,
+   MessageAttachments (full uncropped image + click-to-zoom via ui/Lightbox,
+   video/audio players, file rows), useAttachments + MediaGallery now powering
+   the channel AND DM context-panel Media section (also Lightbox). Send flows
+   (useMessages/useThread/NewMessageView/ThreadPanel) pass attachments.
+   Composer is one Slack-style rounded box with pending previews INSIDE it;
+   send errors are shown; useAttachments refreshes the media browser live on
+   message.created/deleted; createMessage deletes the new message if attachment
+   persistence fails (no orphan empty messages); the composer row (paperclip +
+   input + send) is vertically centered on one line; uploads use XHR and show a
+   per-file progress bar + percentage (concurrent, with per-file error +
+   dismiss and a cross to CANCEL an in-flight upload via AbortSignal); the
+   delete confirmation dialog previews the message attachments
+   (image/video/audio/file) via MessageAttachments. Verified with tsc/checks;
+   no tests/installs.
+  5.8 Pins DONE: ChannelPin model (unique channel+message) + pin.service +
+   pin.controller. Endpoints GET /channels/:id/pins, POST/DELETE
+   /channels/:id/pins/:messageId (requireChannel) + `pin.updated` socket event.
+   Frontend PinsContext/usePins (loads pins for the ACTIVE channel, provider in
+   (app) layout), MessageActions Pin/Unpin, a "Pinned" badge in MessageList,
+   and a Pinned card (ChannelPins) in the channel details panel; clicking a
+   pinned item scrolls to + briefly highlights the message via
+   FocusMessageContext/useFocusMessage (which also handles ?message=<id> deep
+   links). Message/video/audio attachments and MediaGallery thumbnails show a
+   hover download button on the media itself. Shared
+   serialize.service now used by message/pin/saved controllers. deleteMessage
+   cascades pin + saved removal.
+  5.9 Saved items DONE: Bookmark model (unique user+message) + saved.service +
+   saved.controller. Endpoints GET /bookmarks, POST/DELETE /bookmarks/:messageId
+   (mounted /bookmarks, personal + org-scoped). Frontend SavedContext/useSaved
+   (provider in (app) layout, removes deleted messages), MessageActions
+   Save for later / Remove from saved (channels AND DMs), and a /saved page
+   (components/saved/SavedView) with Open-in-context links; ChannelPanel's
+   Bookmarks quick link now opens /saved.
+   HEADER TABS (Slack parity) DONE: channels show Messages + Files (when the
+   channel has attachments) + Pins (when it has pins) + Members (moderators/
+   admins); DMs/group DMs show Messages + Files (when attachments exist; DMs
+   have no pins). Files tab = MediaGallery (title "Files"); Pins tab =
+   ChannelPins (clicking a pin switches to Messages then scrolls + flashes via
+   FocusMessageContext). The Pinned and Media cards were removed from the
+   channel details panel and Media from the DM details panel. Tab panels render
+   through ConversationView's `panel` (composer hidden on Files/Pins).
+   TAB HOVER CARDS (Slack parity) DONE: hovering the Files/Pins header tabs
+   opens a dropdown (Popover panelClassName). Files & links = ONE flat
+   newest-first list of uploaded files AND links extracted from message
+   content (Message.links parsed on create/edit; GET /channels/:id/links and
+   GET /conversations/:id/links; FilesLinks component with per-row hover
+   actions: Download/Copy link/Open). Pins hover = PinsPreview (full
+   interactive MessageList: reactions, threads, save, edit/delete; pinned
+   attachments keep hover-download); PinsContext gained applyMessage/
+   removeMessage; MessageList gained autoScroll; Popover gained
+   panelClassName; ConversationTab gained preview/previewClassName.
+   Pins hover card COMPACT: MessageList/MessageAttachments `compact` variants
+   (26px avatars, denser rows, media capped at 190px) so whole pinned
+   messages fit in the dropdown; hover-card widths are responsive
+   (min(Npx, 100vw-32px)); DropdownMenu z 1200 / Modal z 1100 so kebab menus
+   and the delete dialog sit above hover cards.
+   IN-APP DOWNLOAD DONE: GET /attachments/:attachmentId/download streams the
+   file through the API with Content-Disposition: attachment (access-checked,
+   org-scoped). utils/media.buildDownloadUrl uses
+   cloudinary.utils.private_download_url, which BYPASSES Cloudinary's 401 on
+   CDN delivery of ZIP/PDF files. Frontend downloads are in-app with
+   PROGRESS: lib/download.ts fetchFileBlob/saveBlob +
+   DownloadContext/useDownload + DownloadToaster (bottom-right toast with
+   progress bar like the upload animation); MessageAttachments and FilesLinks
+   download via useDownload (no navigation).
+   FIXES: chat file rows now show the filename (the .media line-height:0 was
+   collapsing the overflow:hidden name - .file resets line-height; FileRow is
+   a div role=button like the working Files list). The DM sidebar no longer
+   refetches/spins on every message: ConversationsProvider updates
+   conversation.updated locally (bump lastActivityAt + move to top) and only
+   conversation.created triggers a silent refresh.
+   MESSAGE LIST + COMPOSER POLISH: grouped (non-first) messages reveal their
+   time in the left gutter on hover; rows have min-height + group spacing;
+   MessageList reliably auto-scrolls to the newest message on open (with a
+   suppress flag so it doesn't override a pin/deep-link jump); the composer
+   textarea auto-grows to 200px then scrolls at fixed width.
+
+PHASE 6 (Notifications/Unread/Search/Drafts/DND) IN PROGRESS.
+  6.1 Unread + mark-as-read DONE: unread.service computes per-channel
+   {unread, mentions} and per-DM unread from lastReadAt fields; GET /unread,
+   POST /channels/:id/read, POST /conversations/:id/read; every new message
+   emits `unread.updated` (per-recipient mention flag) to user rooms.
+   UnreadContext is now server-backed (bold names, red mention badges on
+   channels, unread-count badges on DMs, workspace rail bar + mention pill);
+   MessageList shows the "New messages" divider at that boundary. (The
+   floating "N new messages" pill was added then REMOVED on owner request -
+   opening a conversation simply auto-scrolls to the latest message.) The
+   automatic "New messages" divider was ALSO removed later on owner request
+   (readBefore plumbing deleted); the divider now only shows for an explicit
+   "Mark as unread".
+  6.2 Notifications DONE: Notification model + notification.service
+   (createForRecipients with strongest-type-wins, list/count/mark/markAll/
+   remove, markReadForChannel/Conversation) + thread.service.listFollowers.
+   message.controller notify() replaces emitMentions and applies Slack's
+   rules (DM -> participants; channel -> per-member ALL/MENTIONS/MUTE;
+   thread replies -> followers unless muted), persists + emits
+   `notification.created` with full payload. Endpoints GET /notifications,
+   PATCH /:id/read, POST /read-all, DELETE /:id. Opening a channel/DM also
+   clears its Activity entries; message deletion cascades. Frontend:
+   NotificationContext/useNotifications (live created/read/read_all),
+   /activity page (Slack Activity view with mark read/all + open in context)
+   and the ChannelPanel "Activity" link with a red unread badge (the disabled
+   "Mentions" placeholder is gone).
+Next: 6.3 - DND/snooze (user dndUntil, hold delivery + indicator), then
+  6.4 Search, 6.5 Drafts.
+   FIXES: read persistence (UnreadContext callback names shadowed the lib/unread
+   API calls so POST /read never fired - lastLength/lastReadAt saved; fixed with
+   aliased imports). DOUBLE-COUNT fix (DM badge + Activity showed 2 for one
+   message): the server was correct - the client incremented on live events,
+   so a duplicated event double-counted. UnreadContext now debounce-reloads
+   GET /unread (no local counting) and keeps the open channel/DM at 0
+   (viewing = read); NotificationContext derives unreadCount from items and
+   dedupes `notification.created` by id. The floating "N new messages" pill
+   was removed entirely. SCROLL FIX: typing indicators no longer scroll the
+   chat (typingUsers removed from auto-scroll deps); the list is
+   position-aware - initial open lands on the latest, new messages only
+   follow when at the bottom or when it's your own send, and while scrolled
+   up a circular ARROW-DOWN jump button appears (hides on click/scroll to
+   bottom; centered at the bottom). The "{user} is typing…" line moved BELOW
+   the composer via a reusable TypingIndicator (used by ConversationView,
+   ThreadPanel, NewMessageView; removed from MessageList).
+   ACTIVITY BADGE + HOVER DROPDOWN: the Activity badge counts only unread
+   MENTION notifications (mentionCount) and clears when you open that chat;
+   Popover gained placement:'right'; hovering the sidebar "Activity" item
+   opens ActivityDropdown to the right (recent activity, per-item mark-as-
+   read check button on hover, mark all, view all).
+   PROFILE PAGE REDESIGNED: two-column layout (page.module.css) - sticky
+   ProfileIdCard on the left (96px avatar + change-photo pill, name, email,
+   role, status, presence) and Profile details / Appearance (Light/Dark/
+   System selection cards) / Change password sections on the right; forms use
+   responsive field grids; AvatarUploader.tsx merged into ProfileIdCard and
+   deleted. The profile grid uses the FULL available width on large desktops
+   (no centered max-width). The Activity entry stays in the sidebar quick
+   links (ActivityNavItem with the right-side hover dropdown + unread-MENTIONS
+   badge) - a header-bell variant was built then reverted; the dropdown's
+   mark-as-read control uses Slack's check-circle icon (new 'checkCircle')
+   at the row's top-right. The reaction "who reacted" tooltip is roomier
+   (min-width 260 panel class, 26px avatars, ellipsized names); inside the
+   pins hover card the tooltip is disabled entirely (ReactionPill tooltip
+   prop, native title fallback) and the tab dropdowns were widened (Files &
+   links 520px, Pins 600px, viewport-clamped).
+   VOICE MESSAGES (Slack parity) DONE: hooks/useAudioRecorder (MediaRecorder +
+   getUserMedia + AnalyserNode level meter, 5-min cap, full cleanup,
+   feature-detected), components/conversation/VoiceRecorder (pulsing dot,
+   timer, level bars, discard/send), components/conversation/AudioPlayer
+   (Slack-like bar waveform + progress + seek + 1x/1.5x/2x + in-app
+   download, compact variant), Icon mic/play/pause. MessageComposer: mic
+   button; while recording the row becomes VoiceRecorder; stop -> upload
+   (shared runUploads) -> sends immediately; MessageAttachments renders
+   AudioPlayer for AUDIO. Backend unchanged (signed auto upload + download
+   proxy already cover audio). AudioPlayer waveform is REAL: lib/waveform.ts
+   decodes the clip (AudioContext.decodeAudioData) and extracts per-bar peaks
+   (cached), decoding via the same-origin download-proxy URL for cloud audio
+   and the blob URL for the recorder preview; played bars turn ink based on
+   playback time with a circular playhead thumb (fallback placeholder if
+   decode fails). Player fixes: bars use pixel heights (4-26px) with a
+   perceptual scale so they never render as dots; fill + thumb share one
+   progress value; extractWaveform returns the decoded DURATION which the
+   player adopts (MediaRecorder webm often reports Infinity to <audio>, which
+   had frozen the timer/thumb).
+Next: 6.3 - DND/snooze (user dndUntil, hold delivery + indicator), then
+  6.4 Search, 6.5 Drafts.
+See till.txt for the detailed running log.
+
+PHASE 6.6 - HUDDLES (AUDIO/VIDEO/SCREEN SHARE) DONE.
+  Backend: Huddle model (org/channel/conversation, participants with
+  leftAt, status LIVE/ENDED, durationSeconds, hadVideo/hadScreenShare,
+  endedBy); unique partial index = one LIVE huddle per conversation.
+  huddle.service (start/join/leave/end/listActiveForUser/history);
+  huddle.events (room broadcast helpers + shared leave flow);
+  message.service.attachHuddle + Message.huddle + toPublicMessage.huddleId;
+  REST POST /huddles, GET /huddles/active, GET /huddles/history,
+  POST /huddles/:id/{join,leave,end}; sockets huddle:subscribe/
+  huddle:unsubscribe/huddle:signal/huddle:media, disconnect starts
+  leave flow (auto-end when the last participant leaves). Summary
+  message "Huddle ended · 3 min · N people" is posted to the chat on
+  end (> 5s) by the ender.
+  Frontend: HuddleContext (live huddles + joinedId, one huddle at a
+  time), useHuddleSession (getUserMedia audio, per-peer P2P mesh,
+  deterministic initiator myId<peerId, queued ICE, camera/screen track
+  replaceOutgoingVideo, revoke fallback), HuddleBar (global floating
+  bar with timer/video tiles/controls), HuddleStartButton header
+  button, HuddleJoinBar, HuddlePill, HuddleControls, HuddleVideoTile,
+  HuddleSummary; wired into layout/WorkspaceShell/ConversationHeader/
+  ConversationView/sidebars/MessageList. P2P mesh keeps to a small
+  room (<= 8 people); no Redis; no new deps; TURN optional via
+  NEXT_PUBLIC_TURN_URL.
+Next after 6.6: 6.3 DND/snooze, 6.4 Search, 6.5 Drafts (huddle
+  started/ended notifications can hook into 6.3's DND rules).
+
+
+------------------------------------------------------------------------
+10. SECURITY RULES (enforced since hardening step 1, 2026-10-10)
+------------------------------------------------------------------------
+Keep these invariants when adding features:
+  - Uploads: the server signs uploads into fixed folders
+    (utils/media.js avatarFolder(userId) = avatars/<userId>,
+    attachmentFolder(orgId) = org/<orgId>/attachments). Any client-sent
+    {url, publicId} goes through utils/attachments.assertOwnedAsset: the
+    publicId must be inside the signed folder and the URL must point at
+    that publicId. One attachment publicId = one message (duplicates are
+    rejected), so deleting a message can only delete its own files. Old
+    avatars are deleted only if inside the user's own avatar folder.
+  - Channel writes (post, pin/unpin, edit, delete, react) need an ACTIVE
+    channel membership AND a non-archived channel:
+    middleware/channel.requireChannelWrite (routes) and
+    messageService.assertCanWrite (message-level actions). Public channels
+    stay readable without joining (Slack behaviour).
+  - Org roles: only an OWNER may grant OWNER, invite an OWNER, or change /
+    disable / remove an existing OWNER
+    (organizationService.assertCanManageRole; invitation create checks
+    actorRole). The Members UI hides those controls from admins.
+  - Live access is cut when access is lost (sockets/kick.js):
+    removed/disabled org member -> their sockets in that org disconnect;
+    logout -> that session's sockets; password change -> every OTHER
+    session is revoked + disconnected; password reset -> all. Leaving /
+    being removed from a PRIVATE channel drops the user's sockets from
+    channel:<id>. Socket handshake binds an org only while the user is an
+    ACTIVE member of the session's active org; socket.data.sessionId is
+    stored for targeted disconnects.
+  - Huddles: WebRTC signals are relayed only between two ACTIVE
+    participants of a LIVE huddle and only to the target user's sockets.
+    Huddle leave-on-disconnect runs on `disconnecting` (socket.rooms is
+    empty by `disconnect`) and skips users still in the huddle from
+    another tab.
+  - Auth: sign-up ignores a client `role`; unknown-email logins still run
+    a scrypt verify (no timing leak); login picks the oldest ACTIVE
+    membership; rate limits are per IP + per account email (login,
+    reset), per user (password change), per IP (invite lookup).
+    rateLimit({ key }) accepts a custom bucket function.
+  - Frontend: ?next= redirects go through lib/redirect.safeNextPath
+    (same-site paths only).
+  Known open items (not done in step 1): attachment files are public
+  Cloudinary URLs (anyone with the link can open them) and upload
+  size/type limits are still only client-reported; CORS reflects any
+  origin unless NODE_ENV=production; no CSRF token (SameSite=Lax only).
+
+
+------------------------------------------------------------------------
+11. REALTIME & MESSAGING RULES (since step 2, 2026-10-10)
+------------------------------------------------------------------------
+  - Reconnects: Socket.IO gives a reconnected socket NO rooms. Every hook
+    that joins a room also listens to 'connect' and re-emits its join,
+    then resyncs (useMessages.resync merges the latest page into loaded
+    history; useThread reloads). Switching workspace calls
+    lib/socket.reconnectSocket() (OrgContext.switchOrg) because the server
+    binds a socket to the session's active org at handshake.
+  - History paging: useMessages exposes hasOlder / loadingOlder /
+    loadOlder (cursor = oldest loaded _id, PAGE_SIZE 30 = server default).
+    MessageList loads older when scrolled within 200px of the top (or via
+    "Load older messages") and keeps the scroll position (layout effect
+    on the first message id). New-message detection counts only messages
+    appended after the previous newest id.
+  - Stale responses: useMessages, ActiveChannelContext and
+    ActiveConversationContext drop responses for a chat the user already
+    left; workspaces show a spinner until the loaded item matches the
+    route id. Socket message handlers ignore events whose channelId /
+    conversationId is not the open chat.
+  - Unread: unread.updated / notification.created carry organizationId;
+    clients ignore other workspaces' events. When an unread.updated
+    targets the chat currently open in a VISIBLE tab, UnreadContext marks
+    it read on the server (debounced 800ms); becoming visible also marks
+    the open chat read.
+  - Presence lives in its own PresenceContext (hooks/usePresence); socket
+    consumers no longer re-render on presence changes.
+  - Typing: server broadcasts typing=false for every key a socket had on
+    disconnect; clients also expire a typing entry after 7s.
+  - Reactions: live broadcasts (message.updated, thread.updated) are
+    serialized viewer-neutral (viewerId null); ReactionPill derives "mine"
+    from reaction.users. Never broadcast a payload serialized for the
+    actor.
+  - Edits/deletes/reactions are emitted to the chat room AND
+    thread:<rootId> (emitToMessageRooms).
+  - Delete rules: authors delete their own; channel moderators and org
+    OWNER/ADMIN may delete anyone's CHANNEL message (not DMs); UI shows
+    "Delete message" via MessageList/ConversationView canModerate.
+    Deleted messages cannot be edited/reacted (404). Deleting a reply
+    recomputes the root's replyCount / replyUserIds / lastReplyAt
+    (messageService.refreshThreadStats) and emits thread.updated. A
+    deleted ROOT with replies stays listed as a placeholder ("This
+    message was deleted.", replies still reachable); it disappears when
+    its last reply is deleted.
+  - Threads: replying auto-follows the replier; the root author is
+    auto-followed on the first reply. Followers who are no longer channel
+    members get no thread notifications.
+  - Group DMs: "Add people" never changes an existing DM. It finds or
+    creates the group DM for the combined people (Slack) and the UI
+    navigates there; earlier history is not shared.
+  - Channel rename/topic/purpose/archive emit channel.updated to org:<id>
+    (public) or each member's user room (private); the open
+    ChannelWorkspace reloads its header on it.
+  - Message indexes: {channel,_id}, {conversation,_id},
+    {parentMessageId,_id} for cursor paging.
+  - Deep links: FocusMessageContext re-reads ?message= on every pathname
+    change (and clears focus otherwise); Activity items also call
+    focusMessage on click. MessageList handles each focus request once.
+
+
+------------------------------------------------------------------------
+12. DND, NOTIFICATIONS, SEARCH, DRAFTS (Phase 6.3-6.5, 2026-10-10)
+------------------------------------------------------------------------
+Do Not Disturb ("Pause notifications")
+  - User.dndUntil (Date|null); active while in the future (utils/dnd.js
+    isDndActive / resolveDndUntil, max 7 days). PATCH /users/me/dnd
+    { minutes } | { until } | { off: true }. toPublicUser exposes dndUntil
+    only while active.
+  - presenceService.updateDnd: online user shows DND to all their orgs,
+    in-memory timer ends it (re-armed on connect after a restart), emits
+    `dnd.updated` to the user's room.
+  - Notifications are still created during DND (Activity + badges stay
+    correct) but `notification.created` carries `silent: true` -> no
+    desktop alert / sound.
+  - UI: components/notifications/NotificationsMenu (bell in the rail):
+    pause 30m / 1h / 2h / until tomorrow 9:00, resume, desktop toggle,
+    sound toggle. DropdownMenu gained `icon` + `triggerClassName`.
+Desktop notifications + sound
+  - lib/desktopNotify.ts (Notification API, Web Audio "knock", per-device
+    prefs in localStorage `notify.prefs`). NotificationContext alerts on
+    notification.created unless silent / DND / viewing that chat in a
+    visible tab; the desktop popup only shows when the tab is hidden
+    (tag = notification id dedupes tabs); clicking it opens the message.
+Tab title
+  - components/workspace/TabTitle: "(N) <title>" for mentions + unread DMs,
+    "* " for other unread.
+Search (GET /search?q=&type=all|messages|channels|people|files&page=)
+  - utils/searchQuery.js parses from:me|name, in:#channel|@person,
+    has:link|file|image|pin, before:/after:/on:YYYY-MM-DD, "phrases".
+  - services/search.service.js: scope = public channels (not removed) +
+    private channels the user is an active member of + the user's DMs;
+    never outside. Words are case-insensitive "contains" regexes (chosen
+    over $text for prefix matching; fine at small-org scale), 20 per page,
+    rate-limited 60/min per user.
+  - UI: /search (SearchView in Suspense: tabs, operator hint, load more);
+    the sidebar box filters channels live and Enter opens /search.
+    Opening a result focuses the message (thread replies open the
+    thread); MessageList auto-loads up to 10 older pages to reach a
+    focused message.
+Drafts (Slack "Drafts")
+  - Draft model { organization, user, key, channel|conversation,
+    threadRoot, content }, key = channel:<id> | conversation:<id> |
+    thread:<rootId>, unique per user+org+key. GET /drafts, PUT /drafts
+    (empty content deletes), DELETE /drafts/:id; access checked like
+    messages. Sending a message deletes that composer's draft. All
+    changes emit `draft.updated` to the user's room (other tabs).
+  - UI: DraftsContext + hooks/useComposerDraft (MessageComposer
+    `draftTarget` prop; ConversationView + ThreadPanel pass it): switching
+    chats saves immediately and loads the new draft, typing autosaves
+    after 800ms. /drafts page; sidebar Drafts link shows the count.
+
+
+------------------------------------------------------------------------
+13. PERFORMANCE: INSTANT CHAT SWITCHING (2026-10-10)
+------------------------------------------------------------------------
+Why: every API request made 5-8 sequential DB round trips (~190 ms each
+from a dev machine to the Atlas cluster) and every chat switch refetched
+everything (~10 requests, several duplicated).
+Frontend
+  - lib/cache.ts: in-memory cache (peek / put / fetchShared with in-flight
+    dedupe). Cleared on workspace switch (OrgContext) and on login /
+    register / logout (AuthContext).
+  - lib/chatCache.ts: message pages per chat (messages:<kind>:<id>),
+    channel / conversation details (<kind>:<id>), fetchLatestMessages,
+    mergeLatest, prefetchChat (sidebar hover / focus), preloadChats (2 at
+    a time), refreshCachedChat.
+  - useMessages: a visited chat renders from memory instantly, then
+    resyncs in the background; the cache is written only when `ownerKey`
+    (state, same update as messages) matches the chat.
+  - ActiveChannel / ActiveConversation contexts seed the header from the
+    cache or the sidebar list, then refresh. Files, links, pins and channel
+    members (mentions) are cached per chat; DM mentions reuse the shared
+    conversation details.
+  - components/workspace/ChatPreloader: ~1.5 s after load, preloads up to 8
+    chats (recent DMs + joined channels, interleaved); on unread.updated it
+    refreshes the cached copy of that (non-open) chat.
+  - Removed per-switch refetches: UnreadContext no longer reloads the
+    summary on switch (open chat read via ref); NotificationContext marks
+    the opened chat's items read locally (server already did); sidebar
+    items no longer POST read on click (the workspace does it once).
+Backend
+  - session.service.findActiveSession: one $lookup aggregate (session +
+    user, hidden fields excluded) returning hydrated docs.
+  - requireOrganization: membership + organization in parallel.
+  - requireChannel -> channelService.loadWithAccess: channel, membership
+    and member count in parallel (assertReadable holds the access rules);
+    invalid ids now 404 instead of a CastError 500.
+Production note: run the API in the same region as the database; most of
+the remaining first-visit time in development is network distance.
+
+
+------------------------------------------------------------------------
+14. SLACK MUST-HAVES (step 4, 2026-10-10)
+------------------------------------------------------------------------
+#general (default channel)
+  - Channel.isDefault. services/defaultChannel.service.js:
+    ensureDefaultChannel (creates "general", or promotes an existing PUBLIC
+    "general"; never a private one) and adds every ACTIVE org member;
+    ensureOnce (per-process) runs on GET /channels so existing workspaces
+    get it; joinDefaultChannel on invite accept; createOrganization makes it
+    (creator = moderator). Default channel can't be left, archived or have
+    members removed (409).
+Starred channels / muted DMs
+  - ChannelMember.starred; PATCH /channels/:id/members/me now takes
+    { notifyPreference?, starred? } (channelService.setMyPreferences).
+  - Conversation participants[].muted; PATCH /conversations/:id/preferences
+    { muted }; toPublicConversation(conversation, viewerId) exposes only the
+    viewer's own `muted`. Muted DMs create no notifications.
+  - Sidebar: Starred section, Channels = joined only, "Browse channels"
+    link; muted chats dimmed with a bell-off icon; muted channels/DMs are
+    excluded from workspace/tab badges (mentions still count).
+    ChannelsContext.patchChannel / ConversationsContext.patchConversation
+    for optimistic updates; channel list refreshes are silent.
+Channel browser: /channels (components/channels/ChannelBrowser): search,
+  All / Joined / Not joined, Join, Create.
+Rich text: components/conversation/richText.tsx renders Slack mrkdwn as
+  React elements (no HTML injection): *bold* **bold** _italic_ ~strike~
+  `code` ```blocks``` > quote, - / 1. lists, http(s) links. Inline markers
+  only at word edges. NOTE: renderInline recurses -> it must use a fresh
+  RegExp per call (a shared /g regex looped forever once).
+Composer: Ctrl/Cmd+B / I / Shift+X / Shift+C wrap the selection; paste
+  files/screenshots; drag & drop files; Up arrow in an empty box edits your
+  last message (ConversationView editRequest -> MessageList); emoji button;
+  formatting hint while typing; Enter ignores IME composition.
+Emoji: lib/emojiData.ts (curated set + keywords, recents in localStorage
+  `emoji.recent`); EmojiPicker has search, categories, recently used, and
+  closes on outside click.
+Keyboard: components/workspace/QuickSwitcher - Ctrl/Cmd+K "Jump to"
+  (channels + DMs, arrows + Enter, prefetches the highlighted chat),
+  Ctrl/Cmd+/ shortcuts list. Modal now closes on Esc and restores focus
+  (effect depends only on `open`).
+Profile cards: components/profile/UserProfileTrigger on message
+  avatars/names (presence, title, status, email, "Message" -> DM).
+Mobile (<=900px): rail + channel list are a left drawer (menu button,
+  backdrop, closes on navigation; WorkspaceUiContext navOpen); details
+  panel slides over the chat at <=1200px; heights use 100dvh.
+
+
+------------------------------------------------------------------------
+15. SLACK-STYLE COMPOSER (2026-10-10)
+------------------------------------------------------------------------
+Layout (MessageComposer): ScheduledBanner above the box; inside the box:
+  ComposerToolbar (formatting bar, toggled by "Aa", remembered in
+  localStorage `composer.toolbar`) -> attachment chips -> textarea ->
+  action row [+ menu | Aa | emoji | @ | video | mic | / | ... send v].
+  The box is a WYSIWYG editor (see "Rich editor" below).
+Formatting: lib/composerFormat.ts (pure): applyFormat(bold, italic,
+  underline, strike, code, codeBlock, quote, bulletList, numberedList) -
+  wraps/toggles the selection or prefixes lines; insertLink -> [text](url);
+  shortcutAction maps Ctrl/Cmd+B/I/U, Shift+X/C/7/8/9, Alt+Shift+C;
+  Ctrl/Cmd+Shift+U opens the link dialog. Toolbar buttons prevent
+  mousedown so the textarea keeps its selection.
+Rendering (richText.tsx): added __underline__ and [label](https://url)
+  (http/https only); italics never start after a backslash (¯\_(ツ)_/¯).
+  INLINE is built from named-group regex sources.
+Slash commands: lib/slashCommands.ts, run in the browser on send: /shrug,
+  /tableflip, /unflip, /me, /dnd [30m|1h|2h|4h|8h|tomorrow|off], /topic
+  (channel). Typing "/word" shows a suggestion list (arrows/Tab/Enter).
+Video clips: useAudioRecorder(kind: 'audio' | 'video') - video records
+  640x480 webm (or mp4), 2-minute cap, exposes the live `stream`;
+  VoiceRecorder shows the camera preview / video playback for kind video.
+Scheduled messages:
+  - Backend: ScheduledMessage model; POST /channels/:id/scheduled
+    (requireChannelWrite) and /conversations/:id/scheduled, GET /scheduled
+    (pending), DELETE /scheduled/:id. 1 minute .. 120 days ahead, text only,
+    max 100 pending per user. services/scheduler.js polls every 15 s
+    (in-process, started in server.js), claims due items atomically,
+    re-checks access, and posts through message.controller.postMessage (the
+    same pipeline as a normal send: broadcast, notify, unread, drafts,
+    thread follow). Emits `scheduled.updated` to the author.
+  - Frontend: ScheduledContext (loaded once per workspace + socket
+    updates), ScheduleMenu (Tomorrow 9:00, next Monday 9:00, custom time)
+    on the send chevron, ScheduledBanner with Cancel.
+Rich editor (WYSIWYG, no dependencies):
+  - components/conversation/editor/RichEditor.tsx: contenteditable driven by
+    document.execCommand (bold/italic/underline/strikeThrough, lists,
+    formatBlock pre/blockquote, createLink/insertHTML, insertText) so the
+    browser's undo works. Inline code is custom (<code> wrap/unwrap);
+    leaving code (right arrow at its end, or Code button with a caret) sets
+    exitCodeRef and the next `beforeinput` text is placed AFTER the <code>
+    (Chrome otherwise keeps typing inside it). Shift+Enter = newline ("\n"
+    in code blocks, new item in lists). Paste/drop insert plain text only;
+    pasted files go to the uploader. Reports {mentionQuery, active formats}
+    for the @ menu and pressed toolbar buttons.
+  - components/conversation/editor/markdown.ts: editorToMarkdown (DOM ->
+    Slack text; markers applied per line with edge spaces kept outside;
+    chips -> <@id>/<!channel>/<!here>; ZWSP stripped) and
+    markdownToEditorHtml (Slack text -> escaped HTML, using richText's
+    exported INLINE regex). Messages, drafts, scheduling and the server keep
+    using Slack text.
+  - Composer keeps `value` = Slack text; replaceValue() updates state AND the
+    editor (drafts, clear on send, slash completion). Mentions are chips
+    (contenteditable=false, data-mention); chip labels refresh when
+    mentionables load (refreshMentions).
+  - Editing a sent message uses the same editor: editor/MessageEditor.tsx
+    (toolbar + RichEditor, Enter saves, Esc cancels; chip names from
+    message.mentions). The hover toolbar is hidden on the row being edited.
+  - editor/LinkDialog.tsx is shared by the composer and the edit box.
+  - Inline code in the editor is ink (black), not red. List markers
+    (disc/decimal) are restored in the editor and rendered messages (the
+    base styles reset them).
+
+
+------------------------------------------------------------------------
+16. ADMIN (step 5, 2026-10-10)
+------------------------------------------------------------------------
+Audit: call auditService.record(orgId, actorId, AUDIT_ACTIONS.X, target?,
+  metadata?) AFTER the action succeeds; target = { type, id, label } or
+  null. New admin actions must add an AUDIT_ACTIONS key + a sentence in
+  frontend components/workspace/settings/auditLabels.ts.
+Invite link: Organization.inviteLink { token (select:false), expiresAt,
+  createdBy }. Only owners/admins see it; /invitations/link/:token is the
+  public lookup, /invitations/link/join needs auth. Frontend page: /join.
+Ownership: transferOwnership makes the actor ADMIN. Only owners can grant
+  OWNER. Last owner can't leave.
+Leaving/removal deletes the user's ChannelMember rows in that workspace.
+Sessions: /users/me/sessions; revoking cuts that session's sockets via
+  sockets/kick.disconnectSessions.
+Settings UI: /settings (WorkspaceSettings) - General/Invite link/Audit log
+  tabs for owners/admins; everyone gets "Leave workspace".
+
+
+------------------------------------------------------------------------
+17. MESSAGE WINDOW + PRELOAD (2026-10-10)
+------------------------------------------------------------------------
+- useMessages keeps <= MAX_LOADED (200) messages; hasNewer means the newest
+  were dropped: don't append live messages then, page with ?after=, and
+  "jump to latest" replaces the list (latestToken -> MessageList scrolls to
+  bottom). Server: listMessages({ before | after, limit }).
+- MessageList keeps the reader's place by pinning a message id + offset
+  (pageAnchorRef), never by scrollHeight differences (the far end may be
+  trimmed in the same update).
+- Do NOT put content-visibility / contain: paint on message rows: it clips
+  the hover time, hover background and toolbar (removed 2026-10-10).
+- Only the latest CACHE_KEEP (60) messages per chat go in the memory cache.
+- ChatPreloader: refs for lists; deps are only [org, ready].
+
+
+------------------------------------------------------------------------
+18. SECURITY RULES ADDED IN STEP 6 (2026-10-10)
+------------------------------------------------------------------------
+- Never trust client-reported upload facts: attachments/avatars go through
+  utils/assetVerify (Cloudinary lookup) before they are stored.
+- Allowed browser origins live in utils/origins.js only (REST CORS, Socket
+  CORS + handshake, CSRF). Set CLIENT_URL (comma-separated) in production.
+- New state-changing routes are CSRF-protected automatically (app-level
+  middleware); non-browser clients without Origin/Referer still work.
+- Posting routes use middleware/messageLimit (shared per-user bucket).
+- Before shipping a change that touches access control, run
+  `npm test` and `npm run test:security` in backend/ (backend running).
+- Attachments are private: never send Attachment.url for deliveryType
+  'authenticated' to clients (toPublicAttachment returns the API content
+  path). Render attachment URLs through mediaUrl() and set unoptimized for
+  isPrivateMedia() images. Avatars stay public (by design).
+
+
+------------------------------------------------------------------------
+19. RE-IMPLEMENTATION ON THIS MACHINE (2026-10-22): STEPS 1 + 2
+------------------------------------------------------------------------
+The code of sections 10 + 11 was lost on the other computer and was
+re-implemented here from the notes on 2026-10-22. Sections 10 + 11 stay
+the source of truth; where things live now:
+  Backend
+  - utils/media.js: avatarFolder / attachmentFolder / createAvatarSignature.
+  - utils/attachments.js: isInFolder + assertOwnedAsset (assertAttachmentRef
+    uses it); attachment.service rejects duplicate publicIds.
+  - user.service.updateAvatar -> { user, removablePublicId } (old avatar
+    destroyed only if inside avatars/<userId>).
+  - middleware/channel.requireChannelWrite (alias requireChannelMember kept);
+    messageService.assertCanWrite / canModerate.
+  - organizationService.assertCanManageRole; invitation create takes
+    actorRole (only owners invite owners).
+  - sockets/kick.js: disconnectSessions, disconnectUser,
+    disconnectUserInOrg, leaveChannelRooms (used by org / channel / auth
+    controllers). sessionService.revokeSessionsExcept + findSessionId.
+  - sockets/messageEvents.js: serializeLive, emitToMessageRooms,
+    emitThreadUpdated, emitCreated. sockets/messageDelivery.js: notify +
+    emitUnread (both carry organizationId).
+  - sockets/channelEvents.js: emitChannelUpdated (rename/topic/archive),
+    emitMembershipChanged (join/leave/add/remove -> sidebar refresh).
+  - sockets/index.js: typing cleanup on `disconnecting` (huddle leave goes
+    in that same handler later).
+  - middleware/rateLimit({ key }) + middleware/rateLimiters.js (per IP,
+    per account email, per user, invite lookup). config/env trustProxy ->
+    app.set('trust proxy').
+  - conversationService.addParticipants(org, conv, actor, ids) returns the
+    found/created group DM (never mutates the DM).
+  Frontend
+  - lib/redirect.safeNextPath / nextFromLocation; lib/socket.reconnectSocket;
+    lib/messageList (paging/merge helpers, PAGE_SIZE 30).
+  - context/PresenceContext + hooks/usePresence; hooks/useTypingUsers (7s
+    expiry); useMessages (hasOlder/loadingOlder/loadOlder/resync);
+    MessageList props hasOlder/loadingOlder/onLoadOlder/canModerate.
+
+
+------------------------------------------------------------------------
+20. RE-IMPLEMENTATION ON THIS MACHINE (2026-10-22): PHASE 6.3 - 6.5
+------------------------------------------------------------------------
+Section 12 was re-implemented here from the notes on 2026-10-22; section 12
+stays the source of truth. Where things live now:
+  Backend
+  - utils/dnd.js; User.dndUntil; userService.updateDnd;
+    PATCH /users/me/dnd (user.controller.updateDnd).
+  - presence.service: updateDnd, isOnline, DND timers (dndTimers map),
+    broadcastToAllOrgs; addConnection re-arms the timer and starts in DND.
+  - sockets/messageDelivery.notify: dndRecipients -> `silent` flag.
+  - Search: utils/searchQuery.js (parseSearchQuery -> { terms, from,
+    inChannels, inPeople, has:Set, before, after }; after:D = from the next
+    day, on:D = that day), services/searchScope.service.js (loadSearchScope),
+    services/searchMessages.service.js (messages + `location` {kind,id,name}),
+    services/search.service.js (channels/people match plain words only;
+    files match originalName + from:/dates). Response: { query, type, page,
+    messages|channels|people|files: { items, hasMore } } (type=all: 20
+    messages + 5 of the others). middleware/rateLimiters.searchLimiter.
+  - Drafts: models/draft.model.js, services/draft.service.js (keyFor,
+    keyForMessage, saveDraft, removeDraft, clearForMessage),
+    controllers/draft.controller.js, routes/drafts.routes.js,
+    sockets/draftEvents.emitDraftUpdated ({ organizationId, key, draft }).
+    message.controller.deliver -> clearDraft after every send.
+  Frontend
+  - lib/dnd.ts (isDndActive, DND_PRESETS, formatDndUntil), lib/users.updateDnd,
+    hooks/useDnd (pause/resume + expiry re-render), hooks/useDndSync
+    (dnd.updated), hooks/useNotificationAlerts (used by NotificationContext),
+    lib/desktopNotify.ts, components/notifications/NotificationsMenu (rail),
+    WorkspaceRail .userDnd ring, Icon 'moon'.
+  - components/workspace/TabTitle (mounted in WorkspaceShell).
+  - lib/search.ts (searchWorkspace, messageHref), types/search.ts,
+    hooks/useSearch, components/search/{SearchView,SearchResults,
+    SearchResultItems}, app/(app)/search/page.tsx (Suspense).
+  - types/draft.ts, lib/drafts.ts, context/DraftsContext (forgetDraft on
+    send), hooks/useDrafts, hooks/useComposerDraft (MessageComposer
+    draftTarget; composer stores its display text), components/drafts/
+    DraftsView, app/(app)/drafts/page.tsx; ChannelPanel Drafts link + count.
+
+
+------------------------------------------------------------------------
+21. RE-IMPLEMENTATION ON THIS MACHINE (2026-10-22): STEP 5 ADMIN
+------------------------------------------------------------------------
+Section 16 was re-implemented here from the notes; it stays the source of
+truth. Where things live now:
+  Backend
+  - config/constants AUDIT_ACTIONS; models/auditLog.model.js (org, actor,
+    action, target {type,id,label} | null, metadata, createdAt);
+    services/audit.service.js (record never throws; list 50/page newest
+    first, ?action=, ?before=<entry id>; userTarget/channelTarget/
+    emailTarget helpers); controllers/audit.controller.js.
+  - Organization.inviteLink { token select:false, expiresAt, createdBy };
+    services/inviteLink.service.js (30 days, regenerate, disable, joins as
+    MEMBER + #general if it exists); controllers/inviteLink.controller.js.
+    Manage: GET/POST/DELETE /organizations/:id/invite-link (owner/admin).
+    Public: GET /invitations/link/:token (inviteLookupLimiter); POST
+    /invitations/link/join { token } (auth + inviteLinkJoinLimiter).
+  - organization.service.updateOrganization -> { organization, changes };
+    name <= 80; logo no longer client-settable; emits organization.updated
+    (sockets/orgEvents.js). updateMember stores $locals.previous for audit.
+  - services/orgMembership.service.js: leaveOrganization (last-owner
+    guard), nextOrganizationFor, transferOwnership. services/
+    memberCleanup.service.removeChannelMemberships (leave + remove).
+    POST /organizations/:id/leave; POST /organizations/:id/transfer-
+    ownership { userId, confirm: <exact workspace name> } (OWNER only).
+  - POST /organizations/:id/invitations/:invitationId/resend (new token,
+    +7 days). POST /channels/:channelId/unarchive; GET /channels?archived=true.
+  - Sessions: controllers/session.controller.js; GET /users/me/sessions,
+    DELETE /users/me/sessions/:sessionId, POST /users/me/sessions/
+    revoke-others (sockets cut via kick.disconnectSessions).
+  Frontend
+  - components/workspace/settings/{WorkspaceSettings, GeneralSettings,
+    InviteLinkSettings, AuditLogView, WorkspaceDangerZone,
+    TransferOwnershipDialog, auditLabels.ts, Settings.module.css};
+    app/(app)/settings; ChannelPanel header gear -> /settings.
+  - app/join + components/workspace/JoinWorkspace; RegisterForm ?join=.
+  - lib/{audit,inviteLink,sessions}.ts, types/{audit,session}.ts,
+    lib/organizations (updateOrganization, leaveOrganization,
+    transferOwnership, resendInvitation); components/profile/SessionsList;
+    hooks/useOrgLiveUpdates + components/workspace/OrgLiveUpdates.
+  - Not rebuilt: "Copy invite link" in the invite dialog (API exists).
+    (Channel browser Archived filter + Unarchive: rebuilt in section 22.)
+
+
+------------------------------------------------------------------------
+22. RE-IMPLEMENTATION ON THIS MACHINE (2026-10-23): STEP 4 + UI FIXES
+------------------------------------------------------------------------
+Section 14 (+ till "UI FIXES (before step 5)") re-implemented here from
+the notes; section 14 stays the source of truth. Where things live now:
+  Backend
+  - Channel.isDefault; ChannelMember.starred; Conversation
+    participants[].muted.
+  - services/defaultChannel.service.js: findDefaultChannel,
+    ensureDefaultChannel(org, createdBy) (creates "general" or promotes a
+    PUBLIC "general", adds every ACTIVE org member), ensureOnce (per-process,
+    called by GET /channels), joinDefaultChannel (invite accept + invite
+    link join; replaces inviteLink's old name lookup), assertNotDefault.
+    organization.service.createOrganization creates it (creator moderator).
+  - channel.service: archive / leave / removeMember on the default channel
+    -> 409; setMyPreferences(channel, userId, { notifyPreference?, starred? })
+    (replaces setNotifyPreference) behind PATCH /channels/:id/members/me.
+    toPublicChannel exposes isDefault; membership exposes starred.
+  - conversation.service.toPublicConversation(conversation, viewerId) ->
+    `muted` (viewer only); setMyPreferences; PATCH
+    /conversations/:conversationId/preferences { muted } (controller
+    updatePreferences). sockets/messageDelivery: muted participants get no
+    DM notifications. No new AUDIT_ACTIONS (notes list none for step 4).
+  Frontend
+  - types: Channel.isDefault, ChannelMembership.starred, Conversation.muted.
+    lib/channels: listChannels({ joinedOnly, archived }), unarchiveChannel,
+    setMyChannelPreferences. lib/conversations.setConversationPreferences.
+  - ChannelsContext refresh({ silent }) + patchChannel (socket refreshes
+    are silent); ConversationsContext.patchConversation; WorkspaceUiContext
+    navOpen/openNav/closeNav/toggleNav.
+  - hooks/useChannelStar (persisted, optimistic; replaces ChannelWorkspace's
+    local star state), hooks/useConversationMute, hooks/useMutedTargets
+    (UnreadContext totals + TabTitle skip muted unread; mentions count),
+    hooks/useArchivedChannels, hooks/useQuickSwitcherItems.
+  - ChannelPanel: Starred section, Channels = joined only, "Browse
+    channels" -> /channels; dead "More" removed. ChannelListItem /
+    DirectMessageListItem: muted = dimmed + bell-off, no unread badge.
+    ChannelWorkspace: no Leave/Archive on #general; ChannelMembers hides
+    Remove there. DM menu: Block replaced by Mute/Unmute conversation.
+  - components/channels/ChannelBrowser(+Row, .module.css) at /channels:
+    search, All / Joined / Not joined / Archived, Join, Create, Unarchive
+    (org owner/admin or channel moderator).
+  - components/conversation/richText.tsx (renderRichText / renderInline,
+    fresh RegExp per call) used by MessageContent; lib/emojiData.ts
+    (EMOJI_CATEGORIES, searchEmoji, recents `emoji.recent`); EmojiPicker
+    (search, categories, recents, outside click; label/triggerClassName).
+  - lib/composerFormat.ts (shortcutMarker, wrapSelection, insertAt,
+    FORMAT_HINT). MessageComposer: Ctrl/Cmd+B/I/Shift+X/Shift+C, paste
+    files, drag & drop, emoji button, hint, IME-safe Enter, Up arrow ->
+    onEditLast (ConversationView editRequest -> MessageList).
+  - components/workspace/{QuickSwitcher, ShortcutsDialog, WorkspaceHotkeys}
+    + lib/recentChats.ts (`quickSwitcher.recent`): Ctrl/Cmd+K (recent,
+    channels, DMs, people; arrows/Enter; prefetch), Ctrl/Cmd+/. Modal: Esc
+    closes + focus restore.
+  - components/profile/{UserProfileTrigger, ProfileCard} on message
+    avatars/names. Icons menu, bell-off, compass.
+  - WorkspaceShell: <=900px drawer (.nav, backdrop, menu bar, closes on
+    route change / Esc); <=1200px details + thread overlay the chat.
+  - UI fixes: Popover applies panelClassName; thread "N replies" divider
+    (MessageList separatorAfter); lib/theme.watchSystemTheme (AuthContext).
+  - Not rebuilt: "Compact rows padding" tweak for the pins card.
+
+
+
+------------------------------------------------------------------------
+23. RE-IMPLEMENTATION ON THIS MACHINE (2026-10-23): SLACK-STYLE COMPOSER
+------------------------------------------------------------------------
+Section 15 re-implemented here from the notes; section 15 stays the source
+of truth (it supersedes section 22's textarea marker shortcuts). Where
+things live now:
+  Backend
+  - message.controller.postMessage({ io, organizationId, user, target:
+    { channel } | { conversation }, body }) = the ONE send pipeline
+    (createMessage -> touchActivity for DMs -> emitCreated, notify,
+    emitUnread, clear draft -> conversation.updated). createChannel /
+    createConversation and the scheduler both use it.
+  - models/scheduledMessage.model.js: organization, user, channel |
+    conversation, parentMessageId, alsoSendToChannel, content, scheduledAt,
+    status pending|sending|sent|failed|cancelled, claimedAt, sentAt,
+    message, error.
+  - services/scheduledMessage.service.js: 1 min .. 120 days ahead, text only
+    (assertMessageContent), max 100 pending per user; atomic claimDue /
+    claimById (pending -> sending); releaseStaleClaims (sending > 5 min ->
+    pending, i.e. after a crash/restart); markSent / markFailed.
+  - services/scheduledAccess.service.resolveSendContext: re-checks at send
+    time (active org member, channel write access / still a participant).
+  - services/scheduler.js: startScheduler(io) from server.js (stopScheduler
+    on shutdown); polls every 15 s (+ once at start, so items due while the
+    server was down are sent), max 50 per tick; sendClaimed never throws
+    (failure -> status failed). Emits `scheduled.updated` to user:<author>
+    via sockets/scheduledEvents ({ organizationId, id, status, error,
+    scheduled: public item | null }).
+  - Routes: POST /channels/:channelId/scheduled (requireChannel +
+    requireChannelWrite), POST /conversations/:conversationId/scheduled
+    (requireConversation) body { content, scheduledAt ISO, parentMessageId?,
+    alsoSendToChannel? } -> 201 { scheduled }; GET /scheduled -> { scheduled:
+    [pending, soonest first] }; PATCH /scheduled/:id { content?, scheduledAt? };
+    DELETE /scheduled/:id (cancel) -> { id }; POST /scheduled/:id/send (send
+    now) -> 201 { message }. 409 when already being sent.
+  Frontend
+  - components/conversation/editor/: RichEditor.tsx (+ .module.css),
+    markdown.ts (editorToMarkdown / markdownToEditorHtml / mentionChipHtml),
+    ComposerToolbar.tsx, LinkDialog.tsx, MessageEditor.tsx (MessageList edit
+    box; hover actions hidden while editing), useEditorControls.ts (formats,
+    @query, toolbar actions, shortcuts, link dialog).
+  - components/conversation/composer/: MentionMenu (mentionOptions -> tokens
+    <@id> / <!channel> / <!here>), SlashMenu, AttachmentChips, ScheduleMenu
+    (DropdownMenu on the send chevron: tomorrow 9:00, next Monday 9:00,
+    Custom time…), ScheduleDialog (datetime-local; also Reschedule),
+    ScheduledBanner (this chat's pending items: Send now / Reschedule /
+    Cancel; thread composer shows only that thread's).
+  - MessageComposer props: + scheduleTarget ({ kind, id, parentMessageId?,
+    alsoSendToChannel? }); ConversationView + ThreadPanel pass it,
+    NewMessageView does not (no scheduling there). Toolbar toggle "Aa" in
+    localStorage `composer.toolbar` ('off' hides).
+  - lib/composerFormat.ts now: FormatAction, shortcutAction, TOOLBAR_ITEMS,
+    normalizeUrl (old wrapSelection / insertAt / FORMAT_HINT removed).
+    lib/slashCommands.ts (SLASH_COMMANDS, matchSlashCommands,
+    runSlashCommand; /dnd default 1h; /topic via updateChannel).
+    lib/scheduled.ts, lib/scheduleTimes.ts, types/scheduled.ts,
+    context/ScheduledContext (ScheduledProvider in app/(app)/layout inside
+    DraftsProvider), hooks/useScheduled, hooks/useComposerUploads.
+  - useAudioRecorder(kind 'audio' | 'video'): video 640x480 webm/mp4, 2 min
+    cap, exposes `stream`, `kind`; VoiceRecorder kind/stream props (camera
+    preview, video playback). Icons: list, list-ordered, quote, code,
+    code-block, video, clock, slash.
+  - richText.tsx: __underline__, [label](https://url), exported
+    INLINE_SOURCE / INLINE() / parseBlocks / Block.
+  - Not rebuilt: a separate scheduled-messages list page (notes only list
+    the banner); DraftsView still shows raw Slack text (<@id> tokens) for
+    drafts now that composer drafts are stored as Slack text.
+
+
+------------------------------------------------------------------------
+24. RE-IMPLEMENTATION ON THIS MACHINE (2026-10-23): INSTANT SWITCHING +
+    MESSAGE WINDOW
+------------------------------------------------------------------------
+Sections 13 + 17 re-implemented here from the notes; they stay the source
+of truth. Where things live now:
+  Backend
+  - session.service.findActiveSession: one aggregate ($match + $lookup user,
+    passwordHash / reset fields projected out) -> hydrated Session with a
+    hydrated, populated `user` (session.save() keeps working).
+  - middleware/organization.loadMembership: membership + organization in
+    parallel.
+  - channel.service.assertReadable + loadWithAccess(channelId, orgId,
+    userId) (channel, membership, member count in parallel; invalid id ->
+    404); requireChannel uses it. getAccessContext kept for other callers.
+  - message.service.listMessages({ before | after, limit }): `after` pages
+    ascending (_id > after).
+  Frontend
+  - lib/cache.ts: peek / put / drop / dropPrefix / fetchShared (in-flight
+    dedupe, results from before a clear are not stored) / clearCache /
+    setCacheScope(`<userId>:<orgId>`) (called during OrgProvider render) /
+    cacheGeneration. clearCache also on switchOrg and login / register /
+    logout.
+  - lib/chatCache.ts: per chat (`<kind>:<id>`): messages:<chat> snapshot
+    { messages (latest CACHE_KEEP = 60), hasOlder }, details (<chat> =
+    Channel | Conversation), scroll:<chat> anchor, files: / links: /
+    members: / pins: keys; LRU of 40 chats (evicts all keys). dropChat,
+    isAccessLost (403/404), fetchLatestMessages, mergeLatest,
+    refreshCachedChat, applyLiveMessage, fetchChannelDetails /
+    fetchConversationDetails, prefetchChat, preloadChats (2 at a time),
+    chatScrollMemory. lib/preloadOrder.ts (unread, starred, then DMs +
+    channels interleaved).
+  - lib/messageList: MAX_LOADED 200, applyDeleted, prependPage /
+    appendPage (trim the far end). lib/messages list*(id, before, after).
+  - useMessages: ownerKey state switched DURING render from the cached
+    snapshot (no spinner, no previous-chat flash), then load() refreshes
+    silently (mergeLatestPage); hasNewer / loadNewer (?after=) /
+    jumpToLatest / latestToken; live messages not appended while hasNewer;
+    cache written only for the latest window (ownerKey === chat, !hasNewer).
+  - hooks/useChatDetails (generic SWR header loader: seed from cache, then
+    sidebar list; 403/404 -> dropChat + error; targetId exposed).
+    ActiveChannel / ActiveConversation contexts use it. Channel / DM
+    workspaces render the cached details for the route id immediately
+    (spinner only on a first visit with nothing cached).
+  - MessageList: pageAnchorRef (message id + offset; readAnchor / pinTo /
+    repin for 3 frames), "Load newer messages", jump arrow -> jumpToLatest
+    while hasNewer, scrollMemory (restore on revisit, saved on leave).
+  - useAttachments / useLinks / useMentionables / PinsContext: cached per
+    chat via fetchShared. UnreadContext reads the open chat via a ref (no
+    summary refetch per switch); sidebar items no longer POST read on click.
+  - components/workspace/ChatPreloader (1.5 s, visible + idle, not on Data
+    Saver / 2G, max 6, deps [org, ready]) and ChatCacheSync (live message
+    events patch cached windows; unread.updated refreshes cached non-open
+    chats; channel.updated refreshes cached details; membership loss drops
+    the channel). Sidebar rows + QuickSwitcher highlight -> prefetchChat.
+  - Not rebuilt: NotificationContext local "mark opened chat read".
+
+------------------------------------------------------------------------
+25. UI (2026-10-23): WORKSPACE RAIL STACK + DEMO TOPBAR
+------------------------------------------------------------------------
+  - Rail (components/workspace): WorkspaceStack = active tile in front,
+    up to 2 offset/rotated layers behind + "+N" when >3 workspaces; hover/
+    focus/click opens WorkspaceHoverCard (now a list of ALL workspaces +
+    "Create workspace"; switching goes through useOrg().switchOrg).
+    RailNav = Home(/), Activity(/activity, mentionCount badge from
+    useNotifications), Members(/members); shared RailButton.module.css
+    (demo .rail-btn). Bottom: NotificationsMenu (DND), RailThemeToggle
+    (moon/sun -> updateMe({theme}) + applyTheme + setUser, same as Profile
+    ThemeSelector), logout, avatar with presence dot. Icon gained 'sun'.
+  - ConversationHeader: "# name" + chevron button (onTitleClick ->
+    toggleDetails), sub line (channel: topic/purpose · N members; DM:
+    presence · status), optional `facepile` slot, star as demo icon-btn,
+    tabs without icons + `count` (demo .tab .n). MemberFacepile (first 3 +
+    "+N", 26px r8) uses useMentionables (shared cached member list).
+  - Channel tabs: Messages / Files N / Pins N / Links N / Members N
+    (Members tab now for any channel member; manage actions still gated
+    by canManage). DM tabs: Messages / Files / Links; group DM facepile
+    opens details.
+
+------------------------------------------------------------------------
+ACTIVITY + MEMBERS PAGES (redesign, 2026-10-23)
+------------------------------------------------------------------------
+  Activity (components/notifications): NotificationsView (orchestrator),
+    ActivityKpis, ActivityFeedItem, WhoIsAround, activityFilters.ts,
+    Activity.module.css. Data: NotificationContext (items, mentionCount),
+    SavedContext (saved count), hooks/useActivitySummary ->
+    GET /notifications/summary (backend services/activitySummary.service.js:
+    followed threads, threads with replies newer than follow.lastReadAt,
+    messages today/yesterday within the user's readable scope),
+    hooks/useOrgMembers + PresenceContext for "Who's around".
+    No REACTION notification type exists yet: the Reactions chip shows empty.
+  Members (components/members): MembersView (data/actions), MembersTable,
+    ManageMemberDialog, memberRules.ts (rank rules), exportMembersCsv.ts.
+    Invitation payload now includes createdAt ("Invited N days ago").
+  Shared UI: components/ui/Pill (ok/warn/bad/info/mute), components/ui/PageHeader,
+    Button size="sm"; lib/presenceLabel.ts, lib/relativeDays.ts.
+
+
+------------------------------------------------------------------------
+26. RE-IMPLEMENTATION ON THIS MACHINE (2026-10-23): HUDDLES (6.6 + 8.7-8.10)
+------------------------------------------------------------------------
+Phase 6.6 + till 8.7 (ringing), 8.8 (features), 8.9 (call log + chat),
+8.10 (minimise) and "SCREEN SHARE: SHARER'S OWN PREVIEW STUCK" were lost
+with the other computer and re-implemented here from the notes (section 9
+"PHASE 6.6" + section 10 stay the source of truth). Where things live now:
+  Backend
+  - config/constants HUDDLE_STATUS { LIVE, ENDED }, HUDDLE_INVITE_STATUS
+    { RINGING, JOINED, DECLINED, MISSED }.
+  - models/huddle.model.js: organization, channel XOR conversation,
+    startedBy, status, participants[{ user, joinedAt, leftAt }],
+    invites[{ user, invitedBy, status, invitedAt, expiresAt }], hadVideo,
+    hadScreenShare, message (call-log card), endedAt, durationSeconds,
+    endedBy, outcome (null | MISSED | DECLINED). Unique partial indexes =
+    one LIVE huddle per channel / per conversation.
+  - Message.huddle (ref Huddle); toPublicMessage.huddleId;
+    message.service.attachHuddle(target, actorId, huddleId, content) +
+    rewriteHuddleCard(messageId, content); updateMessage refuses huddle
+    cards (403). The card is created as "Huddle started" and rewritten at
+    the end to "Huddle ended · N min · N people" / "Missed huddle" /
+    "Huddle declined" (no 5s minimum). In-huddle chat = the card's thread.
+  - services/huddleAccess.service.js: resolveTarget (channel: active member
+    of a non-archived channel via assertCanWriteById; DM: participant),
+    assertHuddleAccess, audienceIds (channel members / DM participants who
+    are ACTIVE org members).
+  - services/huddle.service.js: MAX_PARTICIPANTS 8, RING_MS 30s,
+    toPublicHuddle, loadForUser, startHuddle (joins the LIVE one if it
+    exists; DM -> rings the other participants; E11000 race -> join),
+    addParticipant, leaveForUser (last one out ends; caller alone in a DM
+    -> MISSED / DECLINED), endForUser (starter only), endHuddle (atomic
+    LIVE -> ENDED + card rewrite), declineForUser (DM ends when nobody is
+    left ringing and nobody answered; channels never end on a decline),
+    expireInvites, nextRingExpiry, listCandidates, inviteUsers, noteMedia
+    (sticky flags), listActiveForUser, listHistory (20 newest ENDED).
+  - services/huddle.events.js: huddle.started / huddle.updated /
+    huddle.ended to every audience member's user:<id> room
+    ({ organizationId, huddle }); broadcastCard (message.created /
+    message.updated); ring -> huddle.ring { organizationId, huddle, caller,
+    silent (DND) }; stopRing -> huddle.ring.stopped { organizationId,
+    huddleId }; announceEnded; leaveAndBroadcast (REST leave + disconnect).
+  - services/huddleRing.js: one timer per huddle armed for the next invite
+    expiry (armRingTimer / clearRingTimer) -> MISSED + ring.stopped.
+  - REST (requireAuth + requireOrganization): POST /huddles { channelId |
+    conversationId } (201 new / 200 joined), GET /huddles/active,
+    GET /huddles/history?channelId= | ?conversationId=, POST /huddles/:id/
+    {join, leave, end, decline}, GET /huddles/:id/candidates -> { users },
+    POST /huddles/:id/invite { userIds } (also "Ring again"). Others
+    return { huddle } / { huddles }.
+  - sockets/huddle.sockets.js: huddle:subscribe (ack; ACTIVE participant of
+    a LIVE huddle only) joins huddle:<id>; huddle:unsubscribe;
+    huddle:signal { huddleId, to, type offer|answer|ice, data } relayed as
+    { huddleId, from, type, data } only between two ACTIVE participants and
+    only to the target's sockets subscribed to that huddle (64 KB cap);
+    huddle:media { huddleId, audio, video, screen } -> room + noteMedia;
+    huddle:react { huddleId, emoji } (fixed 8 emoji, 400 ms throttle) ->
+    huddle:reaction { huddleId, id, emoji, user } to the room.
+    leaveHuddlesOnDisconnect runs in sockets/index.js `disconnecting`
+    (skips users still subscribed from another tab).
+  Frontend
+  - types/huddle.ts, types/message.ts huddleId; lib/huddles.ts (REST +
+    huddleTargetKey / huddleKeyFor); lib/webrtc.ts (ICE_SERVERS from
+    NEXT_PUBLIC_STUN_URL (default stun:stun.l.google.com:19302) + optional
+    NEXT_PUBLIC_TURN_URL / _USERNAME / _CREDENTIAL, comma lists;
+    isWebrtcSupported, getDisplayMediaSupported, formatHuddleDuration,
+    mediaErrorMessage, stopStream); lib/huddlePeer.ts (HuddlePeer: one
+    audio + one video transceiver per connection, camera / screen are
+    replaceTrack on the video sender, queued ICE); lib/ringtone.ts (WebAudio).
+  - context/HuddleContext + hooks/useHuddles: huddles (LIVE), joinedId,
+    activeHuddle, rings, notice ("X declined" / "No answer"), minimized,
+    start / join / leave / end / decline / invite; one huddle at a time;
+    resync on (re)connect and rejoin the joined huddle after a reconnect.
+  - hooks/useHuddleSession (mic on join, listen-only fallback; lower user
+    id offers; a new offer restarts that peer; a huddle:media from a peer
+    that never answered triggers a re-offer; localPreview = camera only,
+    the sharer never sees their own screen), useHuddleReactions,
+    useElapsed, useHuddleTitle (+ huddleHref).
+  - components/huddle: HuddleBar (floating box top right, beside the
+    thread panel; minimised pill keeps HuddleAudio mounted; notice pill),
+    HuddleHeader, HuddleStage ("You're sharing your screen" + Stop sharing;
+    16:9 letterboxed screen tiles), HuddleVideoTile, HuddleAudio,
+    HuddleControls (+ HuddleControlButton), HuddlePeople (invitees dimmed:
+    Ringing… / Declined / No answer + Ring again), HuddleAddPeople,
+    HuddleReactions (picker + float layer), HuddleRingPopup (silent in
+    DND), HuddleStartButton (header `actions` slot: Huddle / Join huddle · N
+    / Leave huddle), HuddleJoinBar (ConversationView), HuddlePill (channel +
+    DM sidebar rows), HuddleSummary (MessageList card; live = dark card +
+    Join), HuddleWave, HuddleFaces, talkingLabel.ts.
+  - Design: `.huddle-surface` in tokens.css = deep rail-green surface that
+    re-points the NEW token names (surface-*, ink-*, line*, mint, pos, neg).
+    Legacy aliases (--paper etc.) do not follow it, so huddle CSS uses the
+    new names. Icon gained headphones, video-off, mic-off, screen,
+    phone-down, minimize, maximize. ConversationHeader gained `actions`.
+  - Not rebuilt / different: no huddle history UI (API only); no "End for
+    all" confirm; no weekly-activity exclusion (stats.service does not
+    exist here); no "outside schedule" ring rule (only DND exists here).

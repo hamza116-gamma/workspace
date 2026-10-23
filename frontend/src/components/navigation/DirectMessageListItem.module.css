@@ -1,0 +1,92 @@
+.item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  height: 34px;
+  padding: 0 10px;
+  border-radius: 10px;
+  color: var(--ink-2);
+  text-decoration: none;
+  font-size: 13.5px;
+  font-weight: 400;
+  transition: all var(--t) var(--ease);
+}
+
+.item:hover {
+  background: var(--surface-3);
+  color: var(--ink);
+}
+
+.unread {
+  color: var(--ink);
+  font-weight: 620;
+}
+
+.active,
+.active:hover {
+  background: var(--brand-soft);
+  color: var(--brand-ink);
+  font-weight: 600;
+}
+
+.stack {
+  display: inline-flex;
+  align-items: center;
+  width: 22px;
+  justify-content: center;
+  flex: none;
+}
+
+.stack > * + * {
+  margin-left: -8px;
+}
+
+.name {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* Mention-style pill, brand filled. */
+.badge {
+  margin-left: auto;
+  display: grid;
+  place-items: center;
+  min-width: 20px;
+  height: 20px;
+  padding: 0 6px;
+  border-radius: var(--r-pill);
+  background: var(--brand);
+  color: var(--on-brand);
+  font-size: 11px;
+  font-weight: 700;
+  flex-shrink: 0;
+}
+
+/* Muted chats: dimmed, never bold, bell-off marker. */
+.muted,
+.muted.unread {
+  color: var(--ink-3);
+  font-weight: 400;
+  opacity: 0.75;
+}
+
+.mutedIcon {
+  margin-left: auto;
+  color: var(--ink-3);
+  display: inline-flex;
+  flex-shrink: 0;
+}
+
+/* Slack-style "you left a draft here" marker on the right of the row. */
+.draftIcon {
+  margin-left: auto;
+  color: var(--ink-3);
+  display: inline-flex;
+  flex-shrink: 0;
+}
+
+.draftIcon + .badge {
+  margin-left: 6px;
+}

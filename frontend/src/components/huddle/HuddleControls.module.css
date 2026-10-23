@@ -1,0 +1,87 @@
+.controls {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+
+.spacer {
+  flex: 1;
+}
+
+/* demo .icon-btn on the huddle surface */
+.control {
+  display: grid;
+  place-items: center;
+  width: 38px;
+  height: 38px;
+  border-radius: 12px;
+  border: 1px solid var(--line-2);
+  background: var(--surface-3);
+  color: var(--ink);
+  cursor: pointer;
+  transition: all var(--t) var(--ease);
+}
+
+.control:hover:not(:disabled) {
+  background: var(--surface-2);
+  border-color: var(--ink-4);
+}
+
+.control:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+
+.control:focus-visible,
+.leave:focus-visible,
+.end:focus-visible {
+  outline: 2px solid var(--brand);
+  outline-offset: 2px;
+}
+
+.active {
+  background: var(--mint);
+  border-color: var(--mint);
+  color: var(--brand-ink);
+}
+
+.active:hover:not(:disabled) {
+  background: var(--mint-2);
+}
+
+.off {
+  background: var(--neg-soft);
+  border-color: var(--neg-line);
+  color: var(--neg);
+}
+
+.leave,
+.end {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  height: 38px;
+  padding: 0 14px;
+  border-radius: 12px;
+  font: inherit;
+  font-size: var(--fs-small);
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.leave {
+  border: 0;
+  background: #de4c4c;
+  color: #fff;
+}
+
+.leave:hover:not(:disabled) {
+  background: #c93f3f;
+}
+
+.end {
+  border: 1px solid var(--neg-line);
+  background: transparent;
+  color: var(--neg);
+}

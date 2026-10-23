@@ -1,0 +1,17 @@
+.wrap {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-height: 0;
+}
+
+/* Pinned rows are clickable (jump to message), so show the pointer. */
+.wrap [data-message-id] {
+  cursor: pointer;
+}
+
+.empty {
+  margin: 0;
+  font-size: 13.5px;
+  color: var(--ink-3);
+}

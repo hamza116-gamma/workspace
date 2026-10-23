@@ -1,0 +1,209 @@
+/* Members directory - mirrors design/workspace-redesign.html #view-members */
+.page {
+  padding: 24px 26px 40px;
+  overflow-y: auto;
+  animation: qlRise 320ms var(--ease);
+}
+
+.mt {
+  margin-top: 16px;
+}
+
+.card {
+  background: var(--surface-1);
+  border: 1px solid var(--line);
+  border-radius: var(--r-lg);
+  box-shadow: var(--sh-1);
+  overflow: hidden;
+}
+
+.cardHead {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+  padding: 16px 18px;
+  border-bottom: 1px solid var(--line);
+}
+
+.cardHead h3 {
+  margin: 0;
+  font-size: 14px;
+  font-weight: 640;
+  letter-spacing: var(--track-tight);
+  color: var(--ink);
+}
+
+.spacer {
+  flex: 1;
+}
+
+.field {
+  height: 38px;
+  width: 100%;
+  padding: 0 12px;
+  border-radius: var(--r-sm);
+  border: 1px solid var(--line-2);
+  background: var(--surface-1);
+  color: var(--ink);
+  font: inherit;
+  font-size: 13.5px;
+  transition: all var(--t) var(--ease);
+}
+
+.field::placeholder {
+  color: var(--ink-3);
+}
+
+.field:focus {
+  outline: none;
+  border-color: var(--brand-3);
+  box-shadow: 0 0 0 3px var(--brand-soft);
+}
+
+.search {
+  width: 220px;
+  height: 32px;
+}
+
+/* table */
+.tblWrap {
+  overflow-x: auto;
+}
+
+.table {
+  width: 100%;
+  border-collapse: separate;
+  border-spacing: 0;
+}
+
+.table thead th {
+  text-align: left;
+  padding: 10px 14px;
+  font-size: 10.5px;
+  font-weight: 650;
+  letter-spacing: 0.09em;
+  text-transform: uppercase;
+  color: var(--ink-3);
+  background: var(--surface-2);
+  border-bottom: 1px solid var(--line);
+  white-space: nowrap;
+}
+
+.table tbody td {
+  padding: 11px 14px;
+  border-bottom: 1px solid var(--line);
+  font-size: 13.5px;
+  vertical-align: middle;
+  color: var(--ink);
+}
+
+.table tbody tr {
+  transition: background var(--t) var(--ease);
+}
+
+.table tbody tr:hover {
+  background: var(--surface-2);
+}
+
+.table tbody tr:last-child td {
+  border-bottom: 0;
+}
+
+.table td.hint {
+  white-space: nowrap;
+}
+
+.right {
+  text-align: right;
+  white-space: nowrap;
+}
+
+.who {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.whoBody {
+  min-width: 0;
+}
+
+.name {
+  font-weight: 600;
+  color: var(--ink);
+}
+
+.pendingName {
+  color: var(--ink-2);
+}
+
+.hint {
+  font-size: 12px;
+  font-weight: 400;
+  color: var(--ink-3);
+}
+
+.unknownAv {
+  width: 32px;
+  height: 32px;
+  border-radius: 10px;
+  display: grid;
+  place-items: center;
+  flex: none;
+  background: var(--surface-3);
+  color: var(--ink-3);
+  font-size: 11px;
+  font-weight: 700;
+}
+
+.revoke {
+  color: var(--neg);
+}
+
+.muted {
+  margin: 0;
+  padding: 28px 18px;
+  text-align: center;
+  font-size: 12px;
+  color: var(--ink-3);
+}
+
+.center {
+  display: flex;
+  justify-content: center;
+  padding: 24px 0;
+}
+
+/* manage dialog */
+.manage {
+  display: grid;
+  gap: 10px;
+}
+
+.lbl {
+  display: block;
+  margin-top: 8px;
+  font-size: 11px;
+  font-weight: 620;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--ink-3);
+}
+
+.manageActions {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+  margin-top: 8px;
+}
+
+@media (max-width: 640px) {
+  .page {
+    padding: 18px 16px 32px;
+  }
+
+  .search {
+    width: 100%;
+  }
+}

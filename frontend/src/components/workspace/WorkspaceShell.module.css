@@ -1,0 +1,346 @@
+/* App frame: canvas well, 14px gutter, floating cards (rail / sidebar / main). */
+.shell {
+  display: grid;
+  grid-template-columns: 74px 268px minmax(0, 1fr);
+  gap: 14px;
+  height: 100vh;
+  height: 100dvh;
+  padding: 14px;
+  box-sizing: border-box;
+  background: var(--canvas);
+  transition: background var(--t) var(--ease);
+}
+
+/* The side track is "auto": the panel column's own (animated) width sizes it,
+   so the chat narrows smoothly while the panel opens instead of jumping. */
+.withDetails,
+.withThread {
+  grid-template-columns: 74px 268px minmax(0, 1fr) auto;
+}
+
+.main {
+  min-width: 0;
+  min-height: 0;
+  overflow-y: auto;
+  background: var(--surface-1);
+  border: 1px solid var(--line);
+  border-radius: var(--r-xl);
+  box-shadow: var(--sh-2);
+  display: flex;
+  flex-direction: column;
+  transition:
+    background var(--t) var(--ease),
+    border-color var(--t) var(--ease);
+}
+
+:global(.dark) .main {
+  background: var(--surface-2);
+}
+
+.main > * {
+  flex: 1 0 auto;
+}
+
+.context,
+.threadColumn {
+  min-width: 0;
+  min-height: 0;
+  overflow: hidden;
+  background: var(--surface-1);
+  border: 1px solid var(--line);
+  border-radius: var(--r-xl);
+  box-shadow: var(--sh-2);
+}
+
+/* Docked panels: the column grows from 0 to its width (the chat makes room
+   smoothly) while the content, kept at full width, slides in. */
+.context {
+  --panel-w: 340px;
+  width: var(--panel-w);
+  animation: detailsOpen 480ms cubic-bezier(0.4, 0, 0.2, 1) both;
+}
+
+.threadColumn {
+  --panel-w: 380px;
+  width: var(--panel-w);
+  animation: threadOpen 480ms cubic-bezier(0.4, 0, 0.2, 1) both;
+}
+
+.context > *,
+.threadColumn > * {
+  width: var(--panel-w);
+  min-width: var(--panel-w);
+}
+
+/* Closing: slide back out before the column is removed (see useDelayedClose). */
+.context.closing {
+  animation: detailsClose 280ms cubic-bezier(0.4, 0, 0.2, 1) both;
+  pointer-events: none;
+}
+
+.threadColumn.closing {
+  animation: threadClose 280ms cubic-bezier(0.4, 0, 0.2, 1) both;
+  pointer-events: none;
+}
+
+:global(.dark) .context,
+:global(.dark) .threadColumn {
+  background: var(--surface-2);
+}
+
+/* Rail + channel list: grid items on desktop, a left drawer <=900px. */
+.nav {
+  display: contents;
+}
+
+.backdrop,
+.mobileBar {
+  display: none;
+}
+
+@media (max-width: 1200px) {
+  .withDetails,
+  .withThread {
+    grid-template-columns: 74px 268px minmax(0, 1fr);
+  }
+
+  /* Not enough room to dock a panel: details / thread slide over the chat. */
+  .context,
+  .threadColumn {
+    position: fixed;
+    top: 14px;
+    right: 14px;
+    bottom: 14px;
+    width: 380px;
+    max-width: calc(100vw - 28px);
+    height: auto;
+    z-index: 80;
+    box-shadow: var(--sh-3);
+    /* Overlay drawer: full slide from off-screen. */
+    animation: drawerIn 520ms cubic-bezier(0.4, 0, 0.2, 1) both;
+  }
+
+  .context > *,
+  .threadColumn > * {
+    width: 100%;
+    min-width: 0;
+  }
+
+  .context.closing,
+  .threadColumn.closing {
+    animation: drawerOut 240ms cubic-bezier(0.4, 0, 1, 1) both;
+  }
+}
+
+@media (max-width: 900px) {
+  .shell,
+  .withDetails,
+  .withThread {
+    grid-template-columns: minmax(0, 1fr);
+    grid-template-rows: auto minmax(0, 1fr);
+    gap: 8px;
+    padding: 8px;
+  }
+
+  .nav {
+    position: fixed;
+    top: 0;
+    bottom: 0;
+    left: 0;
+    z-index: 120;
+    display: flex;
+    gap: 8px;
+    padding: 8px;
+    width: min(352px, calc(100vw - 48px));
+    box-sizing: border-box;
+    transform: translateX(-105%);
+    transition: transform 240ms var(--ease);
+  }
+
+  .nav > nav {
+    flex: none;
+    width: 64px;
+  }
+
+  .nav > aside {
+    flex: 1;
+    min-width: 0;
+  }
+
+  .navOpen {
+    transform: translateX(0);
+  }
+
+  .backdrop {
+    display: block;
+    position: fixed;
+    inset: 0;
+    z-index: 110;
+    background: rgba(8, 18, 14, 0.42);
+    backdrop-filter: blur(4px);
+    -webkit-backdrop-filter: blur(4px);
+    animation: qlFade 160ms var(--ease);
+  }
+
+  .mobileBar {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    min-width: 0;
+  }
+
+  .menuButton {
+    width: 40px;
+    height: 40px;
+    display: grid;
+    place-items: center;
+    border: 1px solid var(--line);
+    border-radius: var(--r-md);
+    background: var(--surface-1);
+    color: var(--ink);
+    box-shadow: var(--sh-1);
+    cursor: pointer;
+  }
+
+  .mobileTitle {
+    min-width: 0;
+    font-size: 15px;
+    font-weight: 650;
+    color: var(--ink);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .context,
+  .threadColumn {
+    top: 8px;
+    right: 8px;
+    bottom: 8px;
+    max-width: calc(100vw - 16px);
+  }
+}
+
+@keyframes panelIn {
+  from {
+    opacity: 0;
+    transform: translateX(64px) scale(0.97);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+@keyframes drawerIn {
+  from {
+    opacity: 0.4;
+    transform: translateX(calc(100% + 24px));
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+/* Panel contents follow a beat later so the slide reads as one motion. */
+.context > *,
+.threadColumn > * {
+  animation: panelContentIn 520ms cubic-bezier(0.4, 0, 0.2, 1) 60ms both;
+}
+
+@keyframes panelContentIn {
+  from {
+    opacity: 0;
+    transform: translateX(40px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+@keyframes threadOpen {
+  from {
+    width: 0;
+    margin-left: -14px;
+    opacity: 0;
+  }
+  to {
+    width: 380px;
+    margin-left: 0;
+    opacity: 1;
+  }
+}
+
+@keyframes threadClose {
+  from {
+    width: 380px;
+    margin-left: 0;
+    opacity: 1;
+  }
+  to {
+    width: 0;
+    margin-left: -14px;
+    opacity: 0;
+  }
+}
+
+@keyframes detailsOpen {
+  from {
+    width: 0;
+    margin-left: -14px;
+    opacity: 0;
+  }
+  to {
+    width: 340px;
+    margin-left: 0;
+    opacity: 1;
+  }
+}
+
+@keyframes detailsClose {
+  from {
+    width: 340px;
+    margin-left: 0;
+    opacity: 1;
+  }
+  to {
+    width: 0;
+    margin-left: -14px;
+    opacity: 0;
+  }
+}
+
+@keyframes panelOut {
+  from {
+    opacity: 1;
+    transform: none;
+  }
+  to {
+    opacity: 0;
+    transform: translateX(28px) scale(0.985);
+  }
+}
+
+@keyframes drawerOut {
+  from {
+    opacity: 1;
+    transform: none;
+  }
+  to {
+    opacity: 0.4;
+    transform: translateX(calc(100% + 24px));
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .context,
+  .threadColumn,
+  .context.closing,
+  .threadColumn.closing,
+  .context > *,
+  .threadColumn > * {
+    animation: none;
+  }
+}

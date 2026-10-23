@@ -1,0 +1,3288 @@
+========================================================================
+TILL.TXT  -  PROJECT PROGRESS LOG
+========================================================================
+Project : Small Organization Communication & Collaboration Platform
+Log type: What has been done so far, phase by phase.
+Companions: memory.txt (project memory), project.md (SRS), phases.txt (plan)
+========================================================================
+
+
+------------------------------------------------------------------------
+OPERATOR INSTRUCTIONS (MUST FOLLOW - stated here as required)
+------------------------------------------------------------------------
+  [R1] Follow the phase plan in phases.txt. Work phase by phase.
+  [R2] DO NOT test the code by writing test scripts (no unit/integration/
+       E2E test scripts).
+  [R3] Keep the code clean: small files, reusable components, one
+       responsibility per file.
+  [R4] DO NOT install any dependencies. Declare them only in package.json.
+  [R5] Keep memory.txt updated with all project memory for other AIs.
+  [R6] Keep till.txt updated with what has been done so far.
+  [R7] EVERY time a functionality is completed, update BOTH memory.txt
+       and till.txt.
+  [R8] This instruction list is mirrored in memory.txt (section 1).
+  [R9] Backend and frontend are SEPARATE TOP-LEVEL FOLDERS: ./backend and
+       ./frontend. No monorepo / workspaces.
+  [R10] Backend is PLAIN JAVASCRIPT (CommonJS), NOT TypeScript.
+        Frontend is TypeScript (Next.js).
+  [R11] Never overwrite the real backend/.env; never copy secret values
+        from .env into memory.txt / till.txt.
+
+
+========================================================================
+DOCUMENTATION UPDATE - SCOPE v1.2 (Slack parity + multi-org)
+========================================================================
+Date: (v1.2 scope update)
+
+Requested change
+  Target ALL features listed in project.md at Slack-parity behavior,
+  AND add multi-organization (multi-tenancy). Cross-org federation,
+  SSO, voice/video, apps and AI remain out of scope.
+
+project.md updated to v1.2
+  - Header scope note (v1.2).
+  - Section 2.1 in-scope: adds multi-org + Slack-parity behaviors;
+    section 2.2 now excludes "Cross-organization federation" (not plain
+    multi-org), SSO/SAML/SCIM, etc.
+  - FR-002: status emoji + clear-after; presence ACTIVE/AWAY/DND.
+  - FR-003 rewritten as "Organizations (Multi-Tenancy)": slug, create,
+    invite, active-org context, switching, tenant isolation.
+  - FR-004: per-organization roles and scoped administration.
+  - FR-011: threads (thread side panel, reply count, also-send, follow).
+  - FR-013: @user/@channel/@here with autocomplete.
+  - FR-014: 1:1 AND group direct messages.
+  - FR-015: ACTIVE/AWAY/DND/OFFLINE + DND period.
+  - FR-019: Slack-style search operators (from:/in:/has:/before:/after:).
+  - FR-020: pinned messages + saved items.
+  - FR-021: per-channel prefs (All/Mentions/Mute), notification center,
+    DND/snooze.
+  - FR-026/37: administration + roles scoped to the active organization;
+    added Organization Owner.
+  - Section 47: collections add organizations, organizationMembers,
+    conversationParticipants, channelPins; organizationId everywhere.
+  - Section 48: organization endpoints (create/switch/invite/members).
+  - Section 49: events scoped per organization; added thread.updated.
+  - Section 52/54: MVP + acceptance include multi-org, group DMs,
+    threads, pins/saved, DND, channel prefs.
+  - Section 55: roadmap reworked (group DMs/threads/prefs now MVP).
+  - Section 57: org switcher added to the shell.
+  - Sections 59-60: new "Multi-Tenancy & Isolation Model" and
+    "Slack-Parity Behavior".
+
+phases.txt rewritten to v2.0
+  - Phase 1 retitled Auth/Profiles/Presence fields.
+  - Phase 2 = Organizations, Multi-Tenancy, Roles & User Management.
+  - Phases 3-8 updated with Slack-parity tasks.
+  - Added Slack-parity and multi-tenancy checklists; out-of-scope list;
+    roadmap.
+
+memory.txt / till.txt
+  - Updated scope, phase names, tenancy model and current state.
+
+No code changed in this update (documentation only).
+
+
+========================================================================
+STATUS SUMMARY
+========================================================================
+TARGET (v1.2): all project.md features at Slack-parity behavior
+               + multi-organization (multi-tenancy).
+
+Phase 0 - Project Setup & Foundation ............. [DONE]
+Phase 1 - Auth, Profiles & Presence Fields ....... [DONE]
+Phase 2 - Organizations, Multi-Tenancy, Roles .... [DONE]
+Phase 3 - Channels, Membership, Topics & Prefs ... [DONE]
+Phase 4 - Messaging, DMs (1:1+group) & Realtime ... [DONE]
+Phase 5 - Actions/Threads/Reactions/Mentions/Files [DONE - 5.1..5.9 done]
+Phase 6 - Notifications/Unread/Search/Drafts/DND .. [DONE - 6.1..6.5 done]
+Phase 6.6 - Huddles (audio/video/screen share) ....... [DONE]
+Security hardening step 1 (audit fixes) ............ [DONE]
+Realtime reliability step 2 (audit fixes) .......... [DONE]
+Step 3 - DND/search/drafts + instant switching ...... [DONE]
+Step 4 - Slack must-haves + Slack-style composer .... [DONE]
+Step 5 - Admin (settings, invite link, audit, ...) .. [DONE]
+Step 5.1 - Long scroll-back window + lighter preload . [DONE]
+Step 6 - Security hardening 2 + private files + tests [DONE]
+Step 7 - Deployment prep ......................... [DONE - deploy postponed]
+Phase 7 - Admin, Audit & Member Directory ........ [NOT STARTED]
+Phase 8 - Frontend (Next.js) ..................... [NOT STARTED]
+Phase 9 - Testing, Hardening & Deployment ........ [NOT STARTED]
+
+
+========================================================================
+PHASE 0 - PROJECT SETUP & FOUNDATION  [DONE]
+========================================================================
+STRUCTURE NOTE
+  Originally scaffolded as a TypeScript monorepo (apps/api, apps/web,
+  packages/shared). Reworked per operator instruction [R9]/[R10]:
+  - Removed apps/, packages/, root package.json, root tsconfig.base.json.
+  - Created backend/ as plain JavaScript (CommonJS).
+  - Created frontend/ as the Next.js TypeScript app.
+  - No workspaces; each folder is an independent project.
+
+Done
+  Root / repo
+    [x] .prettierrc + .prettierignore (ignores *.txt to protect docs).
+    [x] .gitignore for node_modules, .next, .env, etc.
+
+  Backend (backend/) - JAVASCRIPT
+    [x] package.json (dev/start/lint). dev uses `node --watch`.
+    [x] .eslintrc.cjs (eslint:recommended, node + es2022).
+    [x] .env.example (placeholders; real .env owned by operator).
+    [x] src/config/{env,logger,db,cloudinary}.js
+    [x] src/utils/{AppError,asyncHandler}.js
+    [x] src/middleware/errorHandler.js
+    [x] src/routes/{index,health.routes}.js
+    [x] src/sockets/index.js   (Socket.IO bootstrap)
+    [x] src/app.js, src/server.js
+
+  Frontend (frontend/) - TYPESCRIPT
+    [x] package.json + tsconfig + .eslintrc + next/postcss/tailwind cfg.
+    [x] .env.example (now points to backend port 5000).
+    [x] src/app/{layout,page,globals.css}
+    [x] src/lib/{api,socket}.ts, src/hooks/useHealth.ts,
+        src/components/HealthBadge.tsx
+
+  Documentation
+    [x] memory.txt and till.txt created and kept in sync.
+
+  Note: operator installed base backend deps (node_modules present),
+  including express, mongoose, socket.io, cloudinary, helmet, cors,
+  dotenv, eslint. AI did NOT install anything.
+
+
+========================================================================
+PHASE 1 - AUTH, PROFILES & PRESENCE FIELDS  [DONE]
+========================================================================
+Goal
+  Secure authentication (session-based) and editable user profiles.
+
+Decisions taken (to avoid new installs - instruction [R4])
+  - Password hashing: Node built-in crypto.scrypt (NOT bcrypt).
+  - Cookies: custom HMAC-signed cookie util (NOT cookie-parser).
+  - Avatar: Cloudinary SIGNED DIRECT UPLOAD (NOT multer); backend only
+    signs the upload, frontend uploads, backend stores publicId/url.
+  - Email: optional; mail util lazily requires nodemailer (declared in
+    package.json, NOT installed). Falls back to logging the reset link in
+    non-production. EMAIL_SECRET / SMTP configured by operator in .env.
+  - Added missing SESSION_SECRET/SESSION_TTL_DAYS/COOKIE_NAME to the
+    real backend/.env (secret generated locally; value not recorded here).
+
+Done
+  Config / env
+    [x] src/config/constants.js - ROLES, PRESENCE_STATES, THEMES.
+    [x] env.js extended: maxUploadBytes, session{secret,cookieName,ttlDays},
+        email{host,port,secure,user,password,from}; default port 5000.
+    [x] backend/.env.example expanded (session + email + upload + cloud).
+    [x] package.json: declared nodemailer (optional).
+
+  Models
+    [x] src/models/user.model.js    - profile, role, presence, disabled,
+        passwordHash(select:false), reset-token fields, timestamps.
+    [x] src/models/session.model.js - user ref, tokenHash(unique),
+        userAgent, ip, expiresAt (TTL index), revokedAt.
+
+  Utils (reusable)
+    [x] password.js  - scrypt hash + timing-safe verify.
+    [x] token.js     - random token + sha256 hash.
+    [x] validation.js- assertEmail/assertPassword/assertString/
+        toOptionalString.
+    [x] response.js  - success(res, data, status).
+    [x] cookies.js   - HMAC sign/unsign, serialize, create/clear/read
+        session cookie (HttpOnly, SameSite=Lax, secure in prod).
+    [x] media.js     - Cloudinary signed-upload params + destroyAsset.
+    [x] mail.js      - optional nodemailer sendMail + isEmailConfigured.
+
+  Services
+    [x] session.service.js - createSession, findActiveSession,
+        revokeSession, revokeAllSessions.
+    [x] user.service.js    - toPublicUser, findByEmail/findById,
+        createUser, updateProfile (fullName/jobTitle/department/
+        statusMessage/theme), updateAvatar.
+    [x] auth.service.js    - login, registerFirstAdmin, logout,
+        requestPasswordReset, resetPassword, changePassword.
+
+  Middleware
+    [x] auth.js       - requireAuth (session -> req.user), requireRole.
+    [x] rateLimit.js  - in-memory fixed-window limiter factory.
+
+  Controllers / routes
+    [x] auth.controller.js - register, login, logout, requestPasswordReset,
+        resetPassword, changePassword.
+    [x] user.controller.js - getMe, updateMe, getAvatarSignature,
+        updateAvatar.
+    [x] auth.routes.js     - /api/auth/* (rate-limited on auth actions).
+    [x] users.routes.js    - /api/users/me* (requireAuth).
+    [x] routes/index.js    - mounted /auth and /users.
+
+  Verification (no test scripts)
+    [x] `node --check` on all 31 backend .js files -> 0 failures.
+    [x] Module smoke load: createApp() + User/Session models -> OK.
+
+  Frontend (Phase 1 auth UI, built early on request so operator can test)
+    [x] lib/api.ts: apiData() unwraps { success, data }; ApiError.
+    [x] lib/auth.ts: register/login/logout/password reset+change/getMe.
+    [x] lib/users.ts: updateMe, avatar signature, Cloudinary direct
+        upload helper, updateAvatar.
+    [x] lib/theme.ts: applyTheme (light/dark/system -> `dark` class).
+    [x] types/user.ts: User, ThemeName, PresenceState, Role.
+    [x] context/AuthContext.tsx + hooks/useAuth.ts (session bootstrap).
+    [x] guards: RequireAuth (protected) / RedirectIfAuth (auth pages).
+    [x] ui: Button, Input, Alert, Spinner (reusable).
+    [x] auth components: AuthCard, LoginForm, RegisterForm,
+        ForgotPasswordForm, ResetPasswordForm.
+    [x] profile components: AvatarUploader (validates type+size, uploads
+        to Cloudinary then saves publicId/url), ProfileForm,
+        ChangePasswordForm, ThemeSelector.
+    [x] app components: AppHeader (nav + user + logout).
+    [x] routes: /login, /register, /forgot-password,
+        /reset-password?token=..., / (protected home), /profile.
+    [x] next.config.js: allow res.cloudinary.com images.
+    [x] frontend/.env.local added (API/socket -> localhost:5000).
+
+  Design pass (from design/ mockups)
+    [x] Analyzed design/planify-dashboard.html + design/demo.jfif.
+        Font family identified: Poppins (Google Fonts, 400-700).
+        Icons: Font Awesome 6. Layout: 4-zone dashboard (icon nav 210,
+        channel panel 250, chat flex, context panel 270); responsive
+        hides context <1200px, channel panel <900px.
+    [x] Created root DESIGN.md: typography, color tokens, shape/spacing,
+        app shell, component rules, styling conventions ([per-page
+        page.module.css]), accessibility, and auth-page mapping.
+    [x] frontend/src/styles/tokens.css: light + .dark design variables.
+    [x] Root layout: Poppins via next/font (--font-poppins), imports
+        tokens; globals.css reduced to tailwind + base body only.
+    [x] Converted shared UI to CSS Modules: Button, Input, Alert,
+        Spinner (each with its own *.module.css).
+    [x] AuthCard restyled (brand lockup, card, title/subtitle) with
+        AuthCard.module.css; shared authForm.module.css for forms.
+    [x] Each auth page now owns page.module.css (unique radial accent):
+        login (blue, top-left), register (purple, top-right),
+        forgot-password (orange, bottom-left),
+        reset-password (green, bottom-right).
+    [x] Home/profile still use Tailwind wrappers but pick up the new
+        Button/Input/Alert styling automatically.
+
+  v1.2 alignment applied to Phase 0/1 (docs + code)
+    [x] project.md section 45: backend language corrected to JavaScript.
+    [x] project.md section 58: Stack Summary + Phase 0 + Phase 1 updated
+        to separate backend(Js)/frontend projects and Slack-parity
+        presence/status; Phase 2 retitled (multi-tenancy).
+    [x] backend constants: PRESENCE_STATES = ACTIVE/AWAY/DND/OFFLINE.
+    [x] backend user model: added statusEmoji + statusClearAt.
+    [x] backend auth.service: login presence -> ACTIVE.
+    [x] backend user.service: toPublicUser + updateProfile support
+        statusEmoji, statusClearAt, and manual presence.
+    [x] frontend types: PresenceState ACTIVE/AWAY/DND/OFFLINE, User gains
+        statusEmoji + statusClearAt; ProfileUpdate extended.
+    [x] frontend home: presence labels updated; ProfileForm: status emoji
+        + clear-after inputs.
+    Note: organizationId / activeOrganizationId intentionally NOT added
+    yet - those land in Phase 2 (multi-tenancy).
+
+  Auth UI redesign v2 (SUPERSEDED by the Ink & Paper redesign below)
+    [x] AuthCard rebuilt as a two-panel split:
+        LEFT = dark-navy gradient panel with logo tile + "Planify" +
+        INTERNAL badge, headline, lede, a FLOATING browser/chat mock
+        (chrome dots, "# design-team • Active channel", green Live pill,
+        two messages, encryption footer) with a bobbing animation, and a
+        footer note. RIGHT = surface panel with an API-health status pill
+        (System Operational), title/subtitle, form, and SSO/MFA footer.
+    [x] LoginForm matches the reference: Email; Password with show/hide
+        eye (Input gained a reusable `trailing` slot); Remember me +
+        Forgot password row; gradient "Sign In"; "Don't have an account?
+        Contact your administrator". (Google/OR removed on request.)
+    [x] RegisterForm designed to match: Full name, Work email, Password
+        and Confirm password (both with show/hide eye), an 8-char hint,
+        gradient "Create account", and "Already have an account? Sign in".
+    [x] Extracted reusable EyeToggle component (shared by login/register).
+    [x] Container alignment: both panels share --auth-gutter and a 440px
+        content column; left logo/headline/browser wrapped in brandInner
+        so they align to one grid (fixes logo-row left spacing).
+    [x] Left panel made sticky (position: sticky; top: 0; height: 100vh;
+        align-self: flex-start), and right panel min-height: 100vh, so the
+        left brand panel looks identical on login and on the taller
+        register page (content stays vertically centered in the viewport).
+    [x] Removed HealthBadge.tsx (unused); status pill now in AuthCard via
+        useHealth.
+    [x] Per-page page.module.css sets --auth-accent/-2, --auth-gradient,
+        --button-gradient (login blue, register purple, forgot orange,
+        reset green). Left panel hides <860px; float disabled under
+        prefers-reduced-motion.
+
+  Auth redesign v3 - Ink & Paper (design/DESIGN.md) [CURRENT]
+    [x] Adopted design/DESIGN.md as the authoritative system ("Ink & Paper").
+        Root DESIGN.md rewritten as the implementation guide.
+    [x] Font switched to Schibsted Grotesk (next/font -> --font-schibsted).
+    [x] tokens.css rewritten to the Ink & Paper palette + semantics
+        (paper/surface/ink, good/warn/error tints, green dot, radii
+        14/18/24 + pill, no shadows) with a .dark inverse mapping.
+    [x] Button = ink pill primary / surface pill secondary (min 44px).
+    [x] Input = 14px radius, surface fill on paper, ink focus ring; gained
+        reusable `labelAction` (for "Forgot password?") alongside `trailing`.
+    [x] Alert = tinted, borderless.
+    [x] AuthCard rebuilt: LEFT paper panel = brand mark (ink square + green
+        dot) + live status chip (useHealth) + big ink title + form + footer
+        (copyright + Privacy/Terms/Security). RIGHT = AuthShowcase tonal
+        surface panel with "Enterprise Ready" chip, trust line, a FLOATING
+        browser/chat window mock (bobbing) and a testimonial + pager dots.
+    [x] Each auth page page.module.css sets --showcase-bg (a surface tone);
+        showcase hides <960px; float respects prefers-reduced-motion.
+    [x] LoginForm: Work email; Password with eye + "Forgot password?" label
+        action; ink "Sign in"; "Create workspace" link.
+    [x] RegisterForm: Full name, Work email, Password + Confirm (eyes),
+        8-char hint, ink "Create account", "Sign in" link.
+    [x] New reusable AuthShowcase + EyeToggle components.
+    [x] Showcase mock changed from the board to the previously-built
+        floating browser window (per request). Only that element changed.
+    [x] "Forgot password?" link font-size set to 14px to match other text.
+
+Not done / deferred (by design)
+    [ ] No test scripts written ([R2]).
+    [ ] nodemailer not installed; real email sending inactive until the
+        operator installs it. Reset link is logged in non-production.
+    [ ] Frontend dependencies are NOT installed (frontend has no
+        node_modules yet) - operator must run `npm install` in
+        frontend/ before `npm run dev`. AI did not install ([R4]).
+    [ ] Organization scoping of users deferred to Phase 2.
+
+HOW TO TEST PHASE 1 (operator)
+  Terminal 1: cd backend  && npm run dev      (needs backend deps; Mongo)
+  Terminal 2: cd frontend && npm install && npm run dev
+  Then open http://localhost:3000
+    - First time: /register creates the first ADMIN account.
+    - Then: /login, /profile (edit, photo, theme, change password),
+      logout. /forgot-password logs the reset link in the backend
+      console (email not installed), open the link to reset.
+
+========================================================================
+PHASE 2 - ORGANIZATIONS, MULTI-TENANCY, ROLES & USER MANAGEMENT  [DONE]
+========================================================================
+Goal
+  Multi-organization support with per-org roles and tenant isolation.
+
+Design
+  Users are GLOBAL identities. Access is granted through
+  OrganizationMember (per-org role + status). Each session carries an
+  activeOrganization. Registration is OPEN (multi-org self-serve):
+  POST /auth/register creates a global user and, when organizationName is
+  provided, creates an organization (user = OWNER) and sets it active.
+  Join existing orgs via invitation accept. Login sets the user's first
+  membership as the active organization.
+
+Done
+  Constants / models
+    [x] constants: ORG_ROLES (OWNER/ADMIN/MODERATOR/MEMBER),
+        MEMBER_STATUS, ORGANIZATION_STATUS, INVITATION_STATUS.
+    [x] models/organization.model.js (name, slug unique, logo, settings,
+        status).
+    [x] models/organizationMember.model.js (org, user, role, status,
+        joinedAt; unique org+user).
+    [x] models/invitation.model.js (org, email, role, tokenHash,
+        invitedBy, status, expiresAt).
+    [x] models/session.model.js: added activeOrganization ref.
+
+  Utils / services
+    [x] utils/slug.js (slugify + generateUniqueSlug).
+    [x] services/organization.service.js: createOrganization (creator =
+        OWNER), listForUser, findById, getMembership, update, listMembers,
+        updateMember/removeMember with last-owner guard, public mappers.
+    [x] services/invitation.service.js: createInvitation (revokes prior
+        pending, emails or logs link), listPending, acceptInvitation
+        (email must match).
+    [x] services/session.service.js: createSession stores
+        activeOrganization; setActiveOrganization; unchanged revoke APIs.
+    [x] services/auth.service.js login: picks first membership as active
+        org.
+
+  Middleware / controllers / routes
+    [x] middleware/organization.js: requireOrganization (active org),
+        requireMembership (from :id), requireOrgRole(...roles).
+    [x] controllers/organization.controller.js, invitation.controller.js.
+    [x] routes/organizations.routes.js, invitations.routes.js; mounted in
+        routes/index.js.
+    [x] Endpoints: POST/GET /organizations; GET/PATCH /organizations/:id;
+        POST /organizations/:id/switch; GET /organizations/:id/members;
+        PATCH/DELETE /organizations/:id/members/:userId;
+        POST/GET /organizations/:id/invitations; POST /invitations/accept.
+
+  Verification (no test scripts)
+    [x] `node --check` on all 42 backend .js files -> 0 failures.
+    [x] Module smoke load (createApp + org models + routes) -> OK.
+
+Not done / deferred (by design)
+    [ ] organizationId enforcement across future tenant models happens as
+        each model lands (channels in Phase 3, etc.).
+    [ ] Frontend org switcher/onboarding is Phase 8 (backend only here).
+    [ ] Invitation email requires nodemailer (not installed); in dev the
+        link is logged to the backend console.
+    [ ] No test scripts ([R2]).
+
+Next up
+  Phase 3 - Channels, Membership, Topics & Prefs.
+  Will add Channel + ChannelMember models (organizationId-scoped),
+  topics/purposes, per-channel notification prefs, join/leave, archive,
+  and server-side private-channel access checks via the Phase 2
+  middleware.
+
+FIX (post-Phase 2): removed the obsolete "Registration is closed. Ask an
+administrator to invite you." gate. Registration is now open so a new
+user can register and create their own organization (organizationName at
+POST /auth/register). Frontend RegisterForm gained an "Organization name"
+field; login footer links to it as "Create workspace".
+
+
+================================================================
+PHASE 3 - CHANNELS, MEMBERSHIP, TOPICS & PREFS  [DONE]
+================================================================
+Goal
+  Slack-like channels within the active organization, with per-member
+  notification preferences and private-channel access enforcement.
+
+Design
+  Channels are scoped to the session's active organization. Public
+  channels are discoverable and joinable by any active org member; private
+  channels are visible/accessible only to their members (or org admins).
+  Each member keeps per-channel role + notification preference.
+
+Done
+  Constants
+    [x] CHANNEL_TYPES (PUBLIC/PRIVATE), CHANNEL_STATUS (ACTIVE/ARCHIVED),
+        CHANNEL_ROLES (MODERATOR/MEMBER), CHANNEL_NOTIFY (ALL/MENTIONS/MUTE).
+
+  Models
+    [x] models/channel.model.js: organization, name, topic, purpose, type,
+        createdBy, status; unique (organization, name).
+    [x] models/channelMember.model.js: organization, channel, user, role,
+        notifyPreference, joinedAt, lastReadAt; unique (channel, user).
+
+  Services
+    [x] services/channel.service.js: normalizeChannelName, createChannel
+        (creator = MODERATOR; honors allowMemberChannelCreation), listForUser
+        (public + joined private, optional joinedOnly, with memberCounts),
+        updateChannel, archiveChannel, joinChannel (public + ACTIVE only),
+        leaveChannel (private last-member guard), listMembers,
+        listCandidates (org members not in channel), addMembers,
+        removeMember, setNotifyPreference, getAccessContext (private =>
+        members only).
+
+  Middleware / controllers / routes
+    [x] middleware/channel.js: requireChannel, requireChannelModerator,
+        requireChannelModeratorOrSelf.
+    [x] controllers/channel.controller.js.
+    [x] routes/channels.routes.js mounted at /channels in routes/index.js.
+    [x] GET /organizations list now returns isActive per membership.
+
+  Verification (no test scripts)
+    [x] `node --check` on all 48 backend .js files -> 0 failures.
+    [x] Module smoke load (createApp + channel model/service/middleware/
+        routes) -> OK.
+    [x] Backend `eslint src/**/*.js` -> 0 errors (added argsIgnorePattern
+        '^_' to .eslintrc.cjs to allow the existing `_res`/`_next` naming).
+
+  Frontend (so the owner can test Phase 3)
+    [x] types/{channel,organization}.ts; lib/{channels,organizations}.ts.
+    [x] context/OrgContext.tsx + hooks/{useOrg,useChannels}.ts.
+    [x] AppShell (Ink & Paper header/nav/user) replaces AppHeader; (app)
+        layout wraps RequireAuth + OrgProvider + AppShell.
+    [x] OrgSwitcher (active-organization select) in the shell; switching
+        re-scopes channels (active org lives in the session).
+    [x] Reusable UI: Select, Chip (with their CSS modules).
+    [x] Channels components: ChannelsShell (list + content grid),
+        ChannelSidebar (search, Your channels / Browse), ChannelListItem,
+        ChannelView, ChannelHeader, ChannelAboutCard (topic/purpose edit),
+        ChannelMembers (list, add people, remove), NotifyPreferenceSelect,
+        CreateChannelForm. Each with its own *.module.css.
+    [x] Pages: /channels, /channels/new, /channels/[channelId]; co-located
+        page.module.css. Home page restyled to Ink & Paper.
+    [x] `tsc --noEmit` (frontend) passes.
+
+Not done / deferred (by design)
+    [ ] Messages, threads, reactions, files -> Phase 4/5.
+    [ ] Pinned-message surface (channelPins) lands with Phase 5.
+    [ ] Unread divider/bold counts -> Phase 6.
+    [ ] No test scripts ([R2]); no installs by the AI ([R4]).
+    Note: frontend ESLint is currently broken for this environment
+    (eslint 8 vs eslint-config-next 16 flat-config) - pre-existing; the
+    `next lint` script also no longer exists in Next 16. Type-check is the
+    verification used.
+
+Next up
+  Phase 4 - Messaging, DMs (1:1+group) & Realtime:
+  Conversation + Message models, REST list/send/edit/delete, Socket.IO
+  (message/typing/presence), in-memory presence + typing with expiry, all
+  events scoped to the active organization.
+
+
+================================================================
+UI REDESIGN - SLACK-STYLE 4-ZONE SHELL  [DONE]
+================================================================
+Requested
+  Make the app look/behave like Slack (per design/demo.jfif +
+  design/planify-dashboard.html). The leftmost generic nav is replaced by
+  a Slack-style workspace rail; the channel panel, chat area and context
+  panel stay. Workspace tiles show like the attached image; hover shows a
+  horizontal popover; users can create + switch workspaces.
+
+Decisions (owner)
+  - Full 4-zone shell built now.
+  - LIGHT paper rail.
+  - Include the "+" create-workspace action now.
+
+Done (frontend only - no backend changes)
+  Shell
+    [x] components/workspace/WorkspaceShell.tsx: grid
+        72px rail | 264px channel panel | main | 300px context.
+        Context hidden <1200px; channel panel hidden <900px.
+    [x] (app)/layout.tsx: RequireAuth > OrgProvider >
+        ActiveChannelProvider > WorkspaceShell.
+
+  Zone 1 - Workspace rail
+    [x] WorkspaceRail (light paper) lists Organizations as Slack-like
+        tiles; active tile = ink with a left indicator bar; unread red
+        pill slot (data wired in Phase 6).
+    [x] WorkspaceButton (logo via Cloudinary or monogram fallback).
+    [x] WorkspaceHoverCard: horizontal popover on hover/focus with
+        workspace name, role + slug, and a switch action.
+    [x] CreateWorkspaceDialog + "+" tile: POST /organizations, refresh,
+        switch, navigate. (new lib: organizations.createOrganization)
+    [x] Bottom: user avatar (-> /profile) and logout.
+
+  Zone 2 - Channel panel
+    [x] components/navigation/ChannelPanel.tsx: active workspace name +
+        create-channel, channel search, quick links (Mentions/Drafts/
+        Bookmarks/More placeholders), Channels list (public # / private
+        lock, Your channels + Browse), Team Messages placeholder.
+
+  Zone 3 - Main
+    [x] /channels welcome; /channels/new (CreateChannelForm);
+        ChannelWorkspace = ChannelHeader + Chat/Bookmarks tabs + empty
+        conversation + disabled composer (messaging = Phase 4).
+
+  Zone 4 - Context
+    [x] components/channels/ChannelDetailsPanel.tsx: channel identity,
+        About (topic/purpose edit), Members (add/remove), Media placeholder.
+        Shows a workspace summary when no channel is selected.
+
+  State / shared
+    [x] context/ActiveChannelContext.tsx + hooks/useActiveChannel.ts:
+        one fetch shared by zones 3 and 4; reloads on org switch; clears
+        when leaving a channel.
+    [x] components/ui/Icon.tsx (dependency-free inline icon set),
+        components/ui/Modal.tsx, lib/initials.ts.
+    [x] Added ChannelDetailsPanel, Workspace*, ChannelPanel, conversation
+        components; removed AppShell, OrgSwitcher, ChannelsShell,
+        ChannelSidebar, ChannelView.
+
+  Responsive typography
+    [x] Added fluid clamp() type tokens to tokens.css
+        (--fs-hero/-display/-title/-heading/-body/-small/-tiny/-control)
+        and applied them across the app shell, auth, channel and shared UI
+        CSS modules so font sizes shrink on smaller viewports (and cap on
+        large ones). No layout/radius changes.
+    NOTE: the earlier "./src/app/globals.css Error evaluating Node.js code"
+        error was a Tailwind v3 content-watcher stale entry pointing at a
+        deleted component file (ChannelSidebar.tsx). Fix = do not delete
+        files while `next dev` runs; restart dev (and clear .next) after
+        deletions. Fresh dev server verified clean.
+
+  Create-channel from sidebar
+    [x] context/ChannelsContext.tsx + hooks/useChannels.ts: channel list is
+        shared state (provider in (app) layout) so a new channel appears
+        under "Channels" immediately after creation.
+    [x] ChannelPanel: hovering the "Channels" section header reveals a "+"
+        button (also a "+" in the panel header) that opens
+        CreateChannelDialog (Modal + reusable ChannelForm). On create it
+        refreshes the list and navigates to the new channel.
+    [x] Extracted components/channels/ChannelForm.tsx (used by the dialog
+        and the /channels/new page wrapper).
+    [x] Private channels: choosing "Private" in create-channel reveals an
+        inline member picker (workspace members, minus you). After the
+        channel is created, the selected people are added via
+        POST /channels/:id/members, so only they (and you) can see it.
+    [x] Sidebar lists all channels in one place with no "Browse" heading:
+        every PUBLIC channel plus private channels you're a member of
+        (useChannels already excludes private ones you're not in).
+    [x] Channel header "Members" tab is shown ONLY to channel moderators /
+        org admins; it renders the members list (ChannelMembers) where they
+        can add and REMOVE members (DELETE /channels/:id/members/:userId).
+        ConversationView supports a `panel` that replaces the message list
+        + composer.
+    [x] Removal now HIDES the channel for the removed user (public too):
+        ChannelMember gained status(ACTIVE/REMOVED). removeMember sets
+        REMOVED instead of deleting; listForUser excludes channels the user
+        was removed from (public) and private ones they're not active in;
+        getAccessContext denies REMOVED users; joinChannel refuses them;
+        addMembers reactivates. Socket events channel.updated (room) +
+        channel.membership.updated (user room) refresh the sidebar live, and
+        a removed user viewing the channel is redirected to /channels.
+
+  Terminology (Slack parity)
+    [x] User-facing copy now says "workspace" (register field "Workspace
+        name", register subtitle, channel-member empty state, create
+        workspace/channel copy). "Organization" remains the internal
+        model/API name (payload key still organizationName).
+
+  Verification
+    [x] `tsc --noEmit` (frontend) passes. (No test scripts, [R2]).
+    [x] `next build` (Turbopack) completes; all routes compile.
+
+  Conversation header / menus / layout tweaks (Slack-like)
+    [x] Reusable components/ui/DropdownMenu.tsx: kebab (3-dot) trigger +
+        vertical popover menu (items, separators, headings, checked,
+        danger, disabled); closes on outside click/Escape.
+    [x] Reusable components/conversation/ConversationHeader.tsx: sticky
+        top header with favorite star (local state for now), type icon,
+        name, member meta, a Messages/Bookmarks tab row, and the kebab
+        menu. Data-driven, so DM headers can reuse it.
+    [x] Moved Notifications (All/Mentions/Mute), Channel details,
+        Join/Leave and Archive into the kebab menu. Removed the old
+        ChannelHeader + NotifyPreferenceSelect.
+    [x] Message composer is fixed at the bottom of the conversation;
+        only the messages area scrolls (main = height:100vh, workspace =
+        flex column, messages = flex:1 min-height:0 overflow-y:auto).
+    [x] Right details sidebar is now hidden by default; "Channel details"
+        in the kebab reveals it via context/WorkspaceUiContext (shell 4th
+        column) with a close chevron in the panel bar.
+    [x] Fixed the workspace hover popover being cut at the top: removed
+        `overflow:hidden` from the shell grid and top-aligned the card;
+        rail keeps its own stacking context (z-index) so it shows in front.
+    [x] Custom thin scrollbar styling for the whole app (globals.css).
+    [x] New Icon names: kebab, check, star (+filled), info, message.
+
+Not done / deferred
+    [ ] Real messages/DMs/search/mentions/typing -> Phase 4-6.
+    [ ] Favorite/star persistence (currently UI-local) -> later phase.
+    [ ] Tabs beyond Messages (Bookmarks, Add canvas) are placeholders.
+    [ ] Rail unread/mention pill data -> Phase 6.
+    [ ] Organization logo upload -> admin/Phase 7 (monogram fallback now).
+    [ ] Responsive: channel panel becomes a drawer on mobile (currently
+        hidden <900px) -> Phase 8 polish.
+
+
+================================================================
+PHASE 4 - MESSAGING, DMS (1:1+GROUP) & REALTIME  [DONE]
+================================================================
+Goal
+  Real-time channel messaging + 1:1 and group DMs, with typing and
+  presence, all scoped to the active organization.
+
+Status
+  COMPLETE (backend + frontend).
+
+Design
+  Channels and DMs share one Message model. A message references exactly
+  one of channel/conversation. A Conversation (DM) is DIRECT (2 people,
+  deduped) or GROUP (3+). Adding a 3rd person to a 1:1 converts it to a
+  GROUP (Slack behavior). DMs are a separate sidebar section from channels.
+
+Done (backend)
+  Constants / models
+    [x] CONVERSATION_TYPES (DIRECT/GROUP).
+    [x] models/conversation.model.js: organization, type, participants
+        [{user,joinedAt,lastReadAt}], directKey (unique sparse, 1:1
+        dedupe), createdBy, lastActivityAt.
+    [x] models/message.model.js: organization, channel XOR conversation
+        (pre-validate guard), sender, content (max 4000), parentMessageId
+        (threads later), editedAt/deletedAt; indexes.
+
+  Services
+    [x] services/conversation.service.js: toPublicConversation,
+        buildDirectKey, getParticipant, findOrCreateDirect (race-safe via
+        unique index), createGroup, createConversation (1 id -> direct,
+        2+ -> group), listForUser, findByIdForOrg, addParticipants
+        (DIRECT -> GROUP), touchActivity, listCandidates.
+    [x] services/message.service.js: toPublicMessage, listChannelMessages/
+        listConversationMessages (cursor pagination via `before`, limit
+        capped), createMessage.
+    [x] services/presence.service.js: in-memory connections + states;
+        addConnection (ACTIVE unless DND), removeConnection (OFFLINE),
+        setManual; broadcasts presence.updated to the org room.
+
+  Middleware / controllers / routes
+    [x] middleware/conversation.js: requireConversation (participant-only).
+    [x] controllers/conversation.controller.js, message.controller.js.
+    [x] routes/conversations.routes.js (/conversations, /candidates,
+        /:id, /:id/participants, /:id/messages).
+    [x] channels.routes.js: GET/POST /:channelId/messages.
+    [x] routes/index.js mounts /conversations.
+
+  Realtime
+    [x] sockets/index.js: session-cookie auth (reuses readSessionCookie +
+        findActiveSession); joins user:<id> + org:<id>; channel/conversation
+        join/leave with access checks; typing.start/stop with 5s auto-expiry
+        emitting typing.updated; presence.update -> presence.updated;
+        emits session.ready on connect.
+    [x] REST sends broadcast: message.created to channel/conversation room;
+        conversation.updated to each participant's user room (no dup events).
+    [x] server.js attaches io to the express app (req.app.get('io')).
+
+  Frontend wiring (done)
+    [x] lib/socket.ts singleton + context/SocketContext (connect when authed,
+        presence map, connected/everConnected) + hooks/useSocket.
+    [x] context/ConversationsContext + hooks/useConversations (DM list;
+        refreshes on conversation.updated socket events).
+    [x] hooks/useMessages(target): loads history, joins/leaves the socket
+        room, live-appends message.created (dedup by id), sends via REST,
+        emits typing.start/stop, exposes typingUsers; filters own typing.
+    [x] lib/messages.ts + lib/conversations.ts + types/message.ts +
+        types/conversation.ts.
+    [x] Reusable components/conversation: ConversationView (header + list +
+        composer), MessageList (author/time grouping, day dividers,
+        auto-scroll, typing line), MessageComposer (multiline, Enter=send,
+        Shift+Enter=newline, typing events), ConnectionBanner (FR-031).
+    [x] ChannelWorkspace refactored onto ConversationView (real messages +
+        composer in channels).
+    [x] DMs: DirectMessageWorkspace + route /dm/[conversationId];
+        ConversationHeader gained a `leading` avatar slot; DM list in the
+        ChannelPanel "Team Messages" section with presence dots and a "+"
+        (MemberPickerDialog); group DMs include "Add people".
+    [x] components/ui/Avatar (image or initials + presence dot), reused in
+        messages, DM list, member pickers.
+    [x] Providers wired in (app)/layout: Org > Socket > Channels >
+        Conversations > ActiveChannel > WorkspaceShell.
+    [x] Panel top "+" opens the new direct message picker (Slack-like
+        "New message"); the Channels-section "+" still creates a channel.
+    [x] Message screen restyle (design/demo chat look, Ink & Paper colors):
+        grouped messages; received = left bubble (--surface); own =
+        right-aligned bubble (--surface-container-high + tail); meta
+        "Name • time" (own "time • You"); day dividers; typing line; fixed
+        composer with emoji + filled input + ink send button.
+    [x] `tsc --noEmit` (frontend) passes; all routes compile (HTTP 200).
+
+Not done / deferred (this phase)
+    [ ] Unread counts / notification center -> Phase 6.
+    [ ] edit/delete, threads, reactions, mentions, files -> Phase 5.
+    [ ] Leaving/closing a DM conversation -> later.
+    [ ] Message pagination UI ("load older") - API supports `before`.
+    Note: sending is via REST (validated, org-scoped) and broadcast over
+    sockets; the socket message.send/edit/delete client events are not used
+    yet (edit/delete are Phase 5 anyway).
+
+
+================================================================
+WORKSPACE INVITES & MEMBERS UI  (Phase 2 backend surfaced)  [DONE]
+================================================================
+Goal
+  Let admins invite people to a workspace and manage that workspace's
+  members, per workspace (multi-tenant).
+
+Flow (already supported by Phase 2 backend)
+  Users are global; membership is per organization via OrganizationMember.
+  POST /organizations/:id/invitations (OWNER/ADMIN) -> Invitation; the
+  invitee accepts at POST /invitations/accept -> membership + active org.
+  Inviting a 1:1 is per active workspace, so each workspace keeps its own
+  members. nodemailer is not installed, so in dev the invite link is logged
+  in the backend console.
+
+Done (frontend)
+  [x] types/organization.ts: OrganizationMember + Invitation types.
+  [x] lib/organizations.ts: list/update/remove member, list/create
+      invitation, acceptInvitation.
+  [x] Separate members page /members (components/members/MembersView.tsx):
+      list members (avatar/name/email); admins get role select (PATCH),
+      Disable/Reactivate (status), Remove (DELETE), and a pending
+      invitations section with Revoke; non-admins get read-only role chips.
+  [x] Invite is a popup (components/members/InviteMembersDialog.tsx:
+      email + role -> POST invitations) launched from the members page.
+  [x] Self-protection (fix): you never see controls on yourself; backend
+      rejects acting on yourself - removeMember refuses self-removal,
+      updateMember refuses self-disable and self role change (guardLastOwner
+      still protects the last owner). Previously an ADMIN could remove or
+      disable themselves.
+  [x] Revoke: backend invitation.service.revokeInvitation + controller +
+      DELETE /organizations/:id/invitations/:invitationId (OWNER/ADMIN,
+      PENDING only).
+  [x] Entry point: a users button in the ChannelPanel header links to
+      /members (visible to all members). Removed the old workspace-settings
+      popup (WorkspaceSettingsDialog).
+  [x] Invite accept FIX: /invite is now a PUBLIC top-level route
+      (app/invite/page.tsx, outside the guarded (app) group). If signed in
+      it accepts and goes to /channels; if NOT signed in it redirects to
+      /register?invite=<token> instead of bouncing to login.
+  [x] New PUBLIC backend lookup GET /invitations/:token -> { email,
+      organizationName, role } (service findPendingByToken + controller
+      lookup); requireAuth moved to only POST /invitations/accept.
+  [x] Register with invite: RegisterForm prefills + locks the email
+      (readOnly, "Invited" label), hides the Workspace-name field, shows
+      "You've been invited to join <org>", registers WITHOUT creating an org,
+      then accepts the invite and routes to /channels. Register page
+      title/subtitle switch to "Join workspace". "Sign in" carries
+      next=/invite?token= for existing users.
+  [x] RequireAuth: invite link survives login/register via next.
+  [x] `tsc --noEmit` and /invite,/register,/login return HTTP 200; dev log
+      clean (restarted after moving the route).
+  [x] RequireAuth preserves intended path (/login?next=...); LoginForm and
+      RegisterForm honor `next`, so invite links survive login/register.
+  [x] ui/Modal gained a `wide` variant; Icon gained a `settings` gear.
+  [x] `tsc --noEmit` (frontend) passes; /invite returns HTTP 200.
+
+Email templates (Ink & Paper)
+  [x] utils/emailTemplates.js: reusable inline-styled, table-based HTML
+      mirroring the app design (paper card on tonal background, ink text,
+      green brand dot, pill CTA button, footer + text fallback).
+  [x] invitationEmail({ organizationName, inviteLink, inviterName }) and
+      passwordResetEmail({ resetLink }); wired into invitation.service and
+      auth.service (replacing the old plain-HTML bodies).
+  [x] Verified render via node smoke test; node --check 58/58, eslint clean.
+
+Not done / deferred
+  [ ] Organization logo upload / rename (admin settings beyond members).
+  [ ] Email delivery requires installing nodemailer + EMAIL_* config.
+
+
+================================================================
+DM "NEW MESSAGE" FLOW (Slack parity)  [DONE]
+================================================================
+Goal
+  Match Slack's compose flow: New message header + To: search, live preview
+  of the existing conversation for the selected people, fixed composer with
+  a dynamic placeholder.
+
+Backend
+  [x] Conversation.groupKey (unique + sparse) de-dupes GROUP conversations
+      by exact participant set (directKey already de-duped 1:1).
+  [x] createConversation find-or-creates for both 1:1 and groups.
+  [x] findExisting (find-only, never creates) + addParticipants keeps
+      groupKey in sync (and unsets directKey when 1:1 -> group).
+  [x] POST /conversations/find -> { conversation: Conversation | null }.
+
+Frontend
+  [x] Route /dm/new -> components/conversation/NewMessageView.tsx.
+  [x] "To:" input: search workspace people (multi-select chips; Backspace
+      removes last) AND channels (clicking opens the channel).
+  [x] Live resolution: on selection change calls findConversation; if a
+      conversation exists (1:1 or exact-set group) its messages render
+      below while the header stays "New message"; otherwise an empty
+      "beginning of conversation" state.
+  [x] Fixed bottom composer; placeholder changes with selection
+      ("Message Jane" / "Message Jane, Omar"). Send find-or-creates the
+      conversation, sends the first message, then routes to /dm/[id].
+  [x] Panel header "+" and Team Messages "+" now link to /dm/new (the old
+      MemberPickerDialog is kept only for Add people inside a DM).
+  [x] tsc passes; /dm/new,/channels,/dm/:id return HTTP 200; dev log clean.
+
+Not done / deferred
+  [ ] Selecting a channel inside the To: picker currently navigates to the
+      channel (no pre-filled first message).
+  [ ] Group cap remains 9 participants (MAX_GROUP_PARTICIPANTS).
+
+
+================================================================
+MESSAGE ACTIONS + DM DETAILS  (Phase 5/6 pulled forward)  [DONE]
+================================================================
+Goal
+  Slack-like message hover toolbar, working reactions, edit/delete, copy,
+  mark-as-unread, and a DM conversation-details sidebar.
+
+Backend
+  [x] models/reaction.model.js + services/reaction.service.js (toggle,
+      aggregate {emoji,count,users,reactedByMe}).
+  [x] message.service: findByIdForOrg, assertAccess (channel access /
+      conversation participant), assertSender, updateMessage (editedAt),
+      deleteMessage (soft deletedAt, content cleared); toPublicMessage now
+      includes reactions[].
+  [x] controllers/message.controller: update / remove / toggleReaction,
+      attach reactions on list, and broadcast message.updated /
+      message.deleted to the room.
+  [x] routes/messages.routes.js (PATCH/DELETE /:messageId,
+      POST /:messageId/reactions) mounted at /messages.
+
+Frontend
+  [x] types/message.ts MessageReaction + reactions[]; lib/messages
+      updateMessage/deleteMessage/toggleReaction.
+  [x] useMessages: upsert on message.created/updated/deleted; exposes
+      edit/remove/react.
+  [x] MessageActions hover toolbar (quick emojis + kebab DropdownMenu):
+      Mark as unread, Copy text, Copy link; Edit / Delete for own messages.
+      Copy uses navigator.clipboard; link is origin + /channels|/dm/:id
+      ?message=<id>.
+  [x] MessageList: per-message rows (grouped), reactions pills (toggle,
+      reactedByMe highlighted), inline edit (textarea + Save/Cancel),
+      deleted placeholder "This message was deleted.", "(edited)" marker,
+      and a "New messages" divider for the mark-as-unread marker.
+  [x] UnreadContext + useUnread: session-local mark -> divider + bold
+      sidebar item (ChannelListItem/DirectMessageListItem); cleared on open.
+      (Real unread counts remain Phase 6.)
+  [x] DM header kebab: Conversation details (toggleDetails) + Add people +
+      Block (placeholder no-op).
+  [x] ActiveConversationContext; DetailsPanel chooses ChannelDetailsPanel
+      vs ConversationDetailsPanel by route; ConversationDetailsPanel shows
+      the 1:1 profile (avatar/presence/email/job/department/status) or the
+      group participant list. Providers added to (app)/layout.
+  [x] tsc passes; backend node --check 61/61 + eslint clean; smoke load OK;
+      /channels,/dm/new,/dm/:id,/members return HTTP 200; dev log clean.
+  [x] Fix: message hover toolbar/dropdown stacking. Hovered row gets
+      z-index 40 (.actions 50), DropdownMenu menu z-index 200, so the
+      kebab menu shows above other messages and the composer.
+  [x] Fix: toolbar placement. The hover toolbar is anchored to the RIGHT
+      edge of the message column (row: right:8) for BOTH received and own
+      messages (Slack behavior) instead of to the bubble, so it no longer
+      overlaps the avatar/message on the left; the menu opens leftwards and
+      fits within the column.
+  [x] Fix: ALL 3-dot dropdowns now render in a portal on document.body with
+      fixed positioning, viewport clamping (flips upward when near the
+      bottom, clamps left/right), width 224 capped to viewport, z-index
+      1000. This escapes scroll/overflow clipping so menus always show in
+      front, including small screens. Repositions on scroll/resize.
+
+Not done / deferred
+  [ ] Block action (placeholder only - to be discussed).
+  [ ] Mark-as-unread is session-local, not persisted (Phase 6).
+  [ ] Deep link ?message=<id> copies a URL but does not scroll/highlight yet.
+
+
+================================================================
+PHASE 5 - MESSAGE EXPERIENCE  [IN PROGRESS]
+================================================================
+Sub-phases: 5.1 Reactions completion | 5.2 Threads backend |
+5.3 Threads frontend | 5.4 Mentions backend | 5.5 Mentions frontend |
+5.6 Attachments backend | 5.7 Attachments frontend | 5.8 Pins |
+5.9 Saved items | 5.10 Polish + docs.
+
+Plan decisions (owner)
+  - Mentions: Slack-style tokens <@userId>, <!channel>, <!here>;
+    @channel/@here gated to channel moderators / org admins.
+  - Threads: right-docked panel (drawer on small screens); replies via
+    parentMessageId; also-send-to-channel; follow/unfollow.
+  - Attachments: separate Attachment collection; Cloudinary signed direct
+    upload (folder org/<orgId>/attachments); size/MIME/extension +
+    permission validation.
+  - Pins: ChannelPin (unique channel+message). Saved: Bookmark (unique
+    user+message), /saved page.
+
+---------------------------------------------------------------
+5.1 - REACTIONS COMPLETION  [DONE]
+---------------------------------------------------------------
+  Backend
+    [x] reaction.service getByMessageIds now populates each reaction's user
+        and returns users as minimal public objects
+        [{ id, fullName, avatarUrl }] (was raw ids). reactedByMe unchanged.
+        This powers the "who reacted" tooltip without extra requests.
+  Frontend
+    [x] types/message: ReactionUser + MessageReaction.users: ReactionUser[].
+    [x] components/ui/Popover.tsx (+ css): reusable PORTAL popover
+        (fixed positioning, viewport clamp, flips up when short) used for
+        hover/click panels; z-index 1000.
+    [x] components/conversation/EmojiPicker.tsx (+ css): "add reaction"
+        smiley button opening a 24-emoji palette; select -> react; closes
+        on select / Escape / pointer leave.
+    [x] components/conversation/ReactionPill.tsx (+ css): reaction pill that
+        toggles on click and shows a hover popover listing who reacted
+        (avatar + name); delayed close so moving into the popover keeps it.
+    [x] MessageActions: added the EmojiPicker next to the quick reactions.
+    [x] MessageList: reaction pills now use ReactionPill; removed the old
+        inline pill styles from MessageList.module.css.
+  Verification
+    [x] tsc passes; backend node --check 61/61 + eslint clean; /channels 200;
+        dev log clean.
+
+---------------------------------------------------------------
+5.2 - THREADS BACKEND  [DONE]
+---------------------------------------------------------------
+  Models
+    [x] Message: parentMessageId now = the thread ROOT id (flat threads, no
+        nesting); alsoSentToChannel(bool); replyCount; lastReplyAt;
+        replyUserIds[] (denormalized on the root for "N replies").
+    [x] models/threadFollow.model.js: organization, threadRoot(ref Message),
+        user, lastReadAt; unique (threadRoot,user).
+  Services
+    [x] services/thread.service.js: isFollowing, follow, unfollow.
+    [x] message.service: createMessage resolves the root (a reply's parent
+        is forced to the root), validates the parent belongs to the same
+        channel/conversation, sets alsoSentToChannel, and bumps the root
+        (replyCount/lastReplyAt/replyUserIds). listMessages now hides thread
+        replies unless alsoSentToChannel. New listThread(root, {before,limit}).
+        toPublicMessage adds parentMessageId/alsoSentToChannel/replyCount/
+        lastReplyAt/replyUserIds.
+  API
+    [x] GET    /messages/:messageId/thread -> { message(root), replies,
+        following } (accepts a reply id too; resolves to root).
+    [x] POST   /messages/:messageId/follow ; DELETE /messages/:messageId/follow
+    [x] Replies are sent via POST /channels/:id/messages or
+        /conversations/:id/messages with { parentMessageId, alsoSendToChannel? }.
+  Realtime (sockets)
+    [x] room thread:<rootId>; thread:join (access-checked) / thread:leave;
+        typing kind 'thread' allowed.
+    [x] On reply: message.created to thread room (+ channel/DM room when
+        alsoSentToChannel); thread.updated (serialized root) to both rooms so
+        the reply count updates live.
+  Verification
+    [x] node --check 63/63 + eslint clean; module smoke load OK.
+
+---------------------------------------------------------------
+5.3 - THREADS FRONTEND  [DONE]
+---------------------------------------------------------------
+  [x] lib/messages: getThread, followThread, unfollowThread; sendChannel
+      Message/sendConversationMessage accept { parentMessageId,
+      alsoSendToChannel }.
+  [x] context/ThreadContext + hooks/useThreadPanel (rootId/open/openThread/
+      closeThread), provider added in (app)/layout.
+  [x] hooks/useThread(rootId): loads {root, replies, following}; joins the
+      thread:<rootId> socket room; listens message.created/updated/deleted,
+      thread.updated (updates root reply count), typing.updated (kind
+      thread); exposes send(content, alsoSend), react/edit/remove,
+      setTyping, toggleFollow, reload.
+  [x] components/conversation/ThreadPanel.tsx (+ css): "Thread" header with
+      follow bell + close; MessageList of [root, ...replies]; "Also send to
+      channel" checkbox (channel roots only); reply composer. Full-height
+      right panel; full-screen overlay on <=900px.
+  [x] MessageList: reply-count button ("N replies") under a root with
+      replies; "Reply in thread" added to the hover kebab (via
+      MessageActions onReplyInThread). useMessages also listens
+      thread.updated so the reply count updates live in the channel/DM list.
+  [x] WorkspaceShell: the right column shows ThreadPanel when a thread is
+      open, otherwise the details panel (grid widens when either is open).
+  [x] tsc passes; /channels 200; dev log clean.
+  [x] Fixes (owner feedback):
+      - ThreadPanel is now a FIXED right overlay (380px, z-index 70, full
+        width <=900px) rendered OUTSIDE the shell grid, so it is fully
+        visible on all viewports (previously it lived in the details column
+        which is hidden <=1200px and was only 300px wide).
+      - "Reply in thread" moved OUT of the 3-dot menu to a visible thread
+        icon button in the hover toolbar (next to the emoji quick-reactions
+        / emoji picker). New Icon 'thread'.
+      - Emoji dropdown already portal-based (z-index 1000) so it shows in
+        front of the thread overlay (z 70).
+      - Message hover toolbar was anchored to .stack (bubble width), so on
+        short messages it spilled LEFT over the avatar/sidebar. Moved the
+        .actions element out of .stack to be a direct child of the full-width
+        .row, so right:8 anchors to the message column's right edge.
+      - Slack-style message list: ALL messages (own + others) are now
+        left-aligned with NO bubbles (plain text); removed the right-aligned
+        own bubble. The whole message ROW highlights on hover (`--surface`)
+        so it is clear which message the hover toolbar belongs to. Toolbar
+        floats at the row's top-right.
+      - Hover toolbar restyled: light-grey pill (--surface) whose buttons
+        turn white (--paper) on hover ("half white / half light grey").
+      - Thread replies no longer leak into the main conversation: useMessages
+        now filters them client-side on load AND ignores message.created for
+        replies unless alsoSentToChannel (defensive; backend already filters).
+      - Thread now DOCKS as a grid column (380px) on >=1200px so the main
+        message area shrinks and the message hover toolbars stay visible
+        (previously it overlaid the right side and hid them). On 900-1200px
+        it becomes a right drawer; <=900px a full-screen drawer.
+
+---------------------------------------------------------------
+5.4 - MENTIONS BACKEND  [DONE]
+---------------------------------------------------------------
+  [x] utils/mentions.js parseMentions(content): extracts <@userId> tokens
+      (24-hex) plus <!channel>/<!here> and plain @channel/@here; returns
+      { userIds, all, here }.
+  [x] Message model: mentionedUserIds[](ref User), mentionAll, mentionHere.
+  [x] message.service: resolveMentions(target, actorId, content) ->
+      rejects @channel/@here (403) unless the actor is a channel MODERATOR
+      or org OWNER/ADMIN (canMentionAll); filters mentioned user ids to
+      active channel members / conversation participants (filterMentionable).
+      Applied on create AND edit (updateMessage re-parses). listThread/
+      listMessages/findByIdForOrg populate mentionedUserIds;
+      toPublicMessage exposes mentions[{id,fullName}], mentionAll, mentionHere.
+  [x] controllers/message.controller: emitMentions() emits
+      notification.created to each mentioned user's room, and to all channel
+      members for @channel/@here (excludes the sender). Persistence/center is
+      Phase 6. Sent after createChannel/createConversation (incl. replies).
+  [x] Verification: node --check 64/64 + eslint clean; smoke test of
+      parseMentions; tsc (frontend types updated) passes.
+
+---------------------------------------------------------------
+5.5 - MENTIONS FRONTEND  [DONE]
+---------------------------------------------------------------
+  [x] components/conversation/MessageContent.tsx (+ css): renders message
+      content, turning <@id>/<!channel>/<!here> (and plain @channel/@here)
+      into highlighted pills; user mentions map id->fullName via
+      message.mentions; a mention of the current user is highlighted with the
+      warn tint. MessageList now renders content through MessageContent.
+  [x] hooks/useMentionables(target): channel -> channel members, conversation
+      -> participants; used to drive autocomplete.
+  [x] MessageComposer: "@" autocomplete. Detects "(^|space)@query" before the
+      caret, shows a member list (avatar + name + email) plus @channel/@here
+      when allowChannelMention; arrow up/down + Enter/Tab to insert, Escape to
+      close; inserts the token <@id>/<!channel>/<!here> and restores the caret.
+      New props: mentionables, allowChannelMention.
+  [x] Wired mentionables: ConversationView (useMentionables(target),
+      allowChannelMention from canManage), ThreadPanel (uses root's
+      channel/conversation), NewMessageView (selected recipients). Channel
+      Workspace passes allowChannelMention={canManage}.
+  [x] tsc passes; /channels + /dm/new 200; dev log clean.
+
+Fixes (owner feedback)
+  [x] Mentions in the composer now show the NAME, not the id: autocomplete
+      inserts "@Full Name" (readable) and lib/mentions.displayToTokens()
+      converts matched "@Full Name" -> <@id> tokens only at send time, so the
+      stored message + rendering stay correct. @channel/@here insert as-is.
+  [x] Deleted-message save no longer fails: Message.content is now required
+      only when deletedAt is not set (it is cleared to '' on delete).
+  [x] Delete now opens a confirmation MODAL (components/conversation/
+      DeleteMessageDialog) with the Slack-style preview (avatar, sender,
+      date/time, the message content with mentions) + Cancel / Delete.
+      Added a Button 'danger' variant; MessageList opens the dialog instead
+      of deleting immediately.
+  [x] Deleted messages are now REMOVED from the list entirely (no "This
+      message was deleted."): useMessages/useThread remove the message on the
+      message.deleted socket event and after the delete API call; MessageList
+      filters out deletedAt before rendering.
+  [x] Mention colours (chat): ALL mentions are BLACK (--ink bg / paper text)
+      by default (green removed); a mention inside a message the logged-in
+      user wrote = moderate grey (--surface-container-high). MessageContent
+      gained a senderId prop (MessageList passes message.sender.id).
+  [x] Composer mention while typing = BLACK: MessageComposer now renders a
+      transparent textarea over a highlight backdrop (mirrors the text and
+      marks "@Full Name"/@channel/@here with a black mark), caret in ink,
+      scroll synced. (Plain textarea can't style substrings.)
+  [x] Fix: mention mark is bigger (padding) with equal NEGATIVE margin so the
+      black background grows without shifting the text -> the transparent
+      textarea text/caret stays aligned. Bleed reduced to 3px (padding 2px 3px;
+      margin -2px -3px) so the gap after the mention is clearly visible.
+      Autocomplete inserts TWO trailing spaces and places the caret after
+      them, so the cursor shows clearly to the right of the black pill.
+
+---------------------------------------------------------------
+5.6 - ATTACHMENTS BACKEND  [DONE]
+---------------------------------------------------------------
+  Decisions
+    - Cloudinary SIGNED DIRECT UPLOAD (no multer, no new deps). The backend
+      issues a signature for folder org/<orgId>/attachments with the Cloudinary
+      "auto" resource type, so images, video, audio and documents all upload.
+    - The client validates, uploads directly to Cloudinary, then sends the
+      attachment references with the message; the backend re-validates and
+      persists them.
+
+  Constants / utils
+    [x] constants: ATTACHMENT_KINDS (IMAGE/VIDEO/AUDIO/FILE).
+    [x] utils/attachments.js: MAX_ATTACHMENTS_PER_MESSAGE (10);
+        assertAttachmentUpload({ originalName, mimeType, size }) rejects
+        blocked extensions (svg/html/js/exe/...), disallowed MIME types
+        (allow image/, video/, audio/, pdf, office, text, zip, json),
+        missing/zero size and files over env.maxUploadBytes (413);
+        assertAttachmentRef validates a persisted reference (requires an
+        https URL on our own Cloudinary cloud); kindForMime +
+        toPublicAttachment.
+    [x] utils/media.js: createUploadSignature(folder, extra, resourceType)
+        now returns resourceType; new createAttachmentSignature(orgId)
+        (folder org/<orgId>/attachments, resourceType "auto");
+        destroyAsset(publicId, resourceType) passes resource_type.
+
+  Model / service
+    [x] models/attachment.model.js: organization, message, channel OR
+        conversation (denormalized for the media browser), uploader, kind,
+        url, publicId, resourceType, format, bytes, originalName, mimeType,
+        width, height, duration; indexes on message + channel/conversation.
+    [x] services/attachment.service.js: createForMessage (validates +
+        inserts), getByMessageIds/getForMessage (Map, like reactions),
+        removeForMessage (deleteMany + destroy Cloudinary assets),
+        listForChannel / listForConversation (newest first, limit capped).
+
+  Message integration
+    [x] Message.content is now optional at the model level (validated in the
+        service): a message may be attachment-only. validation gained
+        assertOptionalMessageContent.
+    [x] message.service.createMessage validates content OR attachments and
+        creates the Attachment docs; toPublicMessage gained an attachments[]
+        arg; deleteMessage cascades attachment removal (DB + Cloudinary).
+
+  API
+    [x] controllers/attachment.controller.js: getSignature (validates the
+        intended upload before signing), listChannel, listConversation.
+    [x] routes/attachments.routes.js -> POST /attachments/signature
+        (requireAuth + requireOrganization); mounted at /attachments.
+    [x] GET /channels/:channelId/attachments (requireChannel) and
+        GET /conversations/:conversationId/attachments (requireConversation).
+    [x] message.controller serialize/serializeMany now include attachments;
+        broadcasts (message.created/thread.updated/message.updated) and the
+        create responses carry attachments; thread replies included.
+
+  Verification
+    [x] node --check 69/69; eslint clean; module smoke load OK; validation
+        smoke test (svg/exe/big/bad-mime rejected, valid png/ref accepted).
+
+---------------------------------------------------------------
+5.7 - ATTACHMENTS FRONTEND  [DONE]
+---------------------------------------------------------------
+  Types / libs
+    [x] types/message.ts: AttachmentKind, MessageAttachment (public shape)
+        and PendingAttachment (upload result sent with the message);
+        Message gained attachments[].
+    [x] lib/attachments.ts: kindForMime, formatBytes, getAttachmentSignature,
+        uploadAttachment (signature -> direct Cloudinary "auto" upload ->
+        PendingAttachment), listChannelAttachments/listConversationAttachments.
+    [x] lib/messages.ts SendOptions gained attachments[].
+
+  Sending
+    [x] hooks/useMessages.send(content, attachments) and
+        hooks/useThread.send(content, alsoSend, attachments) pass attachments;
+        both allow an attachment-only send.
+    [x] MessageComposer: paperclip button + hidden multi-file input; uploads
+        each file (shows Uploading…, per-file error), pending chips with name/
+        size/remove; send is enabled with content OR attachments; on failure
+        the text and pending files are restored. onSend signature is now
+        (content, attachments). Wired in ConversationView, ThreadPanel and
+        NewMessageView.
+    [x] Icon gained paperclip, close, download, file.
+
+  Rendering
+    [x] components/conversation/MessageAttachments.tsx (+ css): the COMPLETE,
+        uncropped image (capped, aspect ratio preserved) which opens the
+        Lightbox on click; inline video and audio players; and file rows with
+        icon/name/size/download. MessageList renders it under the content.
+    [x] Media browser: hooks/useAttachments (fetch by channel/conversation)
+        + components/conversation/MediaGallery.tsx (+ css) showing the image
+        grid and a file list. ChannelDetailsPanel and
+        ConversationDetailsPanel now render the real Media section (the old
+        placeholder grid was removed from ChannelDetailsPanel.module.css).
+
+  Slack-parity image UX (owner feedback)
+    [x] ui/Lightbox.tsx (+ css): portal full-screen viewer (object-fit
+        contain, Escape + backdrop close, download + close actions).
+    [x] MessageAttachments shows the full image (not a cropped grid) and opens
+        the Lightbox on click (was: new browser tab). Multiple images wrap and
+        each is clickable. displaySize() caps next/image variants while keeping
+        the aspect ratio.
+    [x] MediaGallery thumbnails open the same Lightbox.
+    [x] Composer pending image attachments show a small thumbnail preview
+        (documents keep the file icon).
+    [x] Hover DOWNLOAD on the media itself (Slack behavior): image/video/audio
+        attachments in chat (MessageAttachments) and the channel MediaGallery
+        show a download button over the media on hover, so the file downloads
+        from the file, not from the message toolbar. Documents keep their
+        download row.
+
+  Slack composer + reliability fixes (owner feedback)
+    [x] Composer is now ONE rounded box (Slack-style): pending attachment
+        previews (thumbnail + name/size + remove) render INSIDE the box, above
+        the input row, instead of floating above the top border. The textarea
+        is borderless inside the box; the box shows a focus ring.
+    [x] Send errors are surfaced in the composer (previously a failed send
+        silently restored the text).
+    [x] Backend: message.service.createMessage deletes the just-created
+        message when attachment persistence fails, so a failed send can no
+        longer leave an empty orphan message (root cause of the blank messages
+        seen after failed attachment sends).
+    [x] Composer row: paperclip + input + send button are vertically centered
+        on ONE line (previously bottom-aligned, so the icons sat below the
+        text). Buttons are 32px and the input padding matches.
+    [x] Upload progress: the Cloudinary upload now uses XMLHttpRequest (fetch
+        cannot report progress). Each in-flight file shows a live progress bar
+        + percentage in the composer; failures show a per-file error with a
+        dismiss button. Multiple files upload concurrently.
+    [x] In-flight uploads can be CANCELLED: each uploading chip shows a cross
+        button that aborts the XHR mid-flight (an AbortSignal is threaded
+        through getAttachmentSignature + uploadAttachment); cancelling removes
+        the chip and the file is not sent. All pending uploads are aborted if
+        the composer unmounts.
+    [x] Delete confirmation dialog (DeleteMessageDialog) now shows the
+        message's attachments (reuses MessageAttachments: image/video/audio/
+        file preview) below the text, so the user sees what will be deleted.
+    [x] useAttachments reloads the media browser live on message.created
+        (with attachments) / message.deleted for the open channel/DM, so sent
+        images appear in the channel details Media section without reopening.
+
+  Verification
+    [x] tsc --noEmit (frontend) passes. No test scripts, no installs ([R2],[R4]).
+
+Next: 5.8 - Pins (ChannelPin model, pin/unpin endpoints, pin list, hover
+  action), then 5.9 Saved items (Bookmark + /saved), 5.10 polish + docs.
+
+---------------------------------------------------------------
+5.8 - PINNED MESSAGES  [DONE]
+---------------------------------------------------------------
+  Design
+    - Pins are per channel (channelPins). Any member with channel access can
+      pin/unpin; a pin stores who pinned it. Pinned messages show a "Pinned"
+      badge in the list, a pin/unpin action in the hover menu, and a Pinned
+      list in the channel details panel. Pin changes broadcast live.
+
+  Backend
+    [x] models/channelPin.model.js: organization, channel, message, pinnedBy;
+        unique (channel, message).
+    [x] services/pin.service.js: listForChannel (populate message sender +
+        mentions, and pinnedBy), findOne, isPinned, pinMessage (rejects a
+        message from another channel; dedupes via unique index), unpinMessage,
+        removeForMessage.
+    [x] services/serialize.service.js (new, shared): serializeMessage /
+        serializeMessages (message + viewer reactions + attachments) -
+        message.controller refactored to use it (removed its local copies).
+    [x] controllers/pin.controller.js: list, pin (returns the serialized pin),
+        unpin; emits `pin.updated` to the channel room.
+    [x] routes/channels.routes.js: GET /:channelId/pins,
+        POST/DELETE /:channelId/pins/:messageId (requireChannel).
+    [x] message.service.deleteMessage now also removes the message's pins
+        (and saved items).
+
+  Frontend
+    [x] types/saved.ts (PinnedMessage, SavedMessage); lib/pins.ts.
+    [x] context/PinsContext.tsx + hooks/usePins.ts: loads pins for the ACTIVE
+        channel, exposes pins / pinnedIds / pin / unpin / togglePin / reload;
+        reloads on the `pin.updated` socket event and on a matching
+        message.deleted. Provider added to (app)/layout (inside
+        ActiveChannelProvider).
+    [x] MessageActions: "Pin to channel" / "Unpin from channel" menu item
+        (only when a channel is active).
+    [x] MessageList: pin/unpin wiring + a "Pinned" badge under the timestamp.
+    [x] components/channels/ChannelPins.tsx (+ css): Pinned card in the channel
+        details panel (sender, day, content via MessageContent, unpin button);
+        mounted in ChannelDetailsPanel.
+    [x] Clicking a pinned item scrolls the chat to that message and briefly
+        highlights it (Slack behavior). Bridged by context/FocusMessageContext
+        (+ hooks/useFocusMessage, provider around WorkspaceShell); MessageList
+        finds the row via data-message-id, scrollIntoView(center) + a fading
+        flash. The provider also reads an initial ?message=<id> deep link.
+    [x] Icon gained 'pin'.
+
+  Verification
+    [x] node --check 77/77 + eslint clean; module smoke load OK; DB smoke test
+        (double pin dedupes to 1, unpin removes).
+
+---------------------------------------------------------------
+5.9 - SAVED ITEMS  [DONE]
+---------------------------------------------------------------
+  Design
+    - Saved items ("Save for later") are PERSONAL to the user and scoped to
+      the active organization (bookmarks). A "/saved" page lists them with the
+      message content/attachments and an open-in-context link.
+
+  Backend
+    [x] models/bookmark.model.js: organization, user, message; unique
+        (user, message).
+    [x] services/saved.service.js: listForUser (populate message sender +
+        mentions), findOneForUser, saveMessage (dedup via unique index),
+        unsaveMessage, removeForMessage.
+    [x] controllers/saved.controller.js: list, save (returns the serialized
+        bookmark), remove.
+    [x] routes/bookmarks.routes.js: GET /bookmarks, POST/DELETE
+        /bookmarks/:messageId (requireAuth + requireOrganization); mounted at
+        /bookmarks.
+
+  Frontend
+    [x] lib/bookmarks.ts.
+    [x] context/SavedContext.tsx + hooks/useSaved.ts: loads the user's saved
+        items for the active org, exposes items / savedIds / save / unsave /
+        toggleSave; removes an item when its message.deleted arrives. Provider
+        added to (app)/layout.
+    [x] MessageActions: "Save for later" / "Remove from saved".
+    [x] MessageList: passes saved state + toggle (available for channels AND
+        DMs).
+    [x] components/saved/SavedView.tsx (+ css) + app/(app)/saved/page.tsx:
+        list of saved messages (avatar, sender, time, content, attachments)
+        with an "Open" link to the source channel/DM and a remove button.
+    [x] ChannelPanel: the "Bookmarks" quick link now navigates to /saved
+        (was disabled); Mentions/Drafts stay disabled until Phase 6.
+
+  Verification
+    [x] tsc --noEmit passes; backend checks clean; DB smoke test (double save
+        dedupes to 1, unsave removes).
+
+---------------------------------------------------------------
+CHANNEL / DM HEADER TABS - Files, Pins, Members  [DONE]
+---------------------------------------------------------------
+  Requested (Slack parity)
+    - Show Files and Pins as header tabs (alongside Members for channels);
+      files live in the Files tab and pinned chats in the Pins tab instead of
+      the channel details panel. Tabs only appear when there is something to
+      show. Apply the same to DMs / group DMs where Slack does.
+
+  Done (frontend; no backend changes)
+    [x] ChannelWorkspace: tab state is messages | files | pins | members.
+        Tabs are built dynamically:
+          Messages (always)
+          Files   (only when the channel has >=1 attachment)
+          Pins    (only when the channel has >=1 pin)
+          Members (only for channel moderators / org admins)
+        An effect falls back to Messages when a tab's data disappears (all
+        files/pins removed, or access lost).
+    [x] DirectMessageWorkspace: tab state messages | files; Files tab appears
+        only when the conversation has attachments (DMs have no pins, matching
+        Slack).
+    [x] Tabs render the panel body via ConversationView's `panel` (so the
+        composer is hidden on Files/Pins, like Slack).
+    [x] Files tab = MediaGallery (title "Files"): images grid + file list,
+        each with hover download + image lightbox; responsive auto-fill grid
+        (works in the main panel and the sidebar).
+    [x] Pins tab = ChannelPins; clicking a pin now switches to Messages then
+        scrolls to + highlights the message (onSelectMessage -> setTab
+        ('messages') + focusMessage).
+    [x] Removed the Pinned card and the Media card from ChannelDetailsPanel
+        (now just identity + About + Members) and the Media card from
+        ConversationDetailsPanel.
+    [x] Removed the old disabled "Bookmarks" channel header tab.
+
+  Verification
+    [x] tsc --noEmit passes.
+
+---------------------------------------------------------------
+FILES & LINKS + PINS HOVER DROPDOWN (tab hover cards)  [DONE]
+---------------------------------------------------------------
+  Requested (Slack parity)
+    - Hovering the Files / Pins header tabs shows a dropdown listing all
+      files (and links) / pinned messages, with per-item hover actions
+      (download inside the dropdown) and full chat actions for pins.
+
+  Backend (Files & links - new)
+    [x] utils/links.js: extractLinks(content) -> unique http(s) URLs
+        (trailing punctuation stripped, max 20).
+    [x] Message model: links[] parsed on create AND edit (cleared on delete);
+        toPublicMessage exposes links[].
+    [x] services/link.service.js: scans up to 200 latest messages of the
+        channel/DM for messages with links and flattens
+        [{id,url,messageId,sender,createdAt}] (newest first).
+    [x] controllers/link.controller.js + routes:
+        GET /channels/:channelId/links (requireChannel),
+        GET /conversations/:conversationId/links (requireConversation).
+
+  Frontend
+    [x] types/link.ts (MessageLink), lib/links.ts, hooks/useLinks.ts
+        (target-driven like useAttachments; reloads on message.created/
+        updated/deleted links change).
+    [x] components/conversation/FilesLinks.tsx (+ css): ONE flat,
+        newest-first list of files + links (image thumbnails / file + link
+        badges, name, meta "size/date" or "Shared by X · date"). Row hover
+        shows a Slack-like actions pill: Download (files), Copy link, Open.
+        Clicking a row opens it; replaces MediaGallery in the Files & links
+        tab body (MediaGallery deleted).
+    [x] components/conversation/PinsPreview.tsx (+ css): renders the pinned
+        messages through MessageList with autoScroll=false, so each pin is a
+        fully interactive message - quick reactions, emoji picker, reply in
+        thread, save, kebab (mark unread, copy, pin/unpin, edit/delete with
+        the delete dialog) - and pinned attachments keep their hover download.
+    [x] ui/Popover gained panelClassName (used for the two panel variants);
+        ConversationHeader tabs gained `preview`/`previewClassName` with a
+        150ms hover open/close delay (same pattern as ReactionPill) - a tab
+        still switches on click.
+    [x] MessageList gained an autoScroll prop.
+    [x] PinsContext gained applyMessage(message)/removeMessage(id) so a
+        reaction or edit inside the hover card updates the pin in place.
+    [x] ChannelWorkspace: tab renamed "Files & links", appears when the
+        channel has attachments OR links; hover previews wired for both tabs.
+    [x] DirectMessageWorkspace: same Files & links rename/previews; DMs have
+        no Pins tab (Slack parity).
+    [x] Icon gained 'external'.
+
+  Verification
+    [x] node --check 80/80 + eslint clean; extractLinks smoke test OK
+        (dedupe + trailing punctuation).
+    [x] tsc --noEmit passes; MediaGallery removed (tsc re-run clean).
+
+  Pin dropdown interactions (owner feedback)
+    [x] Click-to-jump: clicking ANYWHERE on a pinned message in the hover
+        dropdown scrolls the chat to it (links/attachments included). Clicks
+        on interactive controls (download button, copy, reactions, thread,
+        kebab, media players, edit box) do NOT jump, so hover-downloads keep
+        working. Wired via an onClick delegate in PinsPreview that finds the
+        row's data-message-id and calls onOpenMessage (ChannelWorkspace ->
+        setTab('messages') + focusMessage). Rows show the pointer cursor.
+    [x] Day dividers (Today/Yesterday) are removed from the pins hover card:
+        MessageList gained showDayDividers + fullTimestamps props; the pins
+        dropdown shows Slack-style absolute stamps ("Oct 31st, 2025 at
+        5:53 PM"). formatFullTimestamp moved to lib/format.ts (now shared
+        with DeleteMessageDialog).
+    [x] Added a COMPACT variant for the pinned-message preview:
+        MessageList `compact` prop (26px avatar, smaller name/time/content,
+        denser row padding via .scrollCompact) and MessageAttachments
+        `compact` (images capped at 190px, video 280px, smaller file rows) so
+        an entire pinned message - text + attachments - fits inside the
+        dropdown and scrolls if longer.
+    [x] Hover-card widths are responsive: min(440px, 100vw-32px) for pins and
+        min(400px, 100vw-32px) for files.
+    [x] Stacking fixes for actions inside the hover card: DropdownMenu portal
+        raised to z 1200 and the Modal overlay to z 1100, so the kebab menu
+        and the delete-confirmation dialog appear ABOVE the hover card
+        (lightbox z 2000 still on top for image zoom).
+
+---------------------------------------------------------------
+IN-APP FILE DOWNLOAD (proxy)  [DONE]
+---------------------------------------------------------------
+  Problem
+    - Download links pointed straight at the Cloudinary URL. The HTML
+      `download` attribute is ignored for cross-origin URLs, so the browser
+      NAVIGATED to the external storage page (often failing for raw files)
+      instead of saving the file.
+
+  Backend
+    [x] utils/remoteFile.js: openRemoteStream(url) opens a readable stream to
+        a remote http(s) URL (follows up to 3 redirects).
+    [x] attachment.service.findByIdForOrg(id, organizationId).
+    [x] attachment.controller.download: loads the org-scoped attachment,
+        verifies message/channel access via messageService.assertAccess, then
+        streams the file from storage through our API with
+        Content-Type + Content-Disposition: attachment (RFC 5987 filename).
+    [x] routes/attachments.routes.js: GET /attachments/:attachmentId/download
+        (requireAuth + requireOrganization).
+
+  Frontend
+    [x] lib/api.ts exports API_URL; lib/attachments.ts adds
+        attachmentDownloadUrl(id) -> `${API_URL}/attachments/:id/download`.
+    [x] MessageAttachments DownloadButton + FileRow now link to the proxy
+        (dropped the cross-origin target/download attributes).
+    [x] FilesLinks file-row Download action uses the proxy (Row gains
+        downloadUrl); links still open normally.
+    [x] Downloads now happen inside the app (browser save dialog), never an
+        external page - same as Slack.
+
+  Verification
+    [x] node --check + eslint clean; backend smoke load OK; tsc --noEmit passes.
+
+---------------------------------------------------------------
+IN-APP DOWNLOAD v2 (signed fetch + progress)  [DONE]
+---------------------------------------------------------------
+  Problem
+    - ZIP (and any raw) download still failed: Cloudinary returns 401 for
+      normal CDN delivery of ZIP/PDF files (account security restriction;
+      even signed delivery URLs are blocked). The proxy then answered 502 and
+      the browser NAVIGATED to the JSON error page.
+  Root cause found by inspection: raw URL -> 401 (empty body);
+    private_download_url -> 200 application/zip; signed raw URL -> 401.
+
+  Backend
+    [x] utils/media.buildDownloadUrl(attachment) - uses
+        cloudinary.utils.private_download_url(publicId, format,
+        { resource_type, type:'upload' }), which BYPASSES the ZIP/PDF
+        delivery restriction (verified 200 application/zip and 200
+        image/jpeg against the real attachments in the DB).
+    [x] attachment.controller.download now streams from the signed download
+        URL instead of the stored secure_url.
+
+  Frontend (download progress like the upload progress)
+    [x] lib/download.ts: fetchFileBlob (credentials: include, streams the
+        response body, reports progress from Content-Length) + saveBlob
+        (object URL + anchor download) - no navigation, ever.
+    [x] context/DownloadContext.tsx + hooks/useDownload.ts: download tasks
+        { id, name, progress, status(downloading|done|error), error };
+        success auto-dismisses after ~2.5s; errors are dismissible.
+    [x] components/download/DownloadToaster.tsx (+ css): Slack-like
+        bottom-right toast with file name + progress bar + percentage, check
+        on completion, error message + dismiss. Rendered from WorkspaceShell;
+        DownloadProvider added in (app)/layout.
+    [x] MessageAttachments (DownloadButton + FileRow) and FilesLinks
+        (Download action) are now BUTTONS that call useDownload().download -
+        clicking a file downloads in-app with progress and shows an error
+        toast if it fails (instead of navigating to a JSON page).
+    [x] This also resolves the "file name not showing" confusion: the failed
+        download used to replace the app with the error JSON; now downloads
+        save as the real file name via the blob.
+
+  Verification
+    [x] node --check + eslint clean; tsc --noEmit passes.
+    [x] Live check: buildDownloadUrl returns 200 for the existing PSTools.zip
+        (application/zip) and the demo.jfif images (image/jpeg).
+
+---------------------------------------------------------------
+CHAT FILE-NAME + SIDEBAR REFRESH FIXES  [DONE]
+---------------------------------------------------------------
+  1) File name missing in chat (but shown in Files & links)
+    - Cause: MessageAttachments wraps media in `.media { line-height: 0 }`
+      (to strip the inline image gap). The file row inherited line-height 0,
+      so `.fileName` (which has overflow:hidden) collapsed to zero height and
+      disappeared - while the size (no overflow) still painted.
+    - Fix: .file now resets typography explicitly (font-family: inherit,
+      line-height: 1.4 after the font declarations). FileRow also switched
+      from <button> to <div role="button"> to match the working Files & links
+      rows, with width:100%, text-align:left, cursor:pointer and a focus ring.
+    - Verified the API returns the name: serializeMessage for the zip message
+      -> attachments[0].name = "PSTools.zip".
+
+  2) DM sidebar list flashed/refreshed on every message
+    - Cause: ConversationsProvider listened to `conversation.updated` and ran
+      the FULL refresh() which set loading=true -> ChannelPanel showed the
+      spinner and the Team Messages list re-rendered on every DM message.
+    - Fix: on `conversation.updated` update locally (bump lastActivityAt and
+      move that DM to the top) without refetching; only `conversation.created`
+      triggers a (silent, no-spinner) refresh. refresh() gained a
+      { silent } option.
+
+  Verification
+    [x] tsc --noEmit passes.
+
+---------------------------------------------------------------
+MESSAGE LIST + COMPOSER POLISH (Slack parity)  [DONE]
+---------------------------------------------------------------
+  Requested
+    - Grouped messages: only the first shows a time; hovering a continuation
+      message should reveal its time (Slack shows it in the left gutter).
+    - Every message has a minimum height; big messages grow.
+    - More spacing between messages.
+    - Composer: fixed width, auto-grows in height up to a cap, then scrolls.
+    - Opening a chat should always land on the latest message.
+
+  Done
+    [x] MessageList: continuation (non-first) messages now render a hidden
+        timestamp in the avatar gutter that fades in on row hover/focus
+        (.hoverTime). The first message keeps its header time as before.
+    [x] Rows gained min-height 28px and align-items flex-start; author groups
+        are separated by 8px (.group + .group margin-top) while messages in a
+        group stay tight.
+    [x] Auto-scroll to the newest message is more reliable: scrolls
+        immediately, on the next animation frame AND after 120ms (covers
+        late image layout) so opening a channel/DM lands on the last message.
+        A suppress flag stops that from fighting a pin/deep-link jump.
+    [x] Composer auto-grow: textarea height follows content up to 200px
+        (MAX_INPUT_HEIGHT) then scrolls; width stays fixed. Backdrop/highlight
+        layer follows (absolute inset), max-height raised 160 -> 200px.
+
+  Verification
+    [x] tsc --noEmit passes.
+
+  Follow-up tweaks (owner feedback)
+    [x] Hover-gutter timestamp uses font-family: inherit and no longer sets
+        tabular-nums (Schibsted has no tabular figures, so the browser fell
+        back to a different font for the digits - now it matches the app font).
+    [x] Message row min-height raised 28 -> 36px (compact pins preview rows
+        keep min-height 22px); padding-top of the gutter time adjusted.
+
+Next: 5.10 - polish + docs, then Phase 6 (notifications, unread, search,
+  drafts, DND).
+
+========================================================================
+PHASE 6 - NOTIFICATIONS, UNREAD, SEARCH, DRAFTS, DND  [IN PROGRESS]
+========================================================================
+Sub-phases: 6.1 Unread + mark-as-read | 6.2 Notifications |
+6.3 DND/snooze | 6.4 Search | 6.5 Drafts | 6.6 polish + docs.
+
+---------------------------------------------------------------
+6.1 - UNREAD + MARK-AS-READ (Slack parity)  [DONE]
+---------------------------------------------------------------
+  Backend
+    [x] services/unread.service.js: summary() computes per-channel unread +
+        MENTION counts and per-DM unread from ChannelMember.lastReadAt /
+        Conversation.participants[].lastReadAt (excludes own + deleted
+        messages and pure thread replies); markChannelRead /
+        markConversationRead update lastReadAt.
+    [x] controllers/unread.controller.js + routes:
+        GET /unread (requireAuth + requireOrganization),
+        POST /channels/:channelId/read (requireChannel),
+        POST /conversations/:conversationId/read (requireConversation).
+    [x] message.controller.emitUnread(): on every new message, emits
+        `unread.updated` { channelId|conversationId, mention } to each
+        recipient's user room (skips the sender; mention is per-recipient for
+        @user and channel-wide for @channel/@here).
+    [x] channel.service.toMembership now exposes lastReadAt.
+
+  Frontend
+    [x] lib/unread.ts; UnreadContext REWRITTEN server-backed: channels map
+        {unread, mentions}, conversations map (unread count), derived totals;
+        reload() on mount/org switch; socket `unread.updated` increments
+        locally and SKIPS the currently open channel/DM (you are reading it).
+        The session-local `marks` (explicit Mark as unread) still work.
+    [x] ChannelListItem: bold when unread + red MENTION badge (count);
+        clicking marks the channel read.
+    [x] DirectMessageListItem: bold + unread-count badge; clicking marks read.
+    [x] WorkspaceButton: red activity bar while the workspace has unread +
+        mention-count pill (totals passed from WorkspaceRail).
+    [x] Mark-read-on-open: ChannelWorkspace/DirectMessageWorkspace capture the
+        read boundary (membership/participant lastReadAt) BEFORE marking read
+        and pass `readBefore` to MessageList (a ref guard keeps reloads from
+        wiping the divider).
+    [x] MessageList `readBefore`: the FIRST message newer than the boundary
+        gets the "New messages" divider (explicit marks still win).
+    [x] Floating "N new messages / jump-down" pill: MessageList tracks
+        scroll position; new messages while scrolled up are counted and a
+        pill (bottom center) scrolls to the latest; reaching the bottom
+        clears it. Opening a conversation still auto-scrolls to the bottom.
+
+  Verification
+    [x] node --check 84/84 + eslint clean; module smoke load OK.
+    [x] DB check: unread summary returns per-channel counts + a mention for
+        the earlier @here message (totals 7/0 and 9/1 for two users).
+    [x] tsc --noEmit passes.
+
+Next: 6.2 - Notifications (persist from mentions/DMs/thread replies,
+  notification center, per-channel prefs honored, mark read/all read).
+
+---------------------------------------------------------------
+6.2 - NOTIFICATIONS (Slack parity)  [DONE]
+---------------------------------------------------------------
+  Backend
+    [x] models/notification.model.js: organization, recipient, actor, type
+        (MENTION/DM/THREAD_REPLY/CHANNEL), message, channel|conversation,
+        snippet (denormalized, attachments-aware), readAt; indexes
+        (recipient+createdAt, org+recipient+readAt).
+    [x] services/notification.service.js: createForRecipients (deduped,
+        strongest type wins), listForUser (+unreadOnly, limit capped),
+        countUnread, markRead/markAllRead/remove, removeForMessage, and
+        markReadForChannel/Conversation (viewing clears Activity entries).
+    [x] thread.service.listFollowers(rootId) for thread-reply rules.
+    [x] message.controller: emitMentions REPLACED by notify() which applies
+        Slack's rules per message:
+          DM/group DM -> all other participants (type DM)
+          channel     -> per-member notifyPreference
+                         ALL -> every top-level message (CHANNEL)
+                         MENTIONS -> only @user/@channel/@here (MENTION)
+                         MUTE -> never
+          thread reply-> thread followers get THREAD_REPLY (or MENTION when
+                         mentioned); MUTE members skipped; alsoSentToChannel
+                         replies already covered by the channel rules.
+        notify() persists the notifications and emits `notification.created`
+        (full payload: id/type/actor/messageId/channelId/conversationId/
+        snippet/readAt/createdAt) to each recipient's user room.
+    [x] notifications.routes.js -> GET /notifications (?unread=true),
+        PATCH /:id/read, POST /read-all, DELETE /:id; mounted /notifications.
+    [x] Slack sync: opening a channel/DM (unread read endpoints) now ALSO
+        marks that channel's/conversation's Activity notifications read.
+    [x] Deleting a message removes its notifications (cascade).
+
+  Frontend
+    [x] types/notification.ts, lib/notifications.ts.
+    [x] context/NotificationContext + hooks/useNotifications: items +
+        unreadCount; reload on mount/org switch; live `notification.created`
+        / `notification.read` / `notification.read_all` handlers; optimistic
+        markRead/markAllRead/remove. Provider added in (app)/layout.
+    [x] /activity page + components/notifications/NotificationsView: Slack's
+        Activity view - avatar + "X mentioned you in #channel" / "sent you a
+        direct message" / "replied in a thread", snippet, full timestamp,
+        unread dot, click opens the message context (deep link + mark read),
+        per-item Clear, and "Mark all as read".
+    [x] ChannelPanel: the disabled "Mentions" placeholder is now a live
+        "Activity" link (bell) with a red unread badge.
+
+  Verification
+    [x] node --check 88/88 + eslint clean; module smoke load OK.
+    [x] DB smoke: createForRecipients creates + lists MENTION/DM entries with
+        actor/snippet for the socket payload (cleaned up after).
+    [x] tsc --noEmit passes.
+
+Next: 6.3 - DND/snooze (user dndUntil, hold delivery + indicator), then
+  6.4 Search, 6.5 Drafts.
+
+  Fixes (owner feedback)
+    [x] Read state did not persist across reloads: UnreadContext's local
+        callbacks shadowed the imported lib/unread functions, so the
+        POST /read endpoints never fired and lastReadAt was never saved
+        (badges/bold/divider + Activity entries came back on refresh).
+        Fixed by aliasing the API imports; verified end-to-end against the DB
+        (lastReadAt updated, channel unread 0, its notifications read).
+    [x] Floating "N new messages" pill now has a cross to dismiss the backlog
+        without scrolling, and "seen" clears it within 80px of the bottom
+        (it always cleared on reaching the bottom).
+
+---------------------------------------------------------------
+6.2 FOLLOW-UP (owner feedback)  [DONE]
+---------------------------------------------------------------
+  [x] REMOVED the floating "N new messages" pill entirely (MessageList no
+      longer tracks scroll position for it; styles removed). Opening a
+      conversation still auto-scrolls to the latest message.
+  [x] Fixed the double count (DM badge + Activity badge showed 2 for one
+      message): the server was correct (DB check: exactly 1 DM notification,
+      summary unread = 1) - the client was incrementing on live events, so a
+      duplicated event double-counted. Both contexts are now SERVER-TRUTH
+      based and idempotent:
+        - UnreadContext: `unread.updated` triggers a DEBOUNCED reload of
+          GET /unread (no local counting); applySummary keeps the currently
+          open channel/DM at 0 (viewing = read, Slack behavior).
+        - NotificationContext: unreadCount is DERIVED from items
+          (!readAt); `notification.created` adds idempotently (deduped by
+          id); read state is only ever set. Also removed impure nested
+          setState calls (setUnreadCount inside an items updater) that
+          StrictMode double-invokes.
+      Result: one DM = badge 1, every time, on every client.
+  Verification: tsc --noEmit passes.
+
+  Follow-up (owner feedback): the automatic "New messages" divider that
+    appeared when opening a channel/DM was REMOVED (with the readBefore
+    plumbing in MessageList/ConversationView/ChannelWorkspace/
+    DirectMessageWorkspace). Mark-read-on-open still happens. The divider
+    now ONLY appears for the explicit "Mark as unread" action (marks).
+    The floating pill was already removed; tsc passes.
+
+  Scroll behavior fix (owner feedback): BUG - when you were scrolled up
+    reading old messages, TYPING indicators (and any new message) yanked the
+    window to the bottom. Fixed + Slack-style jump arrow:
+    [x] typingUsers.length removed from the auto-scroll deps, so typing never
+        scrolls.
+    [x] Auto-scroll is now position-aware: on INITIAL open/switch it always
+        lands on the latest; on new messages it only follows when you are
+        already at the bottom (within 80px) or when the added message is your
+        OWN (sending jumps to it, like Slack). While scrolled up, the reader
+        STAYS PUT and a circular ARROW-DOWN button (bottom-right, Slack
+        style) appears; clicking smooth-scrolls to the latest and the button
+        hides; scrolling back to the bottom also hides/clears it.
+    [x] Re-added the positioned .listWrap wrapper + .jumpButton styles.
+  Verification: tsc --noEmit passes.
+
+  UI tweaks (owner feedback)
+    [x] The jump-to-latest arrow is now CENTERED at the bottom of the message
+        list (was bottom-right).
+    [x] The "{user} is typing…" line moved BELOW the composer (Slack
+        behavior): new reusable TypingIndicator component; removed from
+        MessageList (prop + CSS) and rendered under the composer in
+        ConversationView, ThreadPanel and NewMessageView.
+    [x] The jump arrow was hidden behind hovered message rows (row z 40 /
+        toolbar z 50 beat its z 30); raised to z 60 so it always stays in
+        front (still below portal menus z 1200 / modals z 1100).
+
+  Activity badge + hover dropdown (owner feedback, Slack parity)  [DONE]
+    [x] The Activity badge now counts ONLY unread MENTION notifications
+        (NotificationContext.mentionCount) - DMs/every-message no longer
+        inflate it; DMs badge on their own sidebar item. Opening a chat
+        reloads notifications (the server clears that chat's entries via the
+        unread read endpoints), so a mention disappears from the badge once
+        you view the chat.
+    [x] ui/Popover gained `placement: 'right'` (panel beside the anchor,
+        clamped to the viewport).
+    [x] components/notifications/ActivityDropdown.tsx (+ css): hovering the
+        sidebar "Activity" item opens a vertical dropdown to its RIGHT with
+        recent activities (avatar, "X mentioned you in #channel", snippet,
+        full timestamp, unread dot). Hovering an unread row reveals a
+        mark-as-read (check) button to read it in place; clicking a row opens
+        the message and marks read; "Mark all as read" and "View all
+        activity" in the footer. 150ms hover open/close delay (ReactionPill
+        pattern).
+    [x] ChannelPanel: the Activity link is now ActivityNavItem (hover card +
+        mentionCount badge).
+
+  PROFILE PAGE REDESIGN (owner feedback - no longer a vertical stack)  [DONE]
+    [x] New two-column layout in app/(app)/profile/page.tsx + page.module.css
+        (Ink & Paper tokens, no Tailwind utility stack): a page header, a
+        LEFT identity card (ProfileIdCard: 96px avatar with a Change-photo
+        pill overlay, name, email, role "title · department", status pill,
+        presence dot) that is sticky on desktop, and a RIGHT column with
+        three bordered sections: Profile details / Appearance / Change
+        password. Collapses to one column <860px.
+    [x] ProfileForm: fields in a responsive auto-fit grid (name/job/department
+        + emoji/status/clear-after rows) instead of a single column; right
+        aligned save. ChangePasswordForm: three fields side by side.
+        ThemeSelector: selectable Light/Dark/System cards with swatches and a
+        check mark (was three buttons).
+    [x] New ProfileIdCard + module css (includes the old AvatarUploader logic
+        - Cloudinary signed upload, type/size validation); AvatarUploader.tsx
+        deleted (tsc re-run clean).
+    [x] Follow-up: removed the centered max-width so the grid uses the full
+        available width on large desktops (no dead left/right space); the
+        Activity entry moved OUT of the quick links into a Slack-style BELL
+        button in the panel header (top-right, before the members/new-message
+        buttons) that opens the Activity hover dropdown below it and navigates
+        to /activity on click, with the unread-MENTIONS badge on the bell.
+        ChannelPanel gained headerAction/headerBadge styles (ActivityNavItem
+        removed).
+    [x] REVERTED per owner clarification: Activity is back in its sidebar
+        quick-links place (ActivityNavItem with the right-side hover dropdown
+        + unread-MENTIONS badge); the header bell was removed (with its
+        headerAction/headerBadge styles). In the hover dropdown, the
+        mark-as-read control now uses Slack's CHECK-CIRCLE icon (new
+        ui/Icon 'checkCircle') positioned at the row's TOP-RIGHT (the unread
+        dot moved next to the avatar).
+    [x] Reaction "who reacted" tooltip is roomier: ReactionPill's Popover
+        gained a panel class (min-width 260 / max-width 320, more padding),
+        avatars bumped 22 -> 26 and names ellipsize - so the avatar/name fit
+        the grey tooltip area everywhere, including the compact pins hover
+        card.
+    [x] Follow-up (owner: tooltip still broken in pins): the reaction tooltip
+        is now HIDDEN inside the pins hover card entirely - ReactionPill
+        gained `tooltip` (default true) and MessageList passes
+        tooltip={!compact}; there it falls back to a native title with the
+        reactors' names. The hover dropdowns were also WIDENED (Files &
+        links 400 -> 520px, Pins 440 -> 600px, both viewport-clamped).
+    [x] Second follow-up (owner screenshot): what showed in the pins hover
+        card was the whole HOVER TOOLBAR (quick emojis + kebab, MessageActions
+        in .actions) - it is now hidden in compact lists entirely
+        (MessageList renders .actions only when !compact), matching Slack's
+        pinned preview which has no per-message hover actions. Reaction pills
+        remain visible/clickable, without their popover.
+    [x] Third follow-up (owner screenshot: image overflowing the grey hover
+        area): the pinned image was rendering at the 360px .single size
+        inside the dropdown - .single .image outranked .compact .image.
+        Fixed with a higher-specificity cap (.compact .single .image ->
+        190px) plus .compact .media { max-width: 100% }, so the image always
+        fits inside the row's hover highlight. NOTE: the owner reported
+        "nothing changes" twice - after CSS changes a dev-server restart +
+        hard refresh is required (known stale-watcher issue).
+
+========================================================================
+VOICE MESSAGES (Slack parity)  [DONE]
+========================================================================
+  Goal
+    Record + send + play voice clips in EVERY chat (channels, DMs, group
+    DMs, threads, New message), UI and behavior like Slack.
+
+  Components / hooks (all new, reusable)
+    [x] hooks/useAudioRecorder.ts: MediaRecorder + getUserMedia; picks a
+        supported mime (webm/opus -> ogg -> mp4); elapsed seconds; live input
+        LEVEL via AnalyserNode (rAF); stop() resolves a File, cancel()
+        discards; 5-minute cap (maxSeconds); releases mic/tracks/AudioContext
+        on stop, cancel and unmount; friendly permission/error messages;
+        `supported` feature flag.
+    [x] components/conversation/VoiceRecorder.tsx (+ css): Slack-style
+        recording bar - pulsing red dot, mm:ss timer, live level-meter bars,
+        trash (discard) and send buttons; disables while sending.
+    [x] components/conversation/AudioPlayer.tsx (+ css): Slack-like player -
+        round play/pause, bar WAVEFORM with filled progress, click-to-seek,
+        elapsed/total time, playback speed 1x/1.5x/2x, and an in-player
+        Download (uses the in-app download proxy); `compact` variant for the
+        pins hover card. Waveform is a stable pseudo-waveform seeded from the
+        file identity (no decoding needed).
+    [x] ui/Icon: added mic / play / pause (play/pause render filled).
+
+  Wiring
+    [x] MessageComposer: extracted runUploads(files) from handleFiles (shared
+        upload+progress path). Added a mic button (shown only when
+        recorder.supported). While recording, the composer row is replaced by
+        VoiceRecorder. Stop -> recorder.stop() -> upload via runUploads (the
+        existing progress UI shows) -> onSend('', [attachment]) immediately
+        (Slack sends the clip as its own message). Auto-sends at the 5-min
+        cap. Recorder errors are shown in the composer error line.
+    [x] MessageAttachments: AUDIO attachments now render AudioPlayer (instead
+        of <audio controls>), passing the in-app download URL; old .audio CSS
+        removed. Applies to chat, threads, saved items, delete dialog and the
+        compact pins hover card.
+    [x] (Backend unchanged: audio uploads already work through the Cloudinary
+        signed "auto" upload + the /attachments/:id/download proxy.)
+
+  Verification
+    [x] tsc --noEmit passes. (Mic capture is browser-only; code is
+        feature-detected and fully cleaned up.)
+    Note: recording mime varies by browser (Chrome/Edge/Firefox -> webm/opus,
+        Safari -> audio/mp4); the upload/download path handles both.
+
+  Fix (owner: no stop button)
+    [x] The recorder is now a proper TWO-STEP Slack flow. Recording bar shows
+        red dot + timer + level meter + DISCARD (trash) + a red STOP (square)
+        button. Pressing Stop keeps the clip as a review preview (AudioPlayer
+        + DISCARD + SEND) instead of sending immediately; the 5-minute cap
+        still auto-stops and sends. useAudioRecorder gained status
+        'idle'|'recording'|'stopped', previewFile/previewUrl (object URL,
+        revoked on discard/reset/unmount), stop() keeps the clip, discard()
+        drops it; VoiceRecorder gained mode 'recording'|'review'; Icon gained
+        'stop'.
+    [x] Waveform now REAL + social-app style: lib/waveform.extractWaveform
+        fetches/decodes the audio (AudioContext.decodeAudioData), extracts
+        per-bar peaks (real amplitude/pitch), normalizes and caches them;
+        AudioPlayer decodes on mount (drag: MessageAttachments passes the
+        same-origin download-proxy URL so CORS is fine; the recorder preview
+        passes its blob URL) and falls back to a stable placeholder if
+        decoding fails. Played bars turn ink and unplayed stay muted based on
+        playback time, plus a playhead THUMB (circle) that follows progress -
+        like audio players in social apps.
+    [x] Fixes (owner: dots not bars, playhead/time out of sync): the bars
+        rendered as tiny dots because heights were percentages of a sized box
+        - now they use PIXEL heights (4 + peak*22 in a 30px box) with a
+        perceptual (pow 0.6) scale + 0.1 floor, so quiet clips still look like
+        a waveform. Fill + thumb both use ONE progress value
+        (playedCount = round(progress*bars.length)) so they cannot disagree.
+        Most importantly, extractWaveform now ALSO returns the decoded
+        duration and the player adopts it - MediaRecorder webm blobs often
+        report Infinity/0 to <audio>, which had frozen the timer/thumb at
+        0:00; now playback time and the dot track correctly.
+
+Next: 6.3 - DND/snooze (user dndUntil, hold delivery + indicator), then
+  6.4 Search, 6.5 Drafts.
+
+========================================================================
+Phase 6.6 - HUDDLES (AUDIO / VIDEO / SCREEN SHARE)  [DONE]
+========================================================================
+Scope
+  Slack-style huddles inside channels and DMs (1:1 + group). Audio is
+  required; camera video and screen share are supported. Signaling runs
+  over the existing Socket.IO; media is a client-side WebRTC P2P mesh
+  (no SFU, no new npm deps). A huddle started in a channel/DM shows a
+  live pill on the sidebar row, a "Join huddle" bar in that conversation,
+  and a floating huddle bar in the app. Ending posts a "Huddle ended ·
+  DURATION · N people" card in the chat.
+
+Backend (plain CommonJS)
+  [x] constants.js: HUDDLE_STATUS { LIVE, ENDED }.
+  [x] models/huddle.model.js: org/channel/conversation/startedBy,
+      status, participants[{user, joinedAt, leftAt}], hadVideo,
+      hadScreenShare, endedAt, durationSeconds, endedBy; pre-validate
+      exactly one of channel/conversation; unique partial indexes so at
+      most one LIVE huddle per channel / per conversation.
+  [x] models/message.model.js: Message.huddle -> ref Huddle (summary card).
+  [x] services/huddle.service.js: startHuddle, loadForUser,
+      listActiveForUser (sidebar pills, access-checked), addParticipant
+      (max 8), removeParticipant, leaveForUser (auto-end on last
+      participant), endForUser (starter only), endHuddle (posts the
+      "Huddle ended" Message via message.service; skipped if < 5s),
+      noteMedia (sticky hadVideo/hadScreenShare), listHistory,
+      toPublicHuddle.
+  [x] services/huddle.events.js: room helpers + broadcastStarted/
+      broadcastUpdated/broadcastEnded/broadcastSummary +
+      leaveAndBroadcast (shared by REST leave and socket disconnect).
+  [x] controllers/huddle.controller.js + routes/huddles.routes.js:
+      POST /huddles, GET /huddles/active, GET /huddles/history,
+      POST /huddles/:id/{join,leave,end}.
+  [x] sockets/huddle.sockets.js: huddle:subscribe (access check, joins
+      huddle:<id>), huddle:unsubscribe, huddle:signal relay
+      (offer/answer/ICE), huddle:media (media-state broadcast +
+      noteMedia). index.js registers the handlers; on disconnect every
+      huddle the socket was in is left (auto-end if last).
+
+Frontend (TypeScript / Next.js)
+  [x] types/huddle.ts (Huddle, HuddleParticipant, HuddleTarget,
+      HuddlePeerMedia) + types/message.ts gained huddleId.
+  [x] lib/huddles.ts (REST client + huddleTargetKey/huddleKeyFor).
+  [x] lib/webrtc.ts: ICE_SERVERS (Google STUN + optional
+      NEXT_PUBLIC_TURN_URL/USERNAME/CREDENTIAL), isWebrtcSupported,
+      getDisplayMediaSupported, formatHuddleDuration.
+  [x] context/HuddleContext: huddles (live), joinedId/activeHuddle,
+      huddleForTarget, isJoined, start/join/leave/end; starts by
+      listing GET /huddles/active and syncing via huddle.started/
+      updated/ended socket events; one-huddle-at-a-time (implicitly
+      leaves the old one). hooks/useHuddles.
+  [x] hooks/useHuddleSession: getUserMedia audio on join; per-peer
+      RTCPeerConnection mesh; deterministic initiator (myId < peerId);
+      queued ICE candidates until the remote description is set;
+      peers map kept in sync with huddle participants; mic toggle
+      (track enabled), camera toggle (getUserMedia video, replace
+      outgoing video track/addTrack), screen share (getDisplayMedia
+      replace outgoing track, revoke fallback to camera, onended),
+      media-state broadcast, full cleanup.
+  [x] components/huddle: HuddleStartButton (header), HuddleJoinBar
+      (in-conversation join prompt), HuddlePill (sidebar row),
+      HuddleBar (global floating bar: timer, video stage, participant
+      chips, controls, error line), HuddleControls (mic/camera/screen/
+      leave/end), HuddleVideoTile (live <video> with avatar fallback,
+      hidden-video audio playback), HuddleSummary (chat card).
+  [x] Icon gained headphones, video, video-off, mic-off, screen,
+      phone-down.
+  [x] Wired: (app)/layout.tsx adds HuddleProvider; WorkspaceShell
+      renders HuddleBar; ConversationHeader gains an `actions` slot;
+      Channel/DirectMessageWorkspace render HuddleStartButton;
+      ConversationView renders HuddleJoinBar; ChannelListItem and
+      DirectMessageListItem show HuddlePill; MessageList renders
+      HuddleSummary for messages with huddleId.
+
+Notes / limits
+  - P2P mesh, so expect good quality up to ~8 people; a future SFU
+    would need Redis (violates the no-Redis rule) or a hosted SFU.
+  - DND-aware "huddle started" notifications are intentionally deferred
+    to Phase 6.3 (notifications only land there).
+  - No test scripts, no new dependencies, no dependency installs.
+
+
+========================================================================
+SECURITY HARDENING - STEP 1 (from the 2026-10-10 code audit)  [DONE]
+========================================================================
+Backend
+  [x] Uploads tied to their owner: per-user avatar folder
+      (createAvatarSignature), utils/attachments.assertOwnedAsset (folder +
+      URL-matches-publicId), attachment publicIds must be unique per
+      message, index on Attachment.publicId. Old avatar only destroyed if
+      inside the user's folder (previously any client-supplied publicId
+      could be destroyed, across orgs).
+  [x] requireChannelWrite on POST messages / pins; messageService.
+      assertCanWrite on edit / delete / react: must be an active member of
+      a non-archived channel (previously anyone could post in any public
+      or archived channel through the API).
+  [x] Only owners can grant/invite OWNER or change/disable/remove owners.
+  [x] sockets/kick.js: disconnect sockets on org removal/disable, logout,
+      password change (other sessions revoked too), password reset; leave
+      private channel rooms on leave/remove. Socket handshake now checks
+      the active org membership and records sessionId.
+  [x] Huddle signaling restricted to LIVE-huddle participants and sent
+      only to the target; leave-on-disconnect moved to `disconnecting`
+      (it never ran before), multi-tab safe.
+  [x] Auth: register ignores `role`; constant-time-ish unknown-email
+      login; login lands in an ACTIVE membership; per-account rate limits
+      (login/reset), password-change and invite-lookup limits;
+      TRUST_PROXY env (app 'trust proxy').
+Frontend
+  [x] lib/redirect.safeNextPath used by LoginForm, RegisterForm,
+      RedirectIfAuth (closes the ?next= open redirect).
+  [x] MembersView: admins no longer see the Owner role or controls for
+      owners.
+Checks: backend eslint clean; every backend module loads; frontend tsc
+clean. Frontend eslint config does not load (eslint 8 vs
+eslint-config-next 16) - pre-existing. Not run end-to-end (no local
+MongoDB). No test scripts, no new dependencies, no installs.
+Open (needs a decision): private/authenticated Cloudinary delivery and
+server-verified upload size/type; CORS/CSRF hardening for deployment.
+
+
+========================================================================
+REALTIME RELIABILITY - STEP 2 (from the 2026-10-10 code audit)  [DONE]
+========================================================================
+Backend
+  [x] Admin/moderator delete of channel messages; deleted messages can no
+      longer be edited/reacted; reply delete refreshes root stats;
+      deleted roots with replies kept as placeholders.
+  [x] Edits/deletes/reactions also reach the thread room; live payloads
+      are viewer-neutral (fixes wrong "my reaction" highlight).
+  [x] Thread auto-follow (replier always, root author on first reply);
+      ex-members no longer get thread notifications.
+  [x] unread.updated / notification.created include organizationId.
+  [x] typing=false broadcast on disconnect.
+  [x] channel.updated broadcast on rename/topic/purpose/archive.
+  [x] "Add people" to a DM opens/creates a separate group DM (no history
+      leak, no more E11000 500).
+  [x] Message indexes for _id cursor paging.
+  (Huddle leave-on-disconnect was already fixed in step 1.)
+Frontend
+  [x] Rejoin rooms + resync after reconnect (useMessages, useThread);
+      reconnect socket after switching workspace.
+  [x] Infinite scroll back through history with scroll anchoring.
+  [x] Stale-response guards (messages, active channel, active DM); no
+      "Channel not found" flash on switch; event target filtering.
+  [x] Viewed chats are marked read on the server live (no badges
+      returning after leaving); other workspaces' events ignored.
+  [x] Presence split into PresenceContext (fewer re-renders).
+  [x] Typing entries expire; pinned/deep-link focus no longer replays;
+      Activity links jump to the message on client navigation.
+  [x] Edit box: Enter saves, Shift+Enter newline, Esc cancels, errors
+      shown; groups break at day boundaries; deleted-root placeholder.
+  [x] Moderator "Delete message" in the message menu.
+Checks: backend eslint clean; all backend modules load; frontend tsc
+clean. Not run end-to-end (no local MongoDB). No test scripts, no new
+dependencies, no installs.
+Known limits: a ?message= jump only works if the message is within the
+loaded history (no "jump to an old message" fetch yet).
+
+
+========================================================================
+PHASE 6.3 - 6.5 : DND, SEARCH, DRAFTS (+ desktop alerts, tab title)  [DONE]
+========================================================================
+Backend
+  [x] 6.3 User.dndUntil, PATCH /users/me/dnd, DND presence + expiry timer,
+      silent notification delivery during DND, `dnd.updated` event.
+  [x] 6.4 GET /search (messages / channels / people / files) with
+      from: in: has: before: after: on: and phrases; strictly scoped to
+      what the user can read; paging; rate limit.
+  [x] 6.5 Draft model + GET/PUT/DELETE /drafts; draft cleared on send;
+      `draft.updated` live sync.
+Frontend
+  [x] Rail bell menu: pause notifications presets, resume, desktop +
+      sound toggles. Desktop notifications + sound for new activity.
+  [x] Tab title unread badge.
+  [x] /search page; sidebar search Enter -> workspace search; jump to
+      any result (auto-loads older history).
+  [x] Auto-saved drafts in channel, DM and thread composers; /drafts page;
+      sidebar Drafts link with count (no longer a disabled button).
+Checks: backend eslint clean; frontend tsc clean; live-checked against
+the running app (search + jump to an old message, draft save/restore/
+clear-on-send, pause/resume, tab title on a new DM). No test scripts in
+the repo, no new dependencies, no installs.
+Notes: desktop notifications need the browser permission (asked from the
+bell menu). Search uses regex "contains" matching rather than Mongo $text.
+Not done here: a weekly notification schedule (Slack "notification
+schedule"), "Sent" view.
+
+
+========================================================================
+PERFORMANCE - INSTANT CHAT SWITCHING  [DONE]
+========================================================================
+  [x] Client cache + stale-while-revalidate for messages, chat details,
+      files, links, pins, channel members; request dedupe.
+  [x] Hover/focus prefetch in the sidebar; background preload of up to 8
+      recent chats; cached chats refreshed when new messages arrive.
+  [x] Header shown immediately from sidebar data.
+  [x] Removed duplicate / per-switch requests (unread summary,
+      notifications list, conversation details x3, read POST x2).
+  [x] Backend: 1-trip session lookup, parallel org/channel access checks.
+Measured (dev machine -> Atlas): API requests 2-2.5x faster (channel
+1.14s -> 0.48s, messages 2.39s -> 0.99s); revisiting a chat 1.6-4s ->
+~70-170ms; first visit after preload ~120ms; a message sent while away is
+visible on opening (~100ms). tsc + backend eslint clean.
+
+
+========================================================================
+STEP 4 - SLACK MUST-HAVES  [DONE]
+========================================================================
+  [x] #general for every workspace (new + existing), auto-join on invite,
+      can't be left/archived.
+  [x] Channel browser at /channels; sidebar shows joined channels only.
+  [x] Starred channels (saved, sidebar section); mute DMs; muted chats
+      dimmed and left out of badges.
+  [x] Rich text formatting in messages (+ composer shortcuts and hint).
+  [x] Paste / drag-and-drop uploads; Up arrow edits last message.
+  [x] Emoji picker with search, categories and recents; emoji in composer.
+  [x] Ctrl/Cmd+K quick switcher; Ctrl/Cmd+/ shortcuts help; Esc closes
+      dialogs.
+  [x] Profile cards on names/avatars with "Message".
+  [x] Mobile drawer navigation; details panel overlay on narrow screens.
+  [x] DM menu: removed the non-functional "Block" item (replaced by Mute).
+Checks: tsc + backend eslint clean; live-checked in the app (#general
+created + leave refused, star -> Starred section, formatting render,
+Ctrl+K jump, emoji search insert, profile card, mobile drawer).
+Bug found + fixed during testing: the formatter's shared /g regex looped
+forever on bold/italic text (froze the page).
+Data note: GET /channels creates #general in existing workspaces on first
+use (it ran for "First" and "Hamza QA Workspace" on 2026-10-10).
+
+========================================================================
+UI FIXES (before step 5)  [DONE]
+========================================================================
+  [x] Popover ignored panelClassName -> Pins / Files & links hover cards
+      were ~220px wide (names/dates wrapped). Now 600px / 520px as designed.
+  [x] Compact rows (pins card) padding 6px 8px so the hover background
+      wraps images fully (image was flush with the highlight's edge).
+  [x] Images never wider than their column (thread panel / narrow screens).
+  [x] Thread panel: "N replies" divider under the thread starter; replies
+      no longer merged into the starter's group (MessageList separatorAfter).
+  [x] Channel browser: proper page title/subtitle; inline styles moved to
+      ChannelBrowser.module.css.
+  [x] Removed the dead "More" sidebar item.
+  [x] "System" theme follows OS light/dark changes live (lib/theme.ts).
+
+
+========================================================================
+SLACK-STYLE COMPOSER  [DONE]
+========================================================================
+  [x] Formatting bar (bold, italic, underline, strike, link, numbered /
+      bulleted list, quote, code, code block) + keyboard shortcuts.
+  [x] Action row: + (upload / video clip / audio clip), Aa toggle, emoji,
+      @ mention, video clip, voice, / shortcuts, send + schedule chevron.
+  [x] Slash commands /shrug /tableflip /unflip /me /dnd /topic.
+  [x] Video clip recording (camera preview, playback, upload).
+  [x] Scheduled messages (backend scheduler + banner with cancel).
+  [x] Renderer: __underline__, [text](url); escaped shrug stays intact.
+Checks: tsc + backend eslint clean; live: toolbar bold/list edits, Aa
+toggle, @ opens mention list, / suggestions, /shrug sent, scheduled
+message posted by the scheduler and banner cleared, too-soon schedule
+rejected. Video recording itself not testable here (no camera in the
+test browser).
+  [x] WYSIWYG composer: formatting, lists, quotes, code, links and mention
+      chips show inside the box while typing (RichEditor + markdown.ts);
+      toolbar buttons show the active formats. Live-checked: bold/code in
+      place, code exit, mention chip, list, draft restored formatted (chip
+      names refreshed), sent message renders bold + mention + list.
+  [x] Message editing uses the rich editor (MessageEditor) with the
+      formatting bar; shared LinkDialog; editor inline code is black; list
+      bullets/numbers restored; hover toolbar hidden while editing.
+      Live-checked: Up arrow opens the edit formatted (chip named), italic
+      added, Enter saved ("(edited)"), Esc cancels.
+
+
+========================================================================
+STEP 5 - ADMIN (Slack workspace administration)  [DONE]  2026-10-10
+========================================================================
+Started 2026-10-09 night (backend part, interrupted by a lost connection);
+finished 2026-10-10.
+  [x] Audit log: AuditLog model + services/audit.service.js (record never
+      throws; null target allowed). Entries for workspace create/settings,
+      invites (sent/resent/revoked), invite link on/off, joins (email or
+      link), role changes, deactivate/reactivate, remove, leave, ownership
+      transfer, channel create/edit/archive/unarchive/member removed, and
+      admins deleting other people's messages. GET /organizations/:id/audit
+      (owners/admins, ?action= filter, ?before= cursor, 50 per page).
+  [x] Workspace settings: PATCH /organizations/:id validates name (<=80),
+      allowMemberChannelCreation, defaultChannelType; logo is no longer
+      client-settable. Emits `organization.updated` (OrgLiveUpdates refreshes).
+  [x] Transfer ownership (owner only; old owner becomes ADMIN).
+  [x] Leave workspace (last owner must transfer first; leaves all channels;
+      session moves to another workspace).
+  [x] Shareable invite link (30 days, regenerate / turn off; /join page;
+      joins as MEMBER into #general). Invite dialog has "Copy invite link".
+  [x] Resend invitation (new token + 7 days).
+  [x] Deactivate (was "Disable") with confirmation; removed/left members
+      lose their channel memberships.
+  [x] Unarchive channels: POST /channels/:id/unarchive (channel moderators,
+      org owners/admins); channel browser "Archived" filter.
+  [x] Active sessions on the profile page: list, sign out one device, sign
+      out all others (GET/DELETE /users/me/sessions, POST revoke-others);
+      sockets of that session are cut.
+  [x] Sidebar header gear -> /settings (General / Invite link / Audit log;
+      plain members see only "Leave workspace").
+Checks: backend eslint + frontend tsc clean. API test (QA accounts, Hamza
+QA Workspace only): 41 checks incl. permissions (members get 403 on
+settings/link/audit/unarchive/transfer), link regenerate/disable, join,
+leave, transfer and back, deactivate -> 403, remote sign-out -> 401.
+Browser: settings tabs, invite link create, audit log, archived filter,
+sessions list, /join (valid + invalid).
+Bug found + fixed: audit entries without a target (invite link created)
+were silently dropped.
+Not tested: "Resend invitation" (it would send a real email).
+Known (pre-existing): profile page scrolls sideways at ~650px content width.
+Frontend `next lint` config is broken (circular config error) - tsc only.
+
+
+========================================================================
+STEP 5.1 - LONG SCROLL-BACK + PRELOADING  [DONE]  2026-10-10
+========================================================================
+  [x] Bounded message window (Slack-style): at most MAX_LOADED = 200
+      messages of a chat are loaded/rendered. Paging older past the cap
+      drops the newest (hasNewer = true); scrolling near the bottom pages
+      them back in (GET .../messages?after=<id>, ascending) and drops the
+      oldest. "Load newer messages" button + the jump arrow ("Jump to
+      latest") reloads just the latest page.
+  [x] While scrolled far back (hasNewer) live messages are not appended
+      (they'd leave a gap); updates to loaded messages still apply; sending
+      a message jumps to the latest.
+  [x] Scroll position is pinned to a message (not to scrollHeight), so it
+      holds when pages are added at either end and the other end trimmed
+      (re-pinned for 3 frames while row heights settle).
+  [-] Off-screen rows skipping layout/paint (content-visibility) was
+      REMOVED later the same day: it clipped hover times/backgrounds.
+  [x] Cache keeps only the latest 2 pages per chat (CACHE_KEEP = 60); a
+      scrolled-back window is never cached.
+  [x] Preloader: max 6 chats, unread chats first, waits for the tab to be
+      visible and the browser to be idle, skipped on Data Saver / 2G;
+      reads lists through refs so list updates don't restart it.
+Checks: tsc + backend eslint clean. Live (#qa-scroll-test, 260+ msgs):
+  open = 30 rendered; scrolling up caps at 200 (range 1..200); scrolling
+  down pages forward to 63..262 and the jump arrow hides; anchored message
+  moved 0px over 5 page loads; live message while far back not appended,
+  jump -> latest 30 incl. it, at bottom; live message at bottom appended;
+  hover toolbar not clipped; preloader waits while hidden, then loads the
+  4 uncached chats 2 at a time.
+Test accounts: scripts/qa-test-accounts.local.md (local only, git-ignored).
+
+
+========================================================================
+STEP 6 - SECURITY HARDENING 2 + AUTOMATED SECURITY TESTS  2026-10-10
+========================================================================
+(Phase 9 split: step 6 = security, step 7 = deployment.)
+  [x] Server-side upload verification (utils/assetVerify.js): before a file
+      is attached / set as avatar the server asks Cloudinary (Admin API
+      `resource`) for the REAL size, type and URL and stores those; blocked
+      formats or oversize -> rejected AND deleted from Cloudinary; a
+      publicId that was never uploaded -> 400. Avatars: images only, <= 5 MB.
+      Note: Admin API is rate limited (500/hour on the free plan), one call
+      per attached file.
+  [x] CORS allow-list (utils/origins.js): production = CLIENT_URL (comma-
+      separated allowed); development = CLIENT_URL + localhost + private LAN
+      IPs on any port (phones on the LAN still work). Before: any origin in dev.
+  [x] Socket.IO: same allow-list for CORS AND the handshake Origin
+      (allowRequest) - blocks cross-site WebSocket hijacking.
+  [x] CSRF (middleware/csrf.js): POST/PATCH/PUT/DELETE with a foreign
+      Origin/Referer -> 403 (on top of SameSite=Lax cookies).
+  [x] Message flood limit: 20 messages / 10 s per user (channels + DMs).
+  [x] urlencoded body limit 1mb (json already 1mb).
+  [x] Tests: `npm test` (unit, no server: folder/path tricks, URL matching,
+      blocked types/oversize, origin list, CSRF, rate limiter) and
+      `npm run test:security` (live, needs backend + tests/.env.test.local):
+      unauthenticated access, tenant isolation (other workspace can't
+      read/write/join/react/search), private channel isolation incl.
+      search, member can't use admin actions, upload abuse (other org's
+      file, path trick, foreign URL, svg/html, oversize, never-uploaded
+      file, avatar from another folder), XSS stored as text + no
+      javascript: links, CSRF (Origin and Referer, forged logout), CORS +
+      WebSocket origin, message flood -> 429. 7 + 9 tests pass; lint
+      covers tests/. Mutation check: with the CSRF middleware removed the
+      CSRF test fails.
+  [x] PRIVATE FILES (owner chose option 2, 2026-10-10): new attachments
+      are uploaded as Cloudinary "authenticated" (type is part of the upload
+      signature, so the browser can't upload them public). Clients get
+      url = /api/attachments/:id/content; that endpoint checks the user can
+      see the message, then 302s to a private_download_url that expires in
+      5 min (inline, supports range requests for video/audio seeking). The
+      redirect is cached privately for 4 min and sends
+      Cross-Origin-Resource-Policy: same-site (helmet's default same-origin
+      blocked the app's <img> on port 3000 - found in the browser).
+      Attachment.deliveryType ('authenticated' | 'upload'); downloads and
+      deletion use it. Frontend: lib/attachments mediaUrl()/isPrivateMedia();
+      private images skip the Next image optimizer (unoptimized).
+      Trade-off: private images load full size from Cloudinary's API host
+      (no CDN cache / resizing). Old files: all 8 legacy public attachments
+      migrated 2026-10-10 with scripts/migrate-private-attachments.js
+      (npm run migrate:private-files [-- --apply]); old public links now
+      404/401, each file opens via an expiring link.
+      Live test: tests/security "private files" (upload -> attach -> owner
+      200 via expiring link; non-member, other workspace, signed-out and
+      plain storage URL all refused; message delete removes the file).
+Not done in the live tests on purpose: login / IP rate limits (would lock
+the developer out of their own server); covered by the unit test.
+
+
+========================================================================
+STEP 7 - DEPLOYMENT PREP  [DONE, actual deploy postponed]  2026-10-10
+========================================================================
+  [x] Production build check: `next build` compiles, typechecks, 19 routes;
+      production bundle run on :3100 against the API - chat loads, live
+      connection up, no console errors (launch config "frontend-prod").
+  [x] Backend refuses to start in production with unsafe settings
+      (short/placeholder SESSION_SECRET, non-https CLIENT_URL, localhost
+      MONGO_URI) - config/env.js.
+  [x] LOG_LEVEL (default info in production; hides per-socket debug lines).
+  [x] Frontend security headers (next.config.js): X-Frame-Options DENY +
+      frame-ancestors 'none', nosniff, Referrer-Policy, Permissions-Policy
+      (camera/mic/screen only for our own pages); X-Powered-By removed.
+  [x] deploy/Caddyfile: one domain, auto HTTPS, /api + /socket.io -> backend,
+      rest -> frontend, HSTS.
+  [x] DEPLOYMENT.md: architecture, env tables, VPS walkthrough (systemd +
+      Caddy), go-live checklist, backups (Atlas / mongodump), monitoring
+      (/api/health uptime check, logs, Cloudinary Admin API budget),
+      updating. Key constraint: ONE backend process (in-memory scheduler,
+      rate limits, socket rooms) and frontend + API on the same site.
+  [-] Owner decided (2026-10-10) not to deploy yet. When they do: pick
+      hosting (VPS recommended; Render/Railway possible with own-domain
+      subdomains), follow DEPLOYMENT.md, then smoke-test incl. huddles over
+      HTTPS and run the go-live checklist.
+
+
+========================================================================
+STEP 8 - SLACK PARITY CHECKLIST  [DONE]  2026-10-10 .. 2026-10-11
+========================================================================
+Audit (3 read-only reviewers, 2026-10-10): DONE/MOSTLY = admin+audit,
+search, messages, reactions. PARTIAL = everything else; weakest = presence.
+Work in batches, each verified in the app:
+
+8.1 PRESENCE & STATUS  [DONE 2026-10-10]
+  [x] Presence is derived (services/presence.service computeState):
+      OFFLINE (no socket) > DND (dndUntil) > AWAY (awayManual, or ALL tabs
+      idle) > ACTIVE. Tabs report idle after 10 min without input / hidden
+      (PresenceReporter, socket 'presence.idle'); "Set yourself as
+      away/active" (socket 'presence.away', User.awayManual, synced to other
+      tabs via 'presence.self'). Changes broadcast to all the user's orgs.
+  [x] Avatar menu (UserMenu): presence, status (+clear), away/active,
+      Profile. Set a status dialog: emoji picker, Slack presets, Clear after
+      (Don't clear / 30 min / 1 h / 4 h / Today / This week, or "Keep
+      current" while the status is unchanged); app Select + icons.
+  [x] Expired statuses are hidden (toPublicUser + client useUserStatus with
+      a 1-minute ticker); length limits on status text/emoji.
+  [x] Status emoji after names: messages, sidebar DMs, members, channel
+      members, DM details; live via 'user.profile.updated'.
+  [x] Old manual-DND path removed (PATCH presence ignored); DND only from
+      pausing notifications.
+  [x] BUG FIXED (pre-existing since the one-query session lookup):
+      every user.save() on the signed-in user failed "passwordHash is
+      required" -> profile edits, status, pause notifications all broken.
+      session.service now hydrates with the projection. Regression test in
+      tests/security.
+  [x] FIX (owner report): Set a status dialog fields overflowed the box -
+      the form had min-width 440px inside a 440px dialog with 24px padding.
+      Form is now width 100% / min-width 0. Also found while checking phone
+      width: dialogs opened from the rail were squeezed to 48px because the
+      mobile drawer's transform traps position:fixed - Modal now renders in
+      a portal on <body> (all dialogs), close button uses the Icon, dialog
+      max-height + scroll on small screens. Verified by measuring every
+      element inside the dialog (0 overflowing) at 1024px and 375px, plus
+      Create channel / Invite people dialogs.
+  Checks: 17-step live socket test (idle/multi-tab/manual away/DND
+  precedence/status broadcast + expiry/offline), security suite 11/11,
+  tsc + eslint clean, UI checked (menu, dialog, presets, keep-current,
+  emoji picker over the dialog, live emoji update next to names).
+8.2 CHANNELS, MENTIONS, THREADS  [DONE 2026-10-10]
+  [x] Topic in the channel header (truncated, hidden < 700px). Any channel
+      member can set topic/purpose (middleware requireChannelEditor);
+      rename/other settings stay moderator/admin. Changes post a muted
+      "set the channel topic: ..." line (Message.event CHANNEL_TOPIC /
+      CHANNEL_PURPOSE; not editable, no hover actions, no notifications).
+  [x] Mentions of YOU (direct, @channel, @here from others): warm status
+      tint on the pill + row tint with accent bar (DESIGN.md: colour only
+      for status).
+  [-] @channel/@here stay limited to moderators/admins: project.md FR-013
+      requires "members with the required permission" (owner's spec).
+  [x] @here notifies only people online (ACTIVE or DND). Muted channels:
+      direct @mentions get through silently (Activity + badge, no alert);
+      @channel/@here stay muted - same rule in unread counts and live
+      'unread.updated'.
+  [x] Thread summary: up to 3 replier avatars (serialize.service
+      replyUsers), "N replies", "Last reply X ago", "View thread" on hover.
+      "Also send to #name", unticks after each reply. Channel copies of
+      replies show "replied to a thread · View thread".
+  [x] Mark as unread: POST /channels|conversations/:id/unread {messageId}
+      (read position = just before it) -> bold + badge everywhere, survives
+      reload. Held while you stay in the chat (no auto mark-read, incl.
+      transient refreshes); divider shown when you come back, cleared when
+      you leave again. Divider starts a new group; hidden in thread panel.
+  [x] Deep links react to the query string (same-chat links work);
+      Copy link adds &thread=<root> for replies (opens the thread); a
+      message that can't be found shows "That message isn't available".
+  [x] BUG FIXED (pre-existing): tab title "(N)" was wiped by Next.js on
+      every navigation; TabTitle now re-applies it (MutationObserver).
+  Checks: 10-step live API/socket test (topic perms + event line, muted
+  direct mention silent, muted badge, @here online/offline, replyUsers);
+  browser: header topic, event line, mention tint, thread summary + hover,
+  same-chat/thread/missing deep links, mark-unread hold -> leave -> reload
+  -> badge persists -> return shows divider -> leave clears it, tab title
+  across navigation. Unit 7/7, security 11/11, tsc + eslint clean.
+8.3 DMs & SIDEBAR  [DONE 2026-10-10]
+  [x] Close a DM (Slack "Close conversation"): per-person
+      participant.hidden; x on hover in the sidebar + DM menu item. Left
+      out of GET /conversations; a new message reopens it for everyone;
+      starting it again or opening it reopens it (client, once per
+      opening - GET stays read-only so hover/quick-switcher prefetch never
+      reopens). Slack has no "leave group DM" (only close) - same here.
+  [x] Sidebar sections collapse/expand (caret, remembered per device in
+      localStorage 'sidebar.collapsed'); collapsed sections still show the
+      open chat and chats with news.
+  [-] Labels "Team Messages" / "Bookmarks" kept: they come from the
+      owner's design (design/planify-dashboard.html). Saved page heading
+      changed to "Bookmarks" to match.
+  [x] Rail badges for every workspace: GET /organizations/unread
+      (unread bar + @mentions + unread DMs, muted excluded), refreshed on
+      other-org 'unread.updated'. Active workspace pill now also counts
+      unread DMs (Slack).
+  [x] Pencil next to channels / DMs with an unsent draft (not the open one).
+  [x] Offline banner ("You're offline...") from navigator.onLine +
+      online/offline events, separate from "reconnecting".
+  Checks: 11-step live API test (close/personal/prefetch-safe/new message
+  reopens/explicit reopen/restart reopens/badge math/auth), browser: x on
+  hover, closing without opening, collapse shows only open+unread, rail
+  badge 2 (mention + DM), draft pencil appears and clears live, offline
+  banner on/off. Unit 7/7, security 11/11, tsc + eslint clean.
+  [x] OWNER REQUEST (2026-10-10): chats anchor messages to the BOTTOM like
+      Slack (a short chat sits just above the composer; new messages appear
+      at the bottom). MessageList anchor='bottom' (default) adds
+      .anchorBottom (first child margin-top:auto - collapses to 0 when the
+      list overflows, so scrolling/paging is unaffected). Thread panel uses
+      anchor="top"; compact lists (pins preview) stay top. Measured: 1-msg
+      chat gap below last = 10px (padding), long chat opens at newest and
+      scrolls to the top, sending appends at the bottom, thread starts at top.
+
+  [x] OWNER REPORT (2026-10-10): hover time in the gutter was cut off on
+      the left. Cause: content-visibility:auto on message rows (step 5.1)
+      paint-clips anything outside the row box (overflow-clip-margin was
+      reported supported but did not help). Removed it - the 200-message
+      window keeps long chats light. Times now "4:53 PM" (no leading zero,
+      Slack) and the hover time borrows 4px of the gutter gap: widest
+      "12:59 PM" has 6px to the hover edge and 6px to the text (measured).
+      Scroll-back anchor re-checked: 0px movement over 4 page loads.
+
+8.4 PEOPLE & PROFILES  [DONE 2026-10-10]
+  [x] /people directory for everyone (sidebar people icon): card grid,
+      search (name/title/email/department), Everyone / Active now,
+      department filter; each card opens the profile card. Admins get
+      "Manage members" -> /members (roles/invites page unchanged).
+  [x] Profile card (UserProfileTrigger) takes just {id, name?} and loads
+      the full profile on open (GET /users/:userId - only people in your
+      active workspace, else 404; cached 1 min): title, presence, role
+      badge for owners/admins, live status (+until), local time with
+      "N hours ahead/behind", email (click to copy), Message.
+      Opens from: message names/avatars, @mention pills, People cards,
+      channel members, DM details, Members page, search people results
+      (Slack: opens the profile, not a DM). Mentions inside button rows
+      (search results, pins) render as plain pills (no nested buttons).
+  [x] Time zone: User.timezone (validated IANA name); filled in from the
+      device once if empty (TimezoneSync), editable on the profile page.
+  [x] BUG FIXED (pre-existing): after a server restart, people who were
+      online stayed "Active" in the database forever (in-memory presence
+      lost, no disconnect ran). resetStalePresence() marks everyone not
+      connected to this process offline once the DB connects (log: "marked
+      4 stale user(s) offline after restart").
+  Checks: 8-step live API test (teammate profile + role, no private
+  fields, other workspace 404, bad id, /me intact, time zone valid/invalid
+  /visible); browser: People cards + card from a card and from an
+  @mention (full data from id+name), pill style kept, filters/search,
+  overflow measured 0 at 1024px and 375px (People grid, profile card in
+  viewport, profile form with time zone). Unit 7/7, security 11/11,
+  tsc + eslint clean.
+8.5 FILES, PINS, SAVED  [DONE 2026-10-10]
+  [x] /files (sidebar "Files"): every file in channels you're in and DMs
+      you're part of (GET /attachments ?type=images|videos|audio|documents
+      &q=&before=, 40/page). Each row: thumbnail/icon, name, uploader,
+      where it was shared, when, size; preview (image lightbox / PDF
+      viewer / download), "View in conversation" (?message=), download.
+      Name search is escaped (no regex injection).
+  [x] PDF preview in the app (PdfPreview, Modal "fill" size): an iframe on
+      the access-checked content URL - Cloudinary serves it inline
+      (application/pdf, no frame blocking; verified). Clicking a PDF in a
+      chat opens the preview; the download icon still downloads.
+  [x] Saved items (Bookmarks): In progress / Completed tabs; shows the
+      source chat; Open jumps to the message (thread replies open the
+      thread); "Remind me about this" (20 min / 1 h / 3 h / tomorrow 9:00 /
+      next Monday 9:00, remove) -> REMINDER notification from the
+      in-process scheduler (claimed atomically, sent once), shown in
+      Activity + desktop alert ("Reminder"); mark complete / back.
+      PATCH /bookmarks/:messageId { remindAt | null, completed }.
+  [x] Pins in DMs: ChannelPin now has channel OR conversation;
+      /conversations/:id/pins (GET/POST/DELETE, any participant); DM Pins
+      tab + hover preview + panel; "Pin to conversation" label; has:pin
+      search covers DM pins.
+  Checks: live API tests - files 9/9 (scope, type/name filters, regex-safe,
+  private channel file hidden from a non-member, other workspace), saved
+  reminders 13/13 (validation, delivered on time once, Activity, complete),
+  DM pins 8/8 (participants only, wrong-chat message refused, search,
+  unpin); browser: Files page + thumbnails, PDF preview from Files and from
+  a chat, Bookmarks tabs/source/reminder chip/menu, DM pin -> Pins tab ->
+  panel -> unpin; overflow 0 at 375px (Files, PDF dialog, Bookmarks).
+  Security suite now also checks the Files list can't leak private files:
+  11/11. Unit 7/7, tsc + eslint clean.
+ACTIVITY REWORK (owner request, before 8.6)  [DONE 2026-10-10]
+  [x] Activity lists only MENTION / THREAD_REPLY / REACTION / REMINDER
+      (Notification.ACTIVITY_TYPES). DM and plain "All activity" CHANNEL
+      notifications are still created (desktop alerts) but not listed or
+      counted - Slack shows those as sidebar bold/counts.
+  [x] Previews readable: <@id>/<!channel>/<!here> -> "@Name"/"@channel"/
+      "@here" at creation, and old stored previews fixed at read time.
+  [x] Thread-reply items carry parentMessageId -> open the thread
+      (&thread=), no more "message isn't available".
+  [x] REACTION notifications: someone reacting to your message (not your
+      own), one per person+message+emoji, delivered silently; removing the
+      reaction removes the item ('notification.removed').
+  [x] GET /notifications ?filter=mentions|threads|reactions &unread=true
+      &before=<id> &limit (paged, hasMore); PATCH /:id/unread.
+  [x] Shared ActivityItem (page + dropdown): avatar with type icon,
+      "<Name> reacted 🔥 to your message in #x" wording, 2-line preview,
+      Slack short time (2:31 PM / Yesterday / Mon / Oct 3), unread dot,
+      hover Mark as read / Mark as unread (the old "Clear" is gone).
+  [x] Page: All / Mentions / Threads / Reactions + Unread only + Mark all
+      as read + Load more. Dropdown: Unread switch + View all activity.
+  Checks: live API 9/9 (types, readable previews, reaction add/remove/own,
+  thread parent, filter, paging, mark unread); browser: page, thread item
+  opens thread, dropdown; 0 overflow at 375px. Unit 7/7, security 11/11
+  (after restarting the backend, which had stopped), tsc + eslint clean.
+
+8.6 NOTIFICATIONS  [DONE 2026-10-11]
+  [x] Notification schedule (User.notifySchedule {enabled, days 0-6,
+      start, end "HH:MM"}; utils/schedule.js outsideSchedule in the
+      person's time zone, overnight ranges supported). Outside it,
+      notifications are still created (Activity, badges) but delivered
+      silently - same path as DND. Bell menu "Notification schedule…"
+      dialog (days Mon-first, half-hour times); bell shows "Outside your
+      notification schedule" (client mirror lib/schedule.ts).
+  [x] Pause: "Until next week" (Monday 9:00, capped at the 7-day max) and
+      "Custom…" (date/time dialog, within 7 days).
+  [x] Mark all messages as read: POST /unread/read-all (every channel +
+      DM in the workspace); bell menu item + Shift+Esc (listed in Ctrl+/).
+  [x] Reaction notifications, Activity filters + paging: done in the
+      Activity rework above.
+  Checks: unit tests for the schedule (12/12 total: working hours, time
+  zone, overnight, validation); live 7/7 (invalid refused, saved, outside
+  -> silent, off -> alerts, custom pause, >7 days refused, mark all read);
+  browser: menu items, schedule dialog enable/save/"(on)", bell quiet-hours
+  label on a Sunday; both dialogs 0 overflow at 1024px and 375px. Test
+  account schedule turned back off. Security 11/11, tsc + eslint clean.
+
+STEP 8 (SLACK PARITY CHECKLIST) COMPLETE 2026-10-11.
+
+
+PROFILE PAGE SIDEWAYS SCROLL  [FIXED 2026-10-11]
+  Cause: the two-column layout (300px card + content) switched at a WINDOW
+  width of 860px, but the page sits beside the sidebar, so at ~900-1050px
+  windows the content column shrank to ~170px and the form's
+  minmax(220px, 1fr) fields overflowed (920px window: 41px sideways
+  scroll). Fix: container query on the page (stacks at <= 760px of PAGE
+  width) + shrink-safe grids minmax(min(Npx, 100%), 1fr) in ProfileForm,
+  ChangePasswordForm, ThemeSelector and the home page grid.
+  Measured: no sideways scroll at 375 / 920 / 1024 / 1200 / 1440px
+  (stacked below ~1100px window, two columns above).
+
+8.7 Huddle ringing (Slack) - DONE 2026-10-11
+- DM huddles ring the other members: popup on any page (caller photo, Join/Decline, WebAudio ringtone; silent in DND / outside schedule).
+- Caller's huddle bar: avatars; invitees dimmed with Ringing… / Declined / No answer until they join.
+- Ring stops on join (all tabs), decline, caller hang-up, or after 30s (MISSED). Channels: no ringing.
+- Backend: Huddle.invites, POST /huddles/:id/decline, events huddle.ring / huddle.ring.stopped.
+- Verified: live 2-account script 9/9, UI popup + decline + caller view, bar at 375px, unit tests, tsc, eslint.
+
+8.8 Huddle features (Slack) - DONE 2026-10-11
+- Decline / no answer in a 1:1 or group DM ends the call when nobody is left
+  ringing and nobody joined (no summary message); caller sees "X declined" /
+  "No answer". Channel huddles never end on a decline.
+- Add people (+ button): channel / DM members active in the org who aren't
+  in the huddle; clicking rings them. "Ring again" on Declined / No answer.
+  Each invite has its own 30s window (one timer per huddle, next expiry).
+  GET /huddles/:id/candidates, POST /huddles/:id/invite {userIds}.
+- Live reactions (smile button): fixed emoji set, socket huddle:react ->
+  huddle:reaction to the huddle room only, 400ms throttle; float up with name.
+- Split into small components: HuddlePeople, HuddleAddPeople,
+  HuddleReactions (picker + layer), hook useHuddleReactions.
+- Verified: live tests 10/10 (features) + 5/5 + no-answer (DM), UI in browser,
+  no overflow at 375 and 1024px, unit tests, tsc, eslint.
+
+8.9 Huddle chat + call log - DONE 2026-10-11
+- One card per huddle in the channel / DM (Huddle.message): "Huddle started"
+  (shown as "Huddle in progress" + Join while live), rewritten at the end to
+  "Huddle ended · 3 min · 2 people", or "Missed huddle" / "Huddle declined"
+  for unanswered DM calls (red phone icon). Not editable. Replaces the old
+  end-only summary (and its 5s minimum).
+- In-huddle chat = the card's thread: "Chat" button in the huddle box opens
+  the thread panel; replies show as "N replies" under the card.
+- Huddle box moved to the top right (under the chat header) and beside the
+  thread panel when it's open: it no longer covers either message box.
+- Verified: live 7/7 (card, edit refused, declined, chat reply, summary on the
+  same card, missed), browser; no overlap with composers at 375/1024/1440.
+
+8.10 Huddle minimise - DONE 2026-10-11
+- Chevron in the huddle header minimises the box to a pill (title, timer,
+  mute, leave, expand). Peer <video> tiles stay mounted so audio keeps playing.
+- Phones (<=900px): opening the huddle chat minimises it automatically.
+- HuddleHeader.tsx (+ css) split out of HuddleBar.
+
+QA PASS (pre-launch) - 2026-10-11
+- Production build: OK (21 routes, typecheck, no warnings).
+- Security suite 11/11, unit tests 12/12, backend eslint + frontend tsc clean.
+- All 15 app pages at 1440 / 1024 / 375: no sideways scroll, nothing past
+  the right edge, no console errors.
+- All 15 dialogs at 375 (status, schedule, pause, create channel/workspace,
+  quick switcher, invite, link, PDF preview, add people, delete message,
+  schedule-send menu + custom time): inside the screen, nothing spills.
+- FIXED: phones - floating menu button sat on the thread / details panel
+  title ("Thread" read "ead"); hidden while those full-screen panels are open.
+- Not covered: auth pages (login/register/reset) - testing them would mean
+  signing the QA session out.
+
+BUG FIX 2026-10-11: leaving a channel left it in the sidebar until refresh
+- This tab: ChannelWorkspace.run() skipped the sidebar refresh whenever an
+  "after" step (navigate to /channels) was given -> leave and archive now
+  refresh the channel list first.
+- Other tabs/devices: the server never announced leave or join (only
+  add/remove by someone else). leave + join now emit
+  channel.membership.updated to the user and channel.updated to the channel.
+- Verified in two tabs: leave and join both update both sidebars live.
+
+STUDIO THEME APPLIED TO THE APP - 2026-10-11 (from design/workspace-home.html)
+- tokens.css: cream / warm charcoal / tangerine / sage palette (light + dark),
+  soft shadows, larger card radius; token names unchanged. New tokens:
+  brand, brand-strong, brand-text, brand-soft, badge, badge-ink, panel,
+  rail-*, butter*.
+- Rail: dark charcoal; current workspace + your avatar in tangerine; bell /
+  add / logout in rail tones.
+- Sidebar: cream panel, white search field, active row = solid ink.
+- Unread / mention badges and dots: tangerine (was red); DND stays red.
+- Dialogs, popovers, menus: soft float shadow. Primary button hover tangerine.
+- Home: Studio hero (date + time, "Good <em>morning</em>, Name.", live summary
+  from unread totals / mentions / live huddles, quick actions) + soft cards.
+- Contrast checked: badges 4.9:1, tangerine text 5.0:1, meta text 4.4-4.8:1.
+- Verified: tsc; 15 pages at 1024 + 375 no overflow / no console errors;
+  dark mode tokens.
+- design/relay.html: a second, separate concept (keyboard-first inbox);
+  not used by the app.
+
+STUDIO ACROSS THE WHOLE APP - 2026-10-11
+- Channel + DM screens: conversation is a Studio card (border + soft shadow);
+  header on the cream panel colour with a larger title; active tab underline
+  tangerine; day dividers = bordered pill between rules; "New" line =
+  tangerine rule + uppercase label; message rows round (14px) on hover;
+  @you highlight in butter; thread links tangerine; hover action bar is a
+  floating white card; composer 18px radius with a tangerine focus ring and
+  a tangerine send button; your own reactions tangerine.
+- Thread + details panels on the cream panel colour.
+- Avatars: rounded squares (30%), initials on a steady per-person colour
+  (8 hues, all >= 4.5:1 with white).
+- Every card in the app (Activity, Saved, Search, Files, People, Members,
+  Settings, Profile, New message, channel about/members/pins, invite,
+  create channel) gets a hairline border + Studio shadow; floating huddle box
+  and workspace hover card get the float shadow.
+- Page titles: bigger, tighter (Studio headline). Inputs/selects: tangerine
+  focus ring. Dialog backdrop warm. Auth page showcase greys -> tokens (so
+  they also follow dark mode).
+- Verified: tsc; 15 pages at 1440 / 1024 / 375 no overflow, no console
+  errors; computed styles on the channel screen.
+
+CHANNEL + DM SCREENS MATCHED TO THE STUDIO DESIGN - 2026-10-11
+- Edge to edge: channel / DM routes render without the main inset
+  (WorkspaceShell .flush); the conversation sits on the cream background.
+- Header (ConversationHeader): name + star on line 1, meta / topic on line 2
+  (channel: topic, or member count; DM: status or presence + their local
+  time); right side: members pill (opens details), "Huddle" pill, more menu.
+  On phones the header leaves room for the floating menu button.
+- Messages: 40px rounded-square avatars, 24px side padding.
+- Composer floats on the cream (no white bar / top border).
+- DM intro (new DmIntro): big avatar, name, title / status, View profile +
+  Huddle; shown at the start of the history and as the empty state.
+- Verified: tsc; channel + DM structure measured at 1440 and 375; all 15
+  pages at 1024 + 375 no overflow, no console errors; nothing under the
+  phone menu button.
+
+HUDDLE UI MATCHED TO THE STUDIO DESIGN - 2026-10-11
+- Shared dark surface `.huddle-surface` (tokens.css): re-points the colour
+  tokens so everything inside renders on charcoal; green live / join tones,
+  lighter error red (all >= 6:1).
+- HuddleWave (new): the animated green sound-wave bars (static with reduced
+  motion).
+- Floating huddle box: dark card, "Live" tag, big wave (audio-only), people,
+  controls; Leave in tangerine (End for everyone stays red).
+- Join bar in a channel / DM: dark card with Live tag, mini wave, faces,
+  "X and Y are talking", green Join.
+- Live huddle card in the message list: dark card ("Huddle in progress" /
+  "You're in the huddle", who's in it, Join); ended / missed cards unchanged.
+- Verified with a live huddle from the second QA account: join bar + stream
+  card dark, Join -> dock dark with wave and tangerine Leave; no spill at
+  375px; tsc clean.
+
+INCOMING HUDDLE POPUP + CHANNEL/DM HEADER = STUDIO DESIGN - 2026-10-11
+- Incoming huddle popup: dark .huddle-surface card, "Incoming huddle" live
+  tag, caller with pulsing green ring (rounded square), mini wave, outline
+  Decline, green Join. Caller's "declined / no answer" notice: dark pill.
+- Header (as in the design): title row (name 18px + star; topic or
+  status · local time underneath) with its own rule; tools = members pill
+  with 3 faces + count (new ChannelMembersPill), huddle pill, Details info
+  button (filled while the panel is open), ⋯ menu.
+- Huddle pill is live-aware: "Huddle" / green "Join huddle · N" / tangerine
+  "Leave huddle".
+- Tabs: 40px, 12px padding, tangerine underline, count chips (Files, Pins).
+- Phones: members pill + details button hidden (both in ⋯), tab icons
+  hidden so the tabs fit.
+- Verified: live huddle + ring from the second QA account; header measured
+  at 1440 / 375; all pages at 1024 + 375 no overflow / errors; tsc.
+
+THREAD PANEL + HUDDLE FIXES - 2026-10-11
+- Thread panel (Studio): "Thread" + where (#channel / Direct message) under
+  it, close X, 11px-radius icon buttons, tangerine bell when following,
+  tangerine "Also send" checkbox, "N replies" divider. Its header and the
+  conversation title row are both a fixed 76px so their rules line up.
+- Screen-share lag (regression from the Studio huddle work): the new wave
+  bars animated `height`, forcing page layout every frame; the live card in
+  the message list kept animating while you shared. Fix: bars animate
+  `transform: scaleY` (GPU, no layout) with will-change + contain; the stream
+  card shows no wave once you've joined. Share code (useHuddleSession) was
+  untouched since Oct 5.
+- Black name pills on video tiles: text used var(--paper), which is charcoal
+  inside .huddle-surface. Now fixed white text on a translucent charcoal pill.
+- Huddle cards capped to the column width (overflowed on phones).
+- Verified: wave uses transform (computed), name pill white, thread panel
+  layout at 1440, headers aligned (76 / 76), all pages at 1024 + 375 clean.
+  Not verified: an actual screen share (the browser pane blocks capture).
+
+HOME = STUDIO BENTO (design/workspace-home.html) + SIDEBAR HOME LINK - 2026-10-11
+- Sidebar: "Home" quick link first (new home icon); quick links (Home,
+  Activity, Drafts...) show the current page in solid ink (aria-current).
+- Home is the design's bento, with real data, one small component each
+  (components/home/):
+  HomeHero (date/time, "Good <em>morning</em>, Name.", unread / mentions /
+  live huddle summary, New message / Create channel / Join huddle) +
+  StatusMenu (status chip: presets, custom -> SetStatusDialog, clear);
+  HomeHuddleCard (dark: live huddle, timer, wave, faces, Join/Leave, or a
+  quiet state); CatchUpCard (mentions / threads / reactions from
+  notifications, All/Mentions/Threads, mark read, mark all);
+  YourDayCard (today's + overdue saved-message reminders, tick to complete,
+  progress ring); WeekCard (messages you sent per day, today tangerine,
+  % vs last week); PeopleCard (members by presence, click opens a DM);
+  DraftsCard (latest drafts + scheduled).
+- Backend: GET /users/me/weekly-activity (stats.service: per-day counts in
+  the user's time zone, excludes deleted / huddle / event messages) + index
+  { organization, sender, createdAt }.
+- Shared helpers: useNotificationWhere (ActivityItem), useTargetName (also
+  used by DraftsView now), lib/plainText.toPlainText.
+- Layout by the page's own width (container queries): 12-col bento ->
+  2 cols (<=1000px) -> 1 col (<=640px). Hero sits above the next cards so
+  the status menu can drop over them.
+- Verified: all cards render with data at 1440 / 1024 / 375, no spills;
+  status menu fully on top; all 15 pages at 375 clean; tsc, backend unit
+  tests + eslint.
+
+SCREEN SHARE: SHARER'S OWN PREVIEW STUCK - 2026-10-11
+- Report: sharing the ENTIRE screen, both accounts on one computer: the
+  viewer sees the share, the sharer's own tile is stuck / blank.
+- Ruled out (tested): a <video> not picking up a track added to its stream
+  (Chromium renders it fine) -> that change was reverted.
+- Cause: the sharer's tile showed a live capture of the whole screen, which
+  contains that tile -> endless self-mirror; plus local encode + the other
+  window's decode on one machine -> the self-preview stalls.
+- Fix (Slack's behaviour): the sharer never sees their own screen; the
+  huddle box shows "You're sharing your screen" + Stop sharing. Own tile =
+  camera only (useHuddleSession.localPreview). Shared screens on the
+  viewer side get a wide 16:9 letterboxed tile (no cropping).
+- Verified with a canvas stand-in for getDisplayMedia through the real share
+  flow: card shown, no self-video drawn, Stop sharing works. Not verified:
+  a real two-machine share (browser pane blocks capture).
+
+========================================================================
+RE-IMPLEMENTATION OF STEPS 1 + 2 ON THIS MACHINE - 2026-10-22  [DONE]
+========================================================================
+The step 1 (security) and step 2 (realtime) code was lost with the other
+computer; re-implemented here from memory.txt sections 10 + 11, reusing
+the local fixes already present (assertCanWrite(ById), org-membership
+check at socket connect, session/user-org rooms, refreshThreadStats).
+Backend
+  [x] Avatar folder per user + assertOwnedAsset; old avatar destroyed only
+      inside the user's folder; duplicate attachment publicIds rejected;
+      Attachment.publicId index.
+  [x] requireChannelWrite (renamed; old name aliased); message-level
+      assertCanWrite; moderator/admin delete of channel messages.
+  [x] assertCanManageRole; only owners invite owners.
+  [x] sockets/kick.js on logout, password change (other sessions revoked),
+      password reset, org removal/disable, private channel leave/remove.
+  [x] Auth: register ignores role; dummy scrypt verify for unknown emails;
+      login lands in oldest ACTIVE membership; per-account/per-user rate
+      limits (rateLimit key option); TRUST_PROXY (.env.example only).
+  [x] emitToMessageRooms, viewer-neutral live payloads, thread.updated on
+      reply delete, deleted-root placeholders, thread auto-follow,
+      ex-members get no thread notifications, organizationId on
+      unread.updated / notification.created, typing=false on disconnect,
+      channel.updated on rename/topic/archive, membership events on
+      join/leave (sidebar updates), "Add people" -> separate group DM,
+      _id paging indexes.
+Frontend
+  [x] safeNextPath on login/register/RedirectIfAuth.
+  [x] Rejoin + resync after reconnect (useMessages, useThread);
+      reconnectSocket on workspace switch.
+  [x] History paging + infinite scroll up with scroll anchoring; new-
+      message detection by previous newest id.
+  [x] Stale-response guards (messages, active channel/DM) + route-id
+      spinner; socket events filtered by open chat / organizationId.
+  [x] Open chat in a visible tab marked read live (800ms); on visible too.
+  [x] PresenceContext/usePresence; typing expiry 7s; ReactionPill "mine"
+      from reaction.users; canModerate "Delete message"; MembersView
+      hides owner controls/role from admins; edit box Enter/Shift+Enter/
+      Esc + errors; day-boundary grouping; focus handled once; deep link
+      re-read on pathname change; Activity items focus the message.
+Checks: node --check on every backend file, backend eslint clean, frontend
+tsc clean. Not run end-to-end. No test scripts, no new dependencies, no
+installs; backend/.env untouched.
+
+========================================================================
+RE-IMPLEMENTATION OF PHASE 6.3 - 6.5 ON THIS MACHINE - 2026-10-22  [DONE]
+========================================================================
+DND, desktop alerts, tab title, search and drafts were lost with the other
+computer; re-implemented here from memory.txt section 12 (see section 20).
+Backend
+  [x] 6.3 User.dndUntil + utils/dnd.js (isDndActive / resolveDndUntil, max
+      7 days); PATCH /users/me/dnd { minutes } | { until } | { off: true };
+      toPublicUser exposes dndUntil only while active;
+      presenceService.updateDnd (DND shown in all the user's orgs, in-memory
+      expiry timer re-armed on connect, `dnd.updated` to user room);
+      notification.created carries `silent: true` for DND recipients
+      (notifications still stored).
+  [x] 6.4 GET /search?q=&type=all|messages|channels|people|files&page=
+      (utils/searchQuery.js operators, services/searchScope + searchMessages
+      + search.service; scope = readable public + member private channels +
+      own DMs only; regex "contains"; 20/page; 60/min per user).
+  [x] 6.5 Draft model + GET/PUT/DELETE /drafts (access checked like
+      messages; empty content deletes); sending a message deletes that
+      composer's draft; `draft.updated` to the user's room.
+Frontend
+  [x] Rail bell (NotificationsMenu): pause 30m/1h/2h/until tomorrow 9:00,
+      resume, desktop + sound toggles; DND ring on the rail avatar.
+      DropdownMenu gained icon / triggerClassName / triggerContent.
+  [x] lib/desktopNotify (Notification API + Web Audio knock, prefs in
+      localStorage notify.prefs); NotificationContext alerts unless
+      silent / DND / viewing that chat in a visible tab.
+  [x] TabTitle "(N)" / "*" badge, re-applied after Next.js title changes.
+  [x] /search page (tabs, operator hints, load more); sidebar box filters
+      channels and Enter opens /search; results focus the message (thread
+      replies open their thread); MessageList pages back up to 10 times to
+      reach a focused message.
+  [x] DraftsContext + useComposerDraft (channel, DM, thread composers);
+      /drafts page; sidebar Drafts link with count.
+Checks: node --check on every backend file, backend eslint clean, frontend
+tsc clean (frontend `next lint`/eslint config fails to load - pre-existing,
+unrelated). Not run end-to-end. No test scripts, no new dependencies, no
+installs; backend/.env untouched.
+
+
+========================================================================
+RE-IMPLEMENTATION OF STEP 5 (ADMIN) ON THIS MACHINE - 2026-10-22  [DONE]
+========================================================================
+Rebuilt from the notes (STEP 5 above, memory.txt sections 16 + 21):
+  [x] AuditLog model + audit.service + AUDIT_ACTIONS; recorded for
+      workspace create/settings, invites sent/resent/revoked, invite link
+      created/disabled, joins (email/link), role change, deactivate/
+      reactivate, remove, leave, ownership transfer, channel create/edit/
+      archive/unarchive/member removed, admin message deletes.
+      GET /organizations/:id/audit (owners/admins, ?action=, ?before=, 50).
+  [x] Settings PATCH validation (name <= 80, logo not settable) +
+      organization.updated socket event -> OrgLiveUpdates refresh.
+  [x] Invite link (30 days, regenerate/turn off), /join page, register
+      with ?join=, rate limited.
+  [x] Transfer ownership (owner only, typed-name confirmation).
+  [x] Leave workspace (last-owner guard, channel memberships removed,
+      session moved to another workspace).
+  [x] Resend invitation; Deactivate wording + confirmation.
+  [x] Unarchive channel API (+ ?archived=true listing).
+  [x] Active sessions on profile (list / sign out one / all others).
+  [x] /settings (General / Invite link / Audit log tabs; members see only
+      Leave workspace) + sidebar gear.
+Checks: node --check, backend eslint clean, app.js loads, frontend tsc
+clean. Not API/browser tested here. Not rebuilt: archived filter UI in the
+channel browser, "Copy invite link" button in the invite dialog.
+
+
+========================================================================
+RE-IMPLEMENTATION OF STEP 4 + UI FIXES ON THIS MACHINE - 2026-10-23  [DONE]
+========================================================================
+Rebuilt from the notes (STEP 4 + UI FIXES above, memory.txt sections 14 +
+22):
+  [x] #general default channel (Channel.isDefault, defaultChannel.service):
+      new workspaces, existing ones on GET /channels, auto-join on invite
+      accept + invite-link join; can't leave / archive / remove members.
+  [x] Starred channels persisted (ChannelMember.starred, PATCH
+      /channels/:id/members/me { starred }) + sidebar Starred section;
+      sidebar shows joined channels + "Browse channels".
+  [x] Mute DMs (participants[].muted, PATCH /conversations/:id/preferences
+      { muted }); no DM notifications; muted chats dimmed, out of badges.
+  [x] Channel browser /channels (search, filters incl. Archived, Join,
+      Create, Unarchive).
+  [x] Rich text rendering, composer shortcuts + hint, paste / drag-drop
+      uploads, Up arrow edits last message, IME-safe Enter.
+  [x] Emoji picker with search, categories, recents; emoji in composer.
+  [x] Ctrl/Cmd+K quick switcher, Ctrl/Cmd+/ shortcuts, Esc closes dialogs.
+  [x] Profile cards (avatar/name) with "Message".
+  [x] Mobile drawer; details/thread overlay on narrow screens.
+  [x] DM menu: Block -> Mute. UI fixes: Popover panelClassName, thread
+      replies divider, live System theme, "More" removed.
+Checks: node --check, backend eslint clean, app.js loads, frontend tsc
+clean (frontend eslint config is broken independently). Not API/browser
+tested here.
+
+
+
+========================================================================
+RE-IMPLEMENTATION OF THE SLACK-STYLE COMPOSER ON THIS MACHINE - 2026-10-23  [DONE]
+========================================================================
+Rebuilt from the notes (SLACK-STYLE COMPOSER above, memory.txt sections 15
++ 23):
+  [x] WYSIWYG composer (RichEditor + markdown.ts, no dependencies): bold,
+      italic, underline, strike, link dialog, numbered / bulleted lists,
+      quote, inline code (with code exit), code block; mention chips;
+      toolbar shows active formats; Aa toggle remembered.
+  [x] Action row: + (upload / video clip / audio clip), Aa, emoji, @, video,
+      mic, /, send + schedule chevron. Drafts, paste/drag-drop uploads, Up
+      to edit and IME-safe Enter kept.
+  [x] Message editing uses the same editor (MessageEditor).
+  [x] Slash commands /shrug /tableflip /unflip /me /dnd /topic + menu.
+  [x] Video clips (useAudioRecorder kind video, camera preview, playback).
+  [x] Scheduled messages: model, scheduler (15 s poll, atomic claim,
+      restart-safe), routes create / list / update / cancel / send-now,
+      same send pipeline as normal messages (postMessage), ScheduledContext
+      + scheduled.updated, ScheduleMenu + custom time, ScheduledBanner.
+  [x] Renderer: __underline__ and [text](url).
+Checks: node --check, backend eslint clean, app.js loads, frontend tsc
+clean (frontend eslint config is broken independently). Not API/browser
+tested here. Not rebuilt: separate scheduled list page; DraftsView shows
+raw tokens.
+
+DRAFT INDICATOR (Slack behaviour) - 2026-10-23
+- The sidebar "Drafts" count no longer includes the chat you are typing in;
+  a draft only counts once you leave that chat without sending.
+- Channel and DM rows with a left-behind draft show a pencil icon on the
+  right (DraftsContext.pendingDrafts / hasPendingDraft / markOpen; the
+  composer marks its chat open via useComposerDraft).
+- Files: context/DraftsContext.tsx, hooks/useComposerDraft.ts,
+  components/navigation/ChannelPanel.tsx, components/channels/ChannelListItem
+  (+css), components/navigation/DirectMessageListItem (+css).
+- Verified in the browser: typing shows no count; switching away shows
+  Drafts 1 and the pencil on that channel.
+
+
+========================================================================
+RE-IMPLEMENTATION OF INSTANT CHAT SWITCHING + STEP 5.1 ON THIS MACHINE - 2026-10-23  [DONE]
+========================================================================
+Rebuilt from the notes (PERFORMANCE - INSTANT CHAT SWITCHING, STEP 5.1;
+memory.txt sections 13, 17 + 24):
+  [x] lib/cache.ts (SWR store, dedupe, per account+workspace scope, cleared
+      on org switch / login / register / logout) + lib/chatCache.ts
+      (messages window, details, scroll, files/links/members/pins; LRU).
+  [x] Revisiting a chat renders header, messages and scroll position from
+      memory with no spinner, then refreshes silently and merges; 403/404
+      drops the cache entry and shows the normal error.
+  [x] ChatPreloader (unread / starred / recent, idle + visible, max 6) and
+      hover / focus / quick-switcher prefetch; ChatCacheSync keeps cached
+      chats current from socket events.
+  [x] Bounded window MAX_LOADED 200, hasNewer + ?after= paging, jump to
+      latest, pageAnchorRef scroll pinning, CACHE_KEEP 60.
+  [x] Backend: 1-trip session lookup, parallel org access, channelService.
+      loadWithAccess, listMessages `after`.
+  [x] No summary refetch / duplicate read POST per switch.
+Checks: node --check, backend eslint clean, app.js loads, frontend tsc
+clean. Not browser tested here. Not rebuilt: NotificationContext local
+read marking.
+
+[x] 2026-10-23 UI: workspace rail stacked-deck switcher + popover list,
+    rail nav (Home/Activity/Members), rail theme toggle synced with the
+    user theme preference; channel/DM topbar matched to the demo (title
+    chevron -> details, topic sub line, member facepile, tab counts).
+    Check: frontend tsc clean. Not browser tested.
+
+[2026-10-23] Activity + Members redesign (matches design/workspace-redesign.html)
+  - /activity ("Mentions & activity"): Catch-up header with All/Mentions/Threads/Reactions
+    filter chips + Mark all read, 4 KPI tiles, Recent feed card, Who's around card.
+  - New backend GET /api/notifications/summary (threadsFollowed, threadsWithNewReplies,
+    messagesToday, messagesYesterday; scoped via loadSearchScope). Invitations now expose createdAt.
+  - /members: Directory header (Export CSV + Invite people), table with role/status pills,
+    search, online count, Manage dialog (role/deactivate/remove), pending invites with Resend/Revoke.
+
+FIX: PROFILE SAVES FAILED ("passwordHash is required") - 2026-10-23
+- Cause: session.service.findActiveSession hydrated req.user from a $lookup
+  that excludes hidden fields, so user.save() (profile, theme, DND, avatar)
+  failed validation on the missing passwordHash.
+- Fix: User.hydrate(doc, HIDDEN_USER_FIELDS) marks them deselected.
+- Also fixed: ChannelWorkspace.tsx / DirectMessageWorkspace.tsx had a "·"
+  saved in a non-UTF-8 encoding, which broke the channel and DM pages.
+- Verified: PATCH /users/me 200; rail theme toggle switches and persists;
+  channel header + facepile, workspace stack popover, Activity and Members
+  pages checked in the browser (light and dark).
+
+FIX: WORKSPACE SWITCHER CLOSED BEFORE THE POINTER REACHED IT - 2026-10-23
+- Cause: the hover "bridge" was a ::before on the card, which scrolls
+  (overflow-y:auto) and so clipped it; crossing the 18px gap fired
+  mouseleave and closed the card.
+- Fix (components/workspace/WorkspaceStack.tsx + .module.css): 250 ms
+  hover-intent close delay cancelled on re-enter, plus a bridge (::after)
+  on the non-scrolling stack root while open. Removed the clipped bridge
+  from WorkspaceHoverCard.module.css.
+- Verified in the browser: slow pointer path tile -> gap -> card keeps it
+  open; clicking another workspace switches to it.
+
+CHANNEL HEADER MEMBER FACEPILE ALWAYS VISIBLE - 2026-10-23
+- MemberFacepile was hidden below 900px and returned nothing until the
+  member list loaded, so it often didn't show. Now hidden only <=640px,
+  and before faces load it shows the member count tile.
+- Verified in the browser at 1000px on #general (5 members): QT AS BK +2.
+- Test data: 4 users qa-test-member1..4@example.test joined
+  qa-test-redesign-org via a one-off invite link (link disabled after).
+
+FIX: THREAD REPLY BOX CUT OFF ON SMALLER DESKTOPS - 2026-10-23
+- ThreadPanel, ConversationDetailsPanel and ChannelDetailsPanel used
+  height:100vh inside the padded, rounded shell card, so their bottom
+  (the reply composer) fell below the card. Now height:100%.
+- ComposerToolbar no longer wraps to a second row in narrow composers;
+  it stays one row and scrolls sideways if needed.
+- Verified in the browser at 1280x720 with a thread open.
+
+FIX: IMAGES OVERFLOWED THE THREAD PANEL - 2026-10-23
+- MessageAttachments capped images at a fixed 240/360px, wider than the
+  thread panel's message column on smaller desktops. Caps are now
+  min(240px,100%) / min(360px,100%), and the image button is a
+  block with max-width:100%, so images shrink to the column.
+- Verified at 1280x720: a 900x600 image in a thread reply renders 288px
+  wide inside the panel (16px spare on the right).
+- Test data: one image (qa-wide.png) uploaded to Cloudinary under
+  org/<qa-test-redesign-org>/attachments as a reply in #qa-test-launch.
+
+FIX: DETAILS DRAWER LEFT AN EMPTY STRIP ON THE RIGHT - 2026-10-23
+- ConversationDetailsPanel and ChannelDetailsPanel had width:300px inside
+  the 340px docked column card. Now width:100% (and no extra border-left,
+  the card already has its own edge).
+- Verified at 1440px on a DM: panel 339px in a 340px column.
+- Test data: DM between qa-test-redesign and qa-test-member1.
+
+
+========================================================================
+RE-IMPLEMENTATION OF HUDDLES (6.6 + 8.7 - 8.10) ON THIS MACHINE - 2026-10-23  [DONE]
+========================================================================
+Lost with the other computer; re-implemented from the notes (memory.txt
+section 26 lists where everything lives).
+Backend
+  [x] Huddle model (+ invites, outcome, message), HUDDLE_STATUS /
+      HUDDLE_INVITE_STATUS, Message.huddle + attachHuddle /
+      rewriteHuddleCard; huddle cards are not editable.
+  [x] huddleAccess / huddle / huddle.events services, huddleRing timer,
+      huddle controller + routes: POST /huddles, GET /huddles/active,
+      GET /huddles/history, POST /huddles/:id/{join,leave,end,decline},
+      GET /huddles/:id/candidates, POST /huddles/:id/invite.
+  [x] sockets/huddle.sockets.js: huddle:subscribe / unsubscribe / signal /
+      media / react; leave on `disconnecting` (multi-tab safe).
+  [x] DM ringing (30s per invite, Missed / Declined cards, silent in DND),
+      add people / ring again, live reactions, call-log card + thread chat.
+Frontend
+  [x] types/huddle, lib/{huddles,webrtc,huddlePeer,ringtone},
+      HuddleContext + useHuddles, useHuddleSession (mesh, camera, screen,
+      localPreview camera only), useHuddleReactions, useElapsed,
+      useHuddleTitle.
+  [x] components/huddle/* (bar, header, stage, tiles, audio, controls,
+      people, add people, reactions, ring popup, start button, join bar,
+      pill, summary card, wave, faces) in the green Quiet Luxury design
+      (.huddle-surface in tokens.css).
+  [x] Wired: layout HuddleProvider; WorkspaceShell HuddleBar +
+      HuddleRingPopup; ConversationHeader `actions` (channel + DM);
+      ConversationView HuddleJoinBar; ChannelListItem /
+      DirectMessageListItem HuddlePill; MessageList HuddleSummary.
+  [x] frontend/.env.example: NEXT_PUBLIC_STUN_URL / TURN_URL / USERNAME /
+      CREDENTIAL (backend/.env untouched).
+Checks: node --check on changed backend files, backend eslint clean,
+app.js + sockets load, frontend tsc clean, files valid UTF-8. No test
+scripts, no new dependencies (browser-native WebRTC only), no installs.
+Not verified: real calls between two browsers / devices (media, NAT,
+screen share, ringing across accounts).
+
+SIDEBAR: "N MEMBERS ONLINE" + MEMBERS ICON REMOVED - 2026-10-23
+- ChannelPanel header shows the demo's status line under the workspace
+  name: green dot + "N members online" (hooks/useOnlineCount.ts: active
+  members not OFFLINE, live via PresenceContext; hidden until the member
+  list loads so it never flashes 0).
+- Removed the Members icon from the sidebar header (the rail has it).
+- Verified in the browser: "3 members online" on qa-test-redesign-org.
+
+HUDDLES: BROWSER UI CHECK + RING POPUP MOVED - 2026-10-23
+- Checked in the browser (signed in as qa-test-redesign) with a scripted
+  second participant (qa-test-member1 via REST + live socket):
+  start from the DM header; callee gets huddle.ring (not silent) and ring
+  stops on join; huddle box (LIVE, timer, faces, Mute/Camera/Share/
+  Reaction/Add people/Huddle chat/End for all/Leave); WebRTC offer/ICE
+  signals reach the callee; minimise -> pill -> expand; Huddle chat opens
+  the thread; Leave -> header "Join huddle · 1" + "Aisha is talking" join
+  bar (updates ~2 s later, Atlas round-trip); incoming call popup with
+  Decline/Join; decline -> "Huddle declined" card; 30 s no answer ->
+  "Missed huddle"; disconnect of the last person ends the huddle.
+- Mute is disabled when microphone permission is denied (correct).
+- Fix: the incoming-huddle popup covered the chat header (top centre); it
+  now sits bottom-right (full width at the bottom on phones).
+- NOT verified (browser pane blocks mic/camera/screen capture): real audio,
+  video, screen share and the sharer's "You're sharing your screen" card.
+
+SMOOTH SIDE-PANEL ANIMATIONS - 2026-10-24
+- components/workspace/WorkspaceShell.module.css: docked side panels
+  (thread, channel details, user/DM details) slide in from the right
+  (panelIn: 28px + fade + slight scale, 340 ms, ease-out-expo); their
+  contents follow 60 ms later (panelContentIn). When panels overlay the
+  chat (<=1200px) they slide in as a drawer from off-screen (drawerIn).
+  Keyframes live in the module itself; all disabled for reduced motion.
+- Verified in the browser: animation runs 340 ms and ends opaque, in place.
+
+SMOOTH SIDE-PANEL CLOSING - 2026-10-24
+- hooks/useDelayedClose.ts: close(apply) sets `closing`, waits 240 ms
+  (PANEL_CLOSE_MS) then applies; reopening cancels; reduced motion closes
+  instantly.
+- ThreadContext exposes `closing`; WorkspaceUiContext exposes
+  `detailsClosing` (toggle/close go through the delay).
+- WorkspaceShell adds .closing to the thread/details column ->
+  panelOut (slide right + fade) or drawerOut (overlay drawer) keyframes.
+- Verified in the browser: thread and channel details both play panelOut
+  on close and are removed ~240 ms later.
+
+SLOWER, MORE VISIBLE PANEL OPENING - 2026-10-24
+- WorkspaceShell.module.css: panelIn 340ms -> 560ms (slide 28px -> 64px,
+  scale 0.985 -> 0.97), drawerIn 380ms -> 600ms, contents 620ms after a
+  140ms delay; easing cubic-bezier(0.16, 1, 0.3, 1). Closing stays 240ms.
+- Verified the live computed animation values in the browser.
+
+FIX: SIDE PANELS STILL LOOKED INSTANT ON OPEN - 2026-10-24
+- Cause (measured by pausing the animation in the browser): the grid
+  reserved the panel's full column immediately, so the chat jumped
+  narrower in one frame, and the expo easing put ~70% of the motion in
+  the first 100 ms.
+- Fix: side track is now `auto`; the column's own width animates
+  0 -> 380px (thread) / 340px (details) over 480 ms with
+  cubic-bezier(0.4,0,0.2,1); content stays full width and slides 40px in.
+  Closing shrinks the width over 280 ms (PANEL_CLOSE_MS synced to 280).
+  Overlay drawer mode (<=1200px) still slides via transform.
+- Verified frame by frame: open t=0/160/240/320/480ms -> panel width
+  1/174/295/350/380, chat 1028/862/736/679/648; close shrinks 380->1 and
+  the column is removed afterwards.
+
+FIX: VOICE MESSAGE PLAYER (TIMER STUCK AT 0:00 / PLAY NOT STARTING) - 2026-10-24
+- components/conversation/AudioPlayer.tsx:
+  - progress also updates from the <audio> `timeupdate` event; it relied
+    only on a requestAnimationFrame loop, which can be throttled/paused,
+    leaving the time at 0:00 and the bar still while audio played;
+  - MediaRecorder WebM reports duration Infinity (shows 0:00): on
+    loadedmetadata it seeks to 1e101 so the browser computes the real
+    length (durationchange), then rewinds;
+  - play(): on rejection reloads the source and retries once; a failed
+    source shows "Can't play" instead of silently doing nothing.
+- Verified in the browser with an uploaded 3 s voice clip: time
+  0:00 -> 0:01 -> 0:02, played bars 6 -> 36, ends back at 0:03; server
+  download proxy and Cloudinary URL both 200.
+- Not verified: an actual microphone recording (the browser pane blocks
+  the mic); the WebM-length workaround is the standard Chrome/Firefox fix.
+- Test data: voice-qa.wav (3 s tone) posted in #qa-test-launch.
+
+VOICE PLAYBACK "NOT WORKING" - ROOT CAUSE: CLAUDE DESKTOP BROWSER PANE - 2026-10-24
+- User's console (scripts tagged host-console-events-document-start.js)
+  showed play() resolves, events play+playing, then currentTime stays 0.
+- Reproduced in the same embedded pane: muted audio advances 1.95 s in 2 s,
+  unmuted stalls at 0.03 s -> the pane has no working audio output, so the
+  media clock never advances. Not an app bug; test in Chrome/Edge.
+- Kept the player hardening from this investigation: timeupdate backup,
+  WebM Infinity-duration probe, reload+retry, honest "Can't play" state
+  (button resets, reason in tooltip + console warning).
+- Also added src/app/icon.svg (removes the favicon.ico 404).
+
+VOICE PLAYBACK IN EDGE - ROOT CAUSE IS THIS PC'S AUDIO OUTPUT - 2026-10-24
+- Reproduced with a hidden Edge 155 (DevTools protocol, temp profile) on
+  the user's real recording (valid WebM/Opus, Cloudinary 200 + ranges):
+  unmuted playback stalls at 0.02 s, muted plays 2.46 s in 2.5 s. Every
+  unmuted source stalls (WebM, MP3, M4A, WAV), also with
+  --disable-features=AudioServiceOutOfProcess.
+- Windows: only active output is "Speakers (Conexant ISST Audio)"; a native
+  Media.SoundPlayer took 7.2 s to play a 3 s tone -> the system audio
+  endpoint is stalling. Not an app bug; fix the PC audio (restart Windows
+  Audio service / reselect output / update or reinstall Conexant driver /
+  reboot) or test on another machine.
+
+OPEN THE APP FROM OTHER DEVICES BY IP (DEV) - 2026-10-24
+- Cause of the endless loader on another device: the frontend called
+  http://localhost:5000 (= that device itself) and the backend only allowed
+  CLIENT_URL (http://localhost:3000).
+- frontend/src/lib/serverUrl.ts resolveServerUrl(): a loopback backend URL
+  is rewritten to the page's hostname in the browser (lib/api.ts,
+  lib/socket.ts). Real domains (production) are untouched.
+- frontend/next.config.js allowedDevOrigins ['*.*.*.*', '*.local'] so the
+  dev server serves its assets/HMR to LAN IPs.
+- backend/src/utils/corsOrigin.js: development reflects ANY origin
+  (credentials on) for Express + Socket.io; production stays CLIENT_URL.
+- Verified: both servers listen on 0.0.0.0; http://10.10.99.94:3000/login
+  200; CORS allows http://10.10.99.94:3000 and an arbitrary LAN origin.
+- Note: on plain http://<IP> browsers block mic/camera (not a secure
+  context); playback and everything else works.
+
+EMAIL TEMPLATES REDESIGNED (QUIET LUXURY) - 2026-10-24
+- backend/src/utils/emailTemplates.js rewritten (same exports/arguments,
+  so auth.service and invitation.service are unchanged): deep-green brand
+  band with radial mint glow + mint "W" mark, white card on the canvas
+  tone, eyebrow + 27px title, Work Sans with system fallbacks, rounded
+  brand button (VML fallback for Outlook), expiry pill, fallback-link well,
+  hidden preheader, mobile padding, light-only colour scheme.
+- Invitation: "Invitation" eyebrow, inviter + workspace card (initial tile,
+  "Invited by ..."), "Accept invitation" button, "Expires in 7 days".
+- Password reset: "Account security" eyebrow, "Choose a new password"
+  button, amber "Expires in 1 hour", reassuring footer.
+- Previews: design/email-previews/invitation.html, password-reset.html
+  (checked at desktop and phone width). Not yet checked in real inboxes.
