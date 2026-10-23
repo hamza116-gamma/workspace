@@ -3298,3 +3298,14 @@ RENDER DEPLOYMENT PREP + GITHUB REPO - 2026-10-24
 - Secret scan before the first commit: 556 files, 0 hits for .env values
   or account passwords; only .env.example templates included.
 - First commit pushed to PRIVATE repo github.com/hamza116-gamma/workspace.
+
+BACKEND LIVE ON RENDER - 2026-10-24
+- https://workspace-api-6miu.onrender.com (free web service, blueprint
+  managed, auto-deploys from github.com/hamza116-gamma/workspace main).
+- Verified from this PC: /api/health database up; CORS allows
+  http://localhost:3000, refuses other origins; login 200 with
+  "HttpOnly; Secure; SameSite=None" cookie; /users/me + /channels 200 with
+  that cookie; Socket.io websocket connects with the session.
+- Next: deploy the frontend (Vercel) with NEXT_PUBLIC_API_URL /
+  NEXT_PUBLIC_SOCKET_URL pointing at Render, then add the Vercel URL to
+  CLIENT_URL on Render.
