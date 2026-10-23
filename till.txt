@@ -3330,3 +3330,15 @@ RENAME TO CIRCLE CHAT + DRAWER MEMBERS ROW + DATABASE RESET - 2026-10-24
   (window event channel:show-members).
 - Database wiped on request (all 19 collections emptied, indexes kept;
   1,250 documents). Backup: scratchpad db-backup-2026-10-24/*.json (EJSON).
+
+EMAIL ON RENDER VIA GMAIL HTTPS API - 2026-10-24
+- Render free blocks SMTP (sends hung ~90 s). backend/src/utils/mail.js
+  now sends through the Gmail API (OAuth2 refresh token, gmail.send) when
+  GMAIL_CLIENT_ID/SECRET/REFRESH_TOKEN are set; SMTP (Nodemailer) remains
+  the local fallback. All sends capped at 10 s; reset-email failures are
+  logged, not surfaced.
+- Public /privacy page added (Google consent-screen requirement).
+- Verified on the live site: reset request 2.3 s, email received. Test
+  account removed (database empty).
+- Vercel Hobby blocks commits whose author isn't the account owner: this
+  repo now commits as hamza116-gamma (GitHub noreply address).
