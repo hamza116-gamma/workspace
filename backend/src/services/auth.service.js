@@ -99,7 +99,11 @@ const requestPasswordReset = async (email) => {
 
   if (isEmailConfigured()) {
     const { subject, text, html } = passwordResetEmail({ resetLink });
-    await sendMail({ to: user.email, subject, text, html });
+    // Same response whether or not delivery works (no account enumeration);
+    // failures are logged for the operator.
+    await sendMail({ to: user.email, subject, text, html }).catch((error) =>
+      logger.error(`Password reset email failed: ${error.message}`),
+    );
     return;
   }
 
