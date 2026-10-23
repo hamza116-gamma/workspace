@@ -29,9 +29,9 @@ const HIDDEN_USER_FIELDS = {
 
 // Session + user in ONE round trip ($lookup), returned as hydrated documents
 // (session.save() and req.user methods keep working).
-const findActiveSession = async (token) => {
+const findActiveSessionWhere = async (match) => {
   const [row] = await Session.aggregate([
-    { $match: { tokenHash: hashToken(token), revokedAt: null, expiresAt: { $gt: new Date() } } },
+    { $match: { ...match, revokedAt: null, expiresAt: { $gt: new Date() } } },
     { $limit: 1 },
     {
       $lookup: {
@@ -59,6 +59,14 @@ const findActiveSession = async (token) => {
   session.user = User.hydrate(userDocs[0], HIDDEN_USER_FIELDS);
   return session;
 };
+
+const findActiveSession = (token) => findActiveSessionWhere({ tokenHash: hashToken(token) });
+
+// Used by socket tickets (which carry the session id, not the secret token).
+const findActiveSessionById = (sessionId) =>
+  mongoose.isValidObjectId(sessionId)
+    ? findActiveSessionWhere({ _id: new mongoose.Types.ObjectId(sessionId) })
+    : Promise.resolve(null);
 
 const setActiveOrganization = async (session, organizationId) => {
   session.activeOrganization = organizationId;
@@ -121,6 +129,7 @@ const revokeAllSessions = (userId) => revokeSessionsExcept(userId);
 module.exports = {
   createSession,
   findActiveSession,
+  findActiveSessionById,
   setActiveOrganization,
   revokeSession,
   revokeAllSessions,

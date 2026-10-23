@@ -2,7 +2,8 @@ const { Server: SocketServer } = require('socket.io');
 const { corsOrigin } = require('../utils/corsOrigin');
 const { logger } = require('../config/logger');
 const { readSessionCookie } = require('../utils/cookies');
-const { findActiveSession } = require('../services/session.service');
+const { findActiveSession, findActiveSessionById } = require('../services/session.service');
+const { readSocketTicket } = require('../utils/socketTicket');
 const presenceService = require('../services/presence.service');
 const channelService = require('../services/channel.service');
 const conversationService = require('../services/conversation.service');
@@ -81,12 +82,17 @@ const createSocketServer = (server) => {
 
   io.use(async (socket, next) => {
     try {
+      // Cookie when the API shares the site (local dev); otherwise a
+      // short-lived ticket from GET /api/auth/socket-ticket.
       const token = readSessionCookie(socket.request);
-      if (!token) {
+      const ticketSessionId = token ? null : readSocketTicket(socket.handshake.auth?.ticket);
+      if (!token && !ticketSessionId) {
         next(new Error('Authentication required'));
         return;
       }
-      const session = await findActiveSession(token);
+      const session = token
+        ? await findActiveSession(token)
+        : await findActiveSessionById(ticketSessionId);
       if (!session || !session.user || session.user.isDisabled) {
         next(new Error('Session is invalid'));
         return;

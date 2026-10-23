@@ -1,6 +1,7 @@
 const { asyncHandler } = require('../utils/asyncHandler');
 const { success } = require('../utils/response');
 const { createSessionCookie, clearSessionCookie, readSessionCookie } = require('../utils/cookies');
+const { createSocketTicket, TICKET_TTL_MS } = require('../utils/socketTicket');
 const authService = require('../services/auth.service');
 const { toPublicUser } = require('../services/user.service');
 const { disconnectSessions, disconnectUser } = require('../sockets/kick');
@@ -61,4 +62,9 @@ const changePassword = asyncHandler(async (req, res) => {
   success(res, { message: 'Password has been changed' });
 });
 
-module.exports = { register, login, logout, requestPasswordReset, resetPassword, changePassword };
+// Short-lived ticket for the Socket.io handshake (see utils/socketTicket.js).
+const socketTicket = asyncHandler(async (req, res) => {
+  success(res, { ticket: createSocketTicket(req.session._id), expiresInMs: TICKET_TTL_MS });
+});
+
+module.exports = { register, login, logout, requestPasswordReset, resetPassword, changePassword, socketTicket };

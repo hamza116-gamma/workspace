@@ -13,6 +13,7 @@ const router = Router();
 router.post('/register', authLimiter, authController.register);
 router.post('/login', authLimiter, loginAccountLimiter, authController.login);
 router.post('/logout', authController.logout);
+router.get('/socket-ticket', requireAuth, authController.socketTicket);
 router.post(
   '/password/reset',
   authLimiter,

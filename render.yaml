@@ -17,9 +17,10 @@ services:
         value: production
       - key: NODE_VERSION
         value: "22"
-      # Render terminates TLS in front of the app (one proxy hop).
+      # Vercel (rewrites /api) + Render's TLS proxy = two hops; the real client IP
+      # is then used for rate limits instead of Vercel's edge IP.
       - key: TRUST_PROXY
-        value: "1"
+        value: "2"
       # Frontend and API on different sites -> cross-site session cookie.
       - key: COOKIE_SAMESITE
         value: None
