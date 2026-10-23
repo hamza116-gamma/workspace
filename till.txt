@@ -3309,3 +3309,12 @@ BACKEND LIVE ON RENDER - 2026-10-24
 - Next: deploy the frontend (Vercel) with NEXT_PUBLIC_API_URL /
   NEXT_PUBLIC_SOCKET_URL pointing at Render, then add the Vercel URL to
   CLIENT_URL on Render.
+
+LIVE: VERCEL FRONTEND + RENDER API - 2026-10-24
+- Frontend: https://circle-chat-team.vercel.app (Vercel Hobby, root
+  frontend, NEXT_PUBLIC_API_URL=/api, NEXT_PUBLIC_SOCKET_URL + BACKEND_ORIGIN
+  = Render). frontend/.npmrc legacy-peer-deps fixes the eslint 8 vs
+  eslint-config-next 16 peer conflict on Vercel's strict install.
+- API: https://workspace-api-6miu.onrender.com, CLIENT_URL includes the
+  Vercel origin; CORS confirmed. Login/session via the /api proxy and the
+  ticket-authenticated live connection verified; user confirmed the app works.
