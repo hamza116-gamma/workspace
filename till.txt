@@ -3318,3 +3318,15 @@ LIVE: VERCEL FRONTEND + RENDER API - 2026-10-24
 - API: https://workspace-api-6miu.onrender.com, CLIENT_URL includes the
   Vercel origin; CORS confirmed. Login/session via the /api proxy and the
   ticket-authenticated live connection verified; user confirmed the app works.
+
+RENAME TO CIRCLE CHAT + DRAWER MEMBERS ROW + DATABASE RESET - 2026-10-24
+- Brand "Workspace" -> "Circle Chat": page title/description, sign-in
+  brand, eyebrow, footer, showcase quote, emails (subjects, copy, header
+  band, mark letter C, footer). The word "workspace" as the concept
+  (workspace name/settings) is unchanged.
+- Channel details drawer: the full Members list (scrolled on small
+  screens, duplicated the Members tab) replaced by ChannelMembersSummary:
+  facepile + "N members" + "View all" -> opens the channel's Members tab
+  (window event channel:show-members).
+- Database wiped on request (all 19 collections emptied, indexes kept;
+  1,250 documents). Backup: scratchpad db-backup-2026-10-24/*.json (EJSON).

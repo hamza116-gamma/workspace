@@ -76,7 +76,7 @@ export const AuthShowcase = () => (
     <div className={styles.bottom}>
       <span className={styles.eyebrow}>Why teams switch</span>
       <p className={styles.quote}>
-        &ldquo;Workspace transformed how our product teams sync across time zones and ship
+        &ldquo;Circle Chat transformed how our product teams sync across time zones and ship
         features.&rdquo;
       </p>
       <div className={styles.dots}>

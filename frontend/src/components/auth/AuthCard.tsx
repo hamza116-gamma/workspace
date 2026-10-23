@@ -32,7 +32,7 @@ export const AuthCard = ({ title, subtitle, children, className = '' }: Props) =
             <span className={styles.brandMark}>
               <BrandMark />
             </span>
-            <span className={styles.brandName}>Workspace</span>
+            <span className={styles.brandName}>Circle Chat</span>
             <span className={styles.brandDot} />
           </div>
 
@@ -49,7 +49,7 @@ export const AuthCard = ({ title, subtitle, children, className = '' }: Props) =
         </div>
 
         <footer className={styles.panelFooter}>
-          <span>© 2026 Workspace Technologies, Inc.</span>
+          <span>© 2026 Circle Chat</span>
           <span className={styles.footerLinks}>
             <span>Privacy</span>
             <span>Terms</span>

@@ -5,7 +5,7 @@ import { useOrg } from '@/hooks/useOrg';
 import { useWorkspaceUi } from '@/hooks/useWorkspaceUi';
 import { Icon } from '@/components/ui/Icon';
 import { ChannelAboutCard } from './ChannelAboutCard';
-import { ChannelMembers } from './ChannelMembers';
+import { ChannelMembersSummary } from './ChannelMembersSummary';
 import styles from './ChannelDetailsPanel.module.css';
 
 const PanelBar = ({ onClose }: { onClose: () => void }) => (
@@ -64,7 +64,7 @@ export const ChannelDetailsPanel = () => {
 
       <ChannelAboutCard channel={channel} canManage={canManage} onChanged={reload} />
 
-      <ChannelMembers channel={channel} canManage={canManage} onChanged={reload} />
+      <ChannelMembersSummary channel={channel} />
     </aside>
   );
 };

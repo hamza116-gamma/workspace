@@ -12,8 +12,8 @@ const workSans = Work_Sans({
 });
 
 export const metadata: Metadata = {
-  title: 'Workspace',
-  description: 'Internal communication and collaboration platform',
+  title: 'Circle Chat',
+  description: 'Circle Chat - channels, messages and huddles for your team',
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {

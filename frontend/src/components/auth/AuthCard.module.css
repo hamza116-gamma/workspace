@@ -97,7 +97,7 @@
 }
 
 .formWrap::before {
-  content: 'Workspace';
+  content: 'Circle Chat';
   display: block;
   margin-bottom: 10px;
   font-size: 10.5px;

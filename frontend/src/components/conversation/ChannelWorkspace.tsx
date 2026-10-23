@@ -26,6 +26,7 @@ import { FilesLinks } from './FilesLinks';
 import { PinsPreview } from './PinsPreview';
 import { ConversationView } from './ConversationView';
 import { MemberFacepile } from './MemberFacepile';
+import { SHOW_CHANNEL_MEMBERS_EVENT } from '@/components/channels/ChannelMembersSummary';
 import { HuddleStartButton } from '@/components/huddle/HuddleStartButton';
 import { ConversationHeader, type ConversationTab } from './ConversationHeader';
 import headerStyles from './ConversationHeader.module.css';
@@ -61,6 +62,13 @@ export const ChannelWorkspace = ({ channelId }: { channelId: string }) => {
   );
   // Shares the composer's cached member list (no extra request).
   const memberUsers = useMentionables(channel ? { kind: 'channel', id: channel.id } : null);
+
+  // "View all" in the details drawer opens this channel's Members tab.
+  useEffect(() => {
+    const show = () => setTab('members');
+    window.addEventListener(SHOW_CHANNEL_MEMBERS_EVENT, show);
+    return () => window.removeEventListener(SHOW_CHANNEL_MEMBERS_EVENT, show);
+  }, []);
   const { isStarred, setStarred } = useChannelStar();
   const { refresh: refreshChannels } = useChannels();
   const [tab, setTab] = useState<ChannelTab>('messages');

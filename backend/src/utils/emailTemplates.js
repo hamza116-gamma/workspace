@@ -106,9 +106,9 @@ const renderLayout = ({
               <table role="presentation" cellpadding="0" cellspacing="0">
                 <tr>
                   <td style="vertical-align:middle;">
-                    <div style="width:38px;height:38px;border-radius:12px;background:${C.mint};color:${C.brandInk};font-family:${FONT};font-size:17px;font-weight:700;line-height:38px;text-align:center;letter-spacing:-0.04em;">W</div>
+                    <div style="width:38px;height:38px;border-radius:12px;background:${C.mint};color:${C.brandInk};font-family:${FONT};font-size:17px;font-weight:700;line-height:38px;text-align:center;letter-spacing:-0.04em;">C</div>
                   </td>
-                  <td style="vertical-align:middle;padding-left:12px;font-family:${FONT};font-size:17px;font-weight:650;letter-spacing:-0.02em;color:#ffffff;">Workspace</td>
+                  <td style="vertical-align:middle;padding-left:12px;font-family:${FONT};font-size:17px;font-weight:650;letter-spacing:-0.02em;color:#ffffff;">Circle Chat</td>
                 </tr>
               </table>
             </td>
@@ -142,8 +142,8 @@ const renderLayout = ({
           <!-- Footer -->
           <tr>
             <td align="center" style="padding:22px 12px 0;font-family:${FONT};font-size:12px;line-height:1.6;color:${C.ink3};">
-              Sent by Workspace &middot; your team's home for conversation<br />
-              &copy; ${new Date().getFullYear()} Workspace Technologies, Inc.
+              Sent by Circle Chat &middot; your team's home for conversation<br />
+              &copy; ${new Date().getFullYear()} Circle Chat
             </td>
           </tr>
 
@@ -180,14 +180,14 @@ const invitationEmail = ({ organizationName, inviteLink, inviterName }) => {
   const org = escapeHtml(organizationName);
   const inviter = inviterName ? escapeHtml(inviterName) : null;
   const intro = inviter
-    ? `<strong style="color:${C.ink};font-weight:600;">${inviter}</strong> has invited you to join <strong style="color:${C.ink};font-weight:600;">${org}</strong> on Workspace &mdash; channels, direct messages and huddles for your team, all in one place.`
-    : `You've been invited to join <strong style="color:${C.ink};font-weight:600;">${org}</strong> on Workspace &mdash; channels, direct messages and huddles for your team, all in one place.`;
+    ? `<strong style="color:${C.ink};font-weight:600;">${inviter}</strong> has invited you to join <strong style="color:${C.ink};font-weight:600;">${org}</strong> on Circle Chat &mdash; channels, direct messages and huddles for your team, all in one place.`
+    : `You've been invited to join <strong style="color:${C.ink};font-weight:600;">${org}</strong> on Circle Chat &mdash; channels, direct messages and huddles for your team, all in one place.`;
 
   return {
-    subject: `${inviterName ? `${inviterName} invited you` : "You're invited"} to join ${organizationName} on Workspace`,
-    text: `${inviterName ? `${inviterName} has invited you` : "You've been invited"} to join ${organizationName} on Workspace.\n\nAccept the invitation: ${inviteLink}\n\nThis invitation expires in 7 days. If you weren't expecting it, you can safely ignore this email.`,
+    subject: `${inviterName ? `${inviterName} invited you` : "You're invited"} to join ${organizationName} on Circle Chat`,
+    text: `${inviterName ? `${inviterName} has invited you` : "You've been invited"} to join ${organizationName} on Circle Chat.\n\nAccept the invitation: ${inviteLink}\n\nThis invitation expires in 7 days. If you weren't expecting it, you can safely ignore this email.`,
     html: renderLayout({
-      preheader: `Join ${organizationName} on Workspace — the invitation expires in 7 days.`,
+      preheader: `Join ${organizationName} on Circle Chat — the invitation expires in 7 days.`,
       eyebrow: 'Invitation',
       title: `Join ${organizationName}`,
       bodyHtml: `<p style="margin:0;">${intro}</p>`,
@@ -202,14 +202,14 @@ const invitationEmail = ({ organizationName, inviteLink, inviterName }) => {
 };
 
 const passwordResetEmail = ({ resetLink }) => ({
-  subject: 'Reset your Workspace password',
-  text: `We received a request to reset your Workspace password.\n\nChoose a new password: ${resetLink}\n\nThis link expires in 1 hour. If you didn't request this, you can ignore this email - your password won't change.`,
+  subject: 'Reset your Circle Chat password',
+  text: `We received a request to reset your Circle Chat password.\n\nChoose a new password: ${resetLink}\n\nThis link expires in 1 hour. If you didn't request this, you can ignore this email - your password won't change.`,
   html: renderLayout({
     preheader: 'Use this link to choose a new password. It expires in 1 hour.',
     eyebrow: 'Account security',
     title: 'Reset your password',
     bodyHtml:
-      '<p style="margin:0;">We received a request to reset the password for your Workspace account. Choose a new one with the button below.</p>',
+      '<p style="margin:0;">We received a request to reset the password for your Circle Chat account. Choose a new one with the button below.</p>',
     ctaLabel: 'Choose a new password',
     ctaUrl: resetLink,
     pillHtml: pill('Expires in 1 hour', 'warn'),
