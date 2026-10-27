@@ -101,7 +101,7 @@ export const CreateTaskDialog = ({
     const mentioned = message.mentions.map((user) => user.id);
     setAssignees([]);
     let alive = true;
-    listAssignable(message).then(
+    listAssignable({ channelId: message.channelId, conversationId: message.conversationId }).then(
       (users) => {
         if (!alive) {
           return;

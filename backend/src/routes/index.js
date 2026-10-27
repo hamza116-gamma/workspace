@@ -16,6 +16,7 @@ const draftRoutes = require('./drafts.routes');
 const scheduledRoutes = require('./scheduled.routes');
 const huddleRoutes = require('./huddles.routes');
 const taskRoutes = require('./tasks.routes');
+const projectRoutes = require('./projects.routes');
 
 const router = Router();
 
@@ -36,5 +37,6 @@ router.use('/drafts', draftRoutes);
 router.use('/scheduled', scheduledRoutes);
 router.use('/huddles', huddleRoutes);
 router.use('/tasks', taskRoutes);
+router.use('/projects', projectRoutes);
 
 module.exports = router;

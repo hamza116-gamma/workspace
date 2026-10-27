@@ -15,8 +15,14 @@ const taskSchema = new mongoose.Schema(
     // The task card in the chat (Message.task points back here). Its thread
     // is the task's discussion and activity history.
     message: { type: ObjectId, ref: 'Message', required: true },
-    // Per-workspace number shown as TASK-<number>.
+    // Project this ticket belongs to (null = a chat task, keyed TASK-n).
+    project: { type: ObjectId, ref: 'Project', default: null },
+    // Key prefix (project key, or TASK); the key is `${projectKey}-${number}`.
+    projectKey: { type: String, required: true, default: 'TASK' },
+    // Numbered per projectKey (per project, or per workspace for TASK).
     number: { type: Number, required: true },
+    // Keys this ticket had before moving project (old links keep resolving).
+    formerKeys: { type: [String], default: [] },
     title: { type: String, required: true, trim: true, maxlength: TASK_TITLE_MAX },
     description: { type: String, trim: true, maxlength: TASK_DESCRIPTION_MAX, default: '' },
     status: { type: String, enum: Object.values(TASK_STATUS), default: TASK_STATUS.TODO },
@@ -49,7 +55,11 @@ taskSchema.pre('validate', function ensureSingleTarget(next) {
 });
 
 taskSchema.index({ message: 1 }, { unique: true });
-taskSchema.index({ organization: 1, number: 1 }, { unique: true });
+// (organization, number) was the unique key before projects; the migration
+// script drops that index.
+taskSchema.index({ organization: 1, projectKey: 1, number: 1 }, { unique: true });
+taskSchema.index({ organization: 1, formerKeys: 1 });
+taskSchema.index({ project: 1, status: 1, position: 1 });
 taskSchema.index({ channel: 1, status: 1, updatedAt: -1 });
 taskSchema.index({ conversation: 1, status: 1, updatedAt: -1 });
 taskSchema.index({ organization: 1, assignees: 1, status: 1 });

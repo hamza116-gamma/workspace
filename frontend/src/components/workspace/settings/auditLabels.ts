@@ -38,6 +38,11 @@ const LABELS: Record<string, (entry: AuditEntry) => string> = {
     return `removed ${user?.label || 'someone'} from ${channel(e)}`;
   },
   MESSAGE_DELETED_BY_ADMIN: (e) => `deleted a message by ${target(e)}`,
+  PROJECT_CREATED: (e) => `created project ${target(e)}`,
+  PROJECT_ARCHIVED: (e) => `archived project ${target(e)}`,
+  PROJECT_RESTORED: (e) => `restored project ${target(e)}`,
+  PROJECT_DELETED: (e) => `deleted project ${target(e)}`,
+  PROJECT_KEY_CHANGED: (e) => `changed a project key to ${target(e)}`,
 };
 
 export const AUDIT_ACTION_OPTIONS: { value: string; label: string }[] = [
@@ -51,6 +56,7 @@ export const AUDIT_ACTION_OPTIONS: { value: string; label: string }[] = [
   { value: 'ORG_SETTINGS_UPDATED', label: 'Settings' },
   { value: 'CHANNEL_ARCHIVED', label: 'Archived channels' },
   { value: 'MESSAGE_DELETED_BY_ADMIN', label: 'Deleted messages' },
+  { value: 'PROJECT_DELETED', label: 'Deleted projects' },
 ];
 
 export const describeAuditEntry = (entry: AuditEntry): string =>

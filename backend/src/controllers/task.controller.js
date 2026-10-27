@@ -3,6 +3,7 @@ const { success } = require('../utils/response');
 const { AppError } = require('../utils/AppError');
 const taskService = require('../services/task.service');
 const messageService = require('../services/message.service');
+const projectService = require('../services/project.service');
 const { postMessage } = require('./message.controller');
 const { emitTask, emitCard, emitActivity, notifyAssigned } = require('../sockets/taskEvents');
 
@@ -18,7 +19,7 @@ const announceCreated = async (req, task) => {
   const reply = await taskService.postActivity(
     task,
     req.user._id,
-    `created ${`TASK-${task.number}`}`,
+    `created ${task.projectKey || 'TASK'}-${task.number}`,
   );
   await emitActivity(io, reply);
   await emitCard(io, task);
@@ -34,13 +35,22 @@ const createFromMessage = asyncHandler(async (req, res) => {
   }
   await messageService.assertAccess(message, req.user._id);
   await messageService.assertCanWrite(message, req.user._id);
+  // A message in a project's home / linked channel becomes a ticket of it.
+  const project = await projectService.projectForChannel(req.organization._id, message.channel);
   const fields = await taskService.prepareFields(
     req.organization._id,
     taskService.targetOf(message),
     req.body,
     taskService.titleFromContent(message.content),
+    project,
   );
-  const task = await taskService.createForMessage(req.organization._id, message, req.user, fields);
+  const task = await taskService.createForMessage(
+    req.organization._id,
+    message,
+    req.user,
+    fields,
+    project,
+  );
   await announceCreated(req, task);
   respond(res, task, 201);
 });
@@ -50,10 +60,16 @@ const createFromMessage = asyncHandler(async (req, res) => {
 const createInTarget = (targetKey) =>
   asyncHandler(async (req, res) => {
     const doc = targetKey === 'channel' ? req.channel : req.conversation;
+    const project =
+      targetKey === 'channel'
+        ? await projectService.projectForChannel(req.organization._id, doc._id)
+        : null;
     const fields = await taskService.prepareFields(
       req.organization._id,
       { [targetKey]: idOf(doc) },
       req.body,
+      '',
+      project,
     );
     const message = await postMessage({
       io: getIo(req),
@@ -67,6 +83,7 @@ const createInTarget = (targetKey) =>
       message,
       req.user,
       fields,
+      project,
     );
     await announceCreated(req, task);
     respond(res, task, 201);
@@ -76,6 +93,18 @@ const createInTarget = (targetKey) =>
 const listInTarget = (targetKey) =>
   asyncHandler(async (req, res) => {
     const doc = targetKey === 'channel' ? req.channel : req.conversation;
+    const project =
+      targetKey === 'channel'
+        ? await projectService.projectForChannel(req.organization._id, doc._id)
+        : null;
+    if (project) {
+      const tasks = await taskService.listForProject(project, req.query);
+      success(res, {
+        tasks: tasks.map(taskService.toPublicTask),
+        project: projectService.toPublicProject(project),
+      });
+      return;
+    }
     const tasks = await taskService.listForTarget(
       req.organization._id,
       { [targetKey]: doc._id },
@@ -88,6 +117,47 @@ const listInTarget = (targetKey) =>
 const listMine = asyncHandler(async (req, res) => {
   const tasks = await taskService.listAssignedTo(req.organization._id, req.user._id, req.query);
   success(res, { tasks: tasks.map(taskService.toPublicTask) });
+});
+
+// GET /tasks/assignable?channelId= | conversationId= | taskId=
+// Exactly the people the server accepts as assignees there: project members
+// for a project channel / ticket, else channel members / DM participants.
+const listAssignable = asyncHandler(async (req, res) => {
+  const { channelId, conversationId, taskId } = req.query;
+  const orgId = req.organization._id;
+  let project = null;
+  let target = null;
+  if (taskId) {
+    const task = await taskService.loadForRead(taskId, orgId, req.user._id);
+    project = await taskService.projectOf(task);
+    target = taskService.targetOf(task);
+  } else if (channelId) {
+    target = { channel: String(channelId) };
+    await taskService.assertCanReadTarget(orgId, target, req.user._id);
+    project = await projectService.projectForChannel(orgId, channelId);
+  } else if (conversationId) {
+    target = { conversation: String(conversationId) };
+    await taskService.assertCanReadTarget(orgId, target, req.user._id);
+  } else {
+    throw new AppError(400, 'channelId, conversationId or taskId is required');
+  }
+  const users = await taskService.listAssignableUsers(orgId, target, project);
+  success(res, { users, projectKey: project ? project.key : null });
+});
+
+// GET /tasks/by-key/:key: WEB-12, an old TASK-n, or a pre-rename key.
+// Unknown and not-visible keys are the same 404 (no existence leak).
+const getByKey = asyncHandler(async (req, res) => {
+  const found = await projectService.resolveTaskKey(req.organization._id, req.params.key);
+  if (!found) {
+    throw new AppError(404, 'Ticket not found');
+  }
+  try {
+    const task = await taskService.loadForRead(found._id, req.organization._id, req.user._id);
+    respond(res, task);
+  } catch {
+    throw new AppError(404, 'Ticket not found');
+  }
 });
 
 const get = asyncHandler(async (req, res) => {
@@ -123,6 +193,10 @@ const accessLevel = async (req, task) => {
   }
   const root = await messageService.findByIdForOrg(task.message, req.organization._id);
   if (root && (await messageService.canModerate(root, req.user._id, req.membership?.role))) {
+    return 'full';
+  }
+  const project = await taskService.projectOf(task);
+  if (project && (await projectService.canManage(project, req.user._id, req.membership?.role))) {
     return 'full';
   }
   const assignees = task.assignees.map(idOf);
@@ -194,7 +268,10 @@ const remove = asyncHandler(async (req, res) => {
   const isAuthor = root && idOf(root.sender) === String(req.user._id);
   const isModerator =
     root && (await messageService.canModerate(root, req.user._id, req.membership?.role));
-  if (!isCreator && !isAuthor && !isModerator) {
+  const project = await taskService.projectOf(task);
+  const isManager =
+    project && (await projectService.canManage(project, req.user._id, req.membership?.role));
+  if (!isCreator && !isAuthor && !isModerator && !isManager) {
     throw new AppError(403, 'You can only delete tasks you created');
   }
   await taskService.deleteTask(task);
@@ -205,6 +282,8 @@ const remove = asyncHandler(async (req, res) => {
 });
 
 module.exports = {
+  listAssignable,
+  getByKey,
   createFromMessage,
   createInChannel: createInTarget('channel'),
   createInConversation: createInTarget('conversation'),

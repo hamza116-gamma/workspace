@@ -1,6 +1,4 @@
 import { apiData } from './api';
-import { listChannelMembers } from './channels';
-import { getConversation } from './conversations';
 import type { Task, TaskInput } from '@/types/task';
 import type { User } from '@/types/user';
 
@@ -16,19 +14,26 @@ export const deleteTask = (taskId: string) =>
 export const listMyTasks = () => apiData<{ tasks: Task[] }>('/tasks');
 
 // Only people in the chat can be assigned (the backend enforces it too).
+// Asks the server, so the list always matches its rule: project members for
+// a project channel / ticket (home + linked channels), else channel members
+// or DM participants. Pass a task (has `id`) to get its ticket's list.
 export const listAssignable = async (target: {
+  id?: string;
   channelId: string | null;
   conversationId: string | null;
 }): Promise<User[]> => {
-  if (target.channelId) {
-    const { members } = await listChannelMembers(target.channelId);
-    return members.map((member) => member.user);
+  const query = target.id
+    ? `taskId=${target.id}`
+    : target.channelId
+      ? `channelId=${target.channelId}`
+      : target.conversationId
+        ? `conversationId=${target.conversationId}`
+        : '';
+  if (!query) {
+    return [];
   }
-  if (target.conversationId) {
-    const { conversation } = await getConversation(target.conversationId);
-    return conversation.participants.map((participant) => participant.user);
-  }
-  return [];
+  const { users } = await apiData<{ users: User[] }>(`/tasks/assignable?${query}`);
+  return users;
 };
 
 export const listChannelTasks = (channelId: string) =>

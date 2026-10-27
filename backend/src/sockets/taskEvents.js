@@ -18,6 +18,11 @@ const emitTask = (io, task, event, extraUserIds = []) => {
     task: taskService.toPublicTask(task),
   };
   const rooms = [chatRoomFor(task), `thread:${idOf(task.message)}`];
+  // Project boards (see project:join) and the project's previous board when
+  // a ticket leaves a project are kept in sync too.
+  if (task.project) {
+    rooms.push(`project:${idOf(task.project)}`);
+  }
   const userIds = new Set([...(task.assignees || []).map(idOf), ...extraUserIds.map(String)]);
   userIds.forEach((id) => rooms.push(`user:${id}`));
   io.to(rooms).emit(event, payload);

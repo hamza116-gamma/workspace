@@ -10,6 +10,9 @@ const { TASK_STATUS, TASK_PRIORITY, CHANNEL_MEMBER_STATUS } = require('../config
 const { toPublicUser } = require('./user.service');
 const channelService = require('./channel.service');
 const conversationService = require('./conversation.service');
+const projectService = require('./project.service');
+const Project = require('../models/project.model');
+const User = require('../models/user.model');
 
 const LABEL_MAX = 30;
 const LIST_LIMIT = 200;
@@ -25,8 +28,10 @@ const idOf = (value) => String(value?._id ?? value);
 
 const toPublicTask = (task) => ({
   id: String(task._id),
-  key: `TASK-${task.number}`,
+  key: `${task.projectKey || 'TASK'}-${task.number}`,
   number: task.number,
+  projectId: task.project ? idOf(task.project) : null,
+  projectKey: task.projectKey || 'TASK',
   channelId: task.channel ? idOf(task.channel) : null,
   conversationId: task.conversation ? idOf(task.conversation) : null,
   messageId: idOf(task.message),
@@ -162,7 +167,8 @@ const assertCanReadTarget = async (organizationId, target, userId) => {
 
 // Assignees must already be in the chat: active channel members, or
 // participants of the conversation. Anyone else is rejected (no leaks).
-const assertAssignable = async (organizationId, target, value) => {
+// Project tickets: members of the project (home + linked channels).
+const assertAssignable = async (organizationId, target, value, project = null) => {
   if (!Array.isArray(value)) {
     throw new AppError(400, 'Assignees must be a list');
   }
@@ -174,7 +180,9 @@ const assertAssignable = async (organizationId, target, value) => {
     return [];
   }
   let allowed;
-  if (target.channel) {
+  if (project) {
+    allowed = await projectService.memberIds(project);
+  } else if (target.channel) {
     const rows = await ChannelMember.find({
       channel: target.channel,
       user: { $in: ids },
@@ -191,9 +199,36 @@ const assertAssignable = async (organizationId, target, value) => {
     );
   }
   if (ids.some((id) => !allowed.has(id))) {
-    throw new AppError(400, 'Tasks can only be assigned to people in this conversation');
+    throw new AppError(
+      400,
+      project
+        ? 'Tickets can only be assigned to members of the project'
+        : 'Tasks can only be assigned to people in this conversation',
+    );
   }
   return ids;
+};
+
+// Project tickets follow project membership (home + linked channels);
+// chat tasks follow their channel / conversation.
+const projectOf = (task) => (task.project ? Project.findById(task.project) : null);
+
+const assertCanReadTask = async (task, userId) => {
+  const project = await projectOf(task);
+  if (project) {
+    await projectService.assertCanRead(project, userId);
+    return;
+  }
+  await assertCanReadTarget(task.organization, targetOf(task), userId);
+};
+
+const assertCanWriteTask = async (task, userId) => {
+  const project = await projectOf(task);
+  if (project) {
+    await projectService.assertCanWrite(project, userId);
+    return;
+  }
+  await assertCanWriteTarget(task.organization, targetOf(task), userId);
 };
 
 const findByIdForOrg = (id, organizationId) => {
@@ -208,7 +243,7 @@ const loadForRead = async (id, organizationId, userId) => {
   if (!task) {
     throw new AppError(404, 'Task not found');
   }
-  await assertCanReadTarget(organizationId, targetOf(task), userId);
+  await assertCanReadTask(task, userId);
   return task;
 };
 
@@ -217,13 +252,22 @@ const loadForWrite = async (id, organizationId, userId) => {
   if (!task) {
     throw new AppError(404, 'Task not found');
   }
-  await assertCanWriteTarget(organizationId, targetOf(task), userId);
+  await assertCanWriteTask(task, userId);
   return task;
 };
 
 // ---- create / update ------------------------------------------------------
 
-const nextNumber = async (organizationId) => {
+// Per project (WEB-1, WEB-2...) or per workspace for chat tasks (TASK-n).
+const nextNumber = async (organizationId, project = null) => {
+  if (project) {
+    const numbered = await Project.findByIdAndUpdate(
+      project._id,
+      { $inc: { seq: 1 } },
+      { new: true, projection: { seq: 1 } },
+    );
+    return numbered.seq;
+  }
   const organization = await Organization.findByIdAndUpdate(
     organizationId,
     { $inc: { taskSeq: 1 } },
@@ -254,14 +298,20 @@ const assertConvertible = (message, organizationId) => {
 
 // Validates create input up front, so a new task's card message is only
 // posted once everything is known to be valid.
-const prepareFields = async (organizationId, target, payload = {}, fallbackTitle = '') => ({
+const prepareFields = async (
+  organizationId,
+  target,
+  payload = {},
+  fallbackTitle = '',
+  project = null,
+) => ({
   title: assertTitle(payload.title || fallbackTitle),
   description: assertDescription(payload.description),
   status: payload.status ? assertEnum(payload.status, TASK_STATUS, 'status') : TASK_STATUS.TODO,
   priority: payload.priority
     ? assertEnum(payload.priority, TASK_PRIORITY, 'priority')
     : TASK_PRIORITY.MEDIUM,
-  assignees: await assertAssignable(organizationId, target, payload.assignees || []),
+  assignees: await assertAssignable(organizationId, target, payload.assignees || [], project),
   dueDate: payload.dueDate ? assertDueDate(payload.dueDate) : null,
   labels: payload.labels ? assertLabels(payload.labels) : [],
 });
@@ -270,7 +320,7 @@ const prepareFields = async (organizationId, target, payload = {}, fallbackTitle
  * Turns a message into a task card (fields from prepareFields). The message
  * link is claimed atomically so two concurrent converts cannot both succeed.
  */
-const createForMessage = async (organizationId, message, actor, fields) => {
+const createForMessage = async (organizationId, message, actor, fields, project = null) => {
   assertConvertible(message, organizationId);
   const target = targetOf(message);
 
@@ -289,7 +339,9 @@ const createForMessage = async (organizationId, message, actor, fields) => {
       organization: organizationId,
       ...target,
       message: message._id,
-      number: await nextNumber(organizationId),
+      project: project ? project._id : null,
+      projectKey: project ? project.key : 'TASK',
+      number: await nextNumber(organizationId, project),
       position: -Date.now(),
       ...fields,
       createdBy: actor._id,
@@ -399,7 +451,12 @@ const updateTask = async (task, payload = {}) => {
     }
   }
   if (payload.assignees !== undefined) {
-    const next = await assertAssignable(task.organization, target, payload.assignees);
+    const next = await assertAssignable(
+      task.organization,
+      target,
+      payload.assignees,
+      await projectOf(task),
+    );
     const current = new Set((task.assignees || []).map(idOf));
     const nextSet = new Set(next);
     addedAssigneeIds = next.filter((id) => !current.has(id));
@@ -449,6 +506,35 @@ const buildFilter = ({ status, priority, label }) => {
   return filter;
 };
 
+// People who can be assigned (same rule as assertAssignable).
+const listAssignableUsers = async (organizationId, target, project = null) => {
+  let ids;
+  if (project) {
+    ids = [...(await projectService.memberIds(project))];
+  } else if (target.channel) {
+    const rows = await ChannelMember.find({
+      channel: target.channel,
+      status: { $ne: CHANNEL_MEMBER_STATUS.REMOVED },
+    }).select('user');
+    ids = rows.map((row) => String(row.user));
+  } else {
+    const conversation = await conversationService.findByIdForOrg(
+      target.conversation,
+      organizationId,
+    );
+    ids = (conversation?.participants || []).map((participant) => idOf(participant.user));
+  }
+  const users = await User.find({ _id: { $in: ids } }).sort({ fullName: 1 });
+  return users.map(toPublicUser);
+};
+
+const listForProject = (project, query = {}) =>
+  populate(
+    Task.find({ project: project._id, ...buildFilter(query) })
+      .sort({ position: 1, updatedAt: -1 })
+      .limit(LIST_LIMIT),
+  );
+
 const listForTarget = (organizationId, target, query = {}) =>
   populate(
     Task.find({ organization: organizationId, ...target, ...buildFilter(query) })
@@ -484,7 +570,19 @@ const listAssignedTo = async (organizationId, userId, query = {}) => {
     ...memberships.map((row) => String(row.channel)),
     ...conversations.map((row) => String(row._id)),
   ]);
-  return tasks.filter((task) => visible.has(idOf(task.channel || task.conversation)));
+  const projectVisible = new Map();
+  for (const projectId of new Set(tasks.filter((t) => t.project).map((t) => idOf(t.project)))) {
+    const project = await Project.findById(projectId);
+    projectVisible.set(
+      projectId,
+      Boolean(project && (await projectService.isMember(project, userId))),
+    );
+  }
+  return tasks.filter((task) =>
+    task.project
+      ? projectVisible.get(idOf(task.project))
+      : visible.has(idOf(task.channel || task.conversation)),
+  );
 };
 
 // Message serialization: task cards keyed by message id.
@@ -502,13 +600,25 @@ const getByMessageIds = async (messageIds) => {
 
 // Someone left / was removed from a channel: drop them from its tasks.
 // Returns the affected tasks so the caller can post activity notes.
+// Project tickets: only once they are no longer a member of the project at
+// all (leaving one linked channel while still in the home channel keeps them).
 const unassignFromChannel = async (channelId, userId) => {
-  const tasks = await Task.find({ channel: channelId, assignees: userId });
+  const projects = await Project.find({
+    $or: [{ homeChannel: channelId }, { linkedChannels: channelId }],
+  });
+  const lostProjects = [];
+  for (const project of projects) {
+    if (!(await projectService.isMember(project, userId))) {
+      lostProjects.push(project._id);
+    }
+  }
+  const filter = {
+    assignees: userId,
+    $or: [{ channel: channelId, project: null }, { project: { $in: lostProjects } }],
+  };
+  const tasks = await Task.find(filter);
   if (tasks.length) {
-    await Task.updateMany(
-      { channel: channelId, assignees: userId },
-      { $pull: { assignees: userId } },
-    );
+    await Task.updateMany(filter, { $pull: { assignees: userId } });
   }
   return tasks;
 };
@@ -537,6 +647,11 @@ const claimDueReminders = async (windowMs, limit = 50) => {
 };
 
 module.exports = {
+  listAssignableUsers,
+  listForProject,
+  assertCanReadTask,
+  assertCanWriteTask,
+  projectOf,
   claimDueReminders,
   STATUS_LABELS,
   toPublicTask,

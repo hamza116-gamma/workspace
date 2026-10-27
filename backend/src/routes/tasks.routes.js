@@ -10,6 +10,8 @@ const router = Router();
 router.use(requireAuth, requireOrganization);
 
 router.get('/', taskController.listMine);
+router.get('/assignable', taskController.listAssignable);
+router.get('/by-key/:key', taskController.getByKey);
 router.get('/:taskId', taskController.get);
 router.patch('/:taskId', taskController.update);
 router.delete('/:taskId', taskController.remove);

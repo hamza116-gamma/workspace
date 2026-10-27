@@ -102,6 +102,11 @@ const AUDIT_ACTIONS = {
   CHANNEL_UNARCHIVED: 'CHANNEL_UNARCHIVED',
   CHANNEL_MEMBER_REMOVED: 'CHANNEL_MEMBER_REMOVED',
   MESSAGE_DELETED_BY_ADMIN: 'MESSAGE_DELETED_BY_ADMIN',
+  PROJECT_CREATED: 'PROJECT_CREATED',
+  PROJECT_ARCHIVED: 'PROJECT_ARCHIVED',
+  PROJECT_RESTORED: 'PROJECT_RESTORED',
+  PROJECT_DELETED: 'PROJECT_DELETED',
+  PROJECT_KEY_CHANGED: 'PROJECT_KEY_CHANGED',
 };
 
 // Huddles (Phase 6.6): one LIVE huddle per channel / conversation.
@@ -133,8 +138,27 @@ const TASK_PRIORITY = {
   URGENT: 'URGENT',
 };
 
+// Projects (Phase 1): containers for tickets, behind settings.projectsEnabled.
+const PROJECT_STATUS = {
+  ACTIVE: 'ACTIVE',
+  ARCHIVED: 'ARCHIVED',
+};
+
+// What a project posts to its home channel automatically.
+const PROJECT_UPDATES = {
+  OFF: 'OFF',
+  KEY: 'KEY',
+  SUMMARY: 'SUMMARY',
+};
+
+// Key of tasks that belong to no project (TASK-1, TASK-2, ...).
+const CHAT_TASK_KEY = 'TASK';
+
 module.exports = {
   AUDIT_ACTIONS,
+  PROJECT_STATUS,
+  PROJECT_UPDATES,
+  CHAT_TASK_KEY,
   TASK_STATUS,
   TASK_PRIORITY,
   HUDDLE_STATUS,

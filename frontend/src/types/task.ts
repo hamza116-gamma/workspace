@@ -7,6 +7,9 @@ export type Task = {
   id: string;
   key: string;
   number: number;
+  // null for chat tasks (TASK-n).
+  projectId?: string | null;
+  projectKey?: string;
   channelId: string | null;
   conversationId: string | null;
   messageId: string;
