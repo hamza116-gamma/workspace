@@ -317,9 +317,27 @@
 }
 
 .board {
+  display: flex;
+  flex-direction: column;
   height: 100%;
-  overflow: auto;
-  padding: 16px 20px 32px;
+  min-height: 0;
+  overflow: hidden;
+  padding: 16px 20px 20px;
+}
+
+/* My tasks page: header + toolbar, then the board fills the rest. */
+.fillPage.fillPage {
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+/* Very short screens: let the page scroll instead of squashing the board. */
+@media (max-height: 640px) {
+  .fillPage.fillPage,
+  .board {
+    overflow: auto;
+  }
 }
 
 .boardHead {

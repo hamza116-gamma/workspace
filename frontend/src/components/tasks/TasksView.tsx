@@ -83,7 +83,7 @@ export const TasksView = () => {
   const open = tasks.filter((task) => task.status !== 'DONE').length;
 
   return (
-    <div className={page.page}>
+    <div className={`${page.page} ${styles.fillPage}`}>
       <header className={page.header}>
         <span className={page.eyebrow}>Work</span>
         <h1 className={page.title}>My tasks</h1>
