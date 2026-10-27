@@ -104,6 +104,47 @@ const main = async () => {
     }
   }
 
+  // Subtask keys: TP-2.1 instead of their own number. The old one-task-per-
+  // number index goes first (subtasks share their parent's number), then
+  // each subtask gets its parent's number and an index; old keys stay aliases.
+  const PER_NUMBER = 'organization_1_projectKey_1_number_1';
+  const taskIndexes = await Task.collection.indexes();
+  const oldKeyIndex = taskIndexes.some((index) => index.name === PER_NUMBER);
+  const oldSubtasks = await Task.find({ parent: { $ne: null }, subIndex: null }).sort({
+    createdAt: 1,
+  });
+  console.log(`- subtasks with old keys: ${oldSubtasks.length}`);
+  if (APPLY) {
+    if (oldKeyIndex) {
+      await Task.collection.dropIndex(PER_NUMBER);
+      console.log(`  dropped ${PER_NUMBER}`);
+    }
+    for (const subtask of oldSubtasks) {
+      const parent = await Task.findByIdAndUpdate(
+        subtask.parent,
+        { $inc: { subtaskSeq: 1 } },
+        { new: true },
+      );
+      if (!parent) {
+        continue;
+      }
+      await Task.updateOne(
+        { _id: subtask._id },
+        {
+          $set: {
+            projectKey: parent.projectKey,
+            number: parent.number,
+            subIndex: parent.subtaskSeq,
+          },
+          $addToSet: { formerKeys: Task.keyOf(subtask) },
+        },
+      );
+      console.log(
+        `  ${Task.keyOf(subtask)} -> ${Task.keyOf({ ...parent.toObject(), subIndex: parent.subtaskSeq })}`,
+      );
+    }
+  }
+
   if (APPLY) {
     await Task.syncIndexes();
     await Project.syncIndexes();

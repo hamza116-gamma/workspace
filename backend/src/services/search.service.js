@@ -94,17 +94,20 @@ const keyConditions = async (organizationId, term) => {
   if (/^\d+$/.test(term)) {
     return [{ number: Number(term) }];
   }
-  const match = /^([A-Za-z][A-Za-z0-9]{1,5})-(\d+)$/.exec(term);
+  const match = /^([A-Za-z][A-Za-z0-9]{1,5})-(\d+)(?:\.(\d+))?$/.exec(term);
   if (!match) {
     return [];
   }
   const prefix = match[1].toUpperCase();
   const number = Number(match[2]);
-  const conditions = [{ projectKey: prefix, number }, { formerKeys: `${prefix}-${number}` }];
+  // "TP-2.1" is that subtask; "TP-2" is the parent only.
+  const subIndex = match[3] ? Number(match[3]) : null;
+  const key = `${prefix}-${number}${subIndex ? `.${subIndex}` : ''}`;
+  const conditions = [{ projectKey: prefix, number, subIndex }, { formerKeys: key }];
   // Renamed project: QAW-1 is now QAT-1.
   const renamed = await Project.findOne({ organization: organizationId, formerKeys: prefix });
   if (renamed) {
-    conditions.push({ project: renamed._id, number });
+    conditions.push({ project: renamed._id, number, subIndex });
   }
   return conditions;
 };

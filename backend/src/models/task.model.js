@@ -27,7 +27,8 @@ const taskSchema = new mongoose.Schema(
     reporter: { type: ObjectId, ref: 'User', default: null },
     // Project this ticket belongs to (null = a chat task, keyed TASK-n).
     project: { type: ObjectId, ref: 'Project', default: null },
-    // Key prefix (project key, or TASK); the key is `${projectKey}-${number}`.
+    // Key prefix (project key, or TASK). The key is `${projectKey}-${number}`,
+    // and `${projectKey}-${number}.${subIndex}` for a subtask (TP-2.1).
     projectKey: { type: String, required: true, default: 'TASK' },
     // Numbered per projectKey (per project, or per workspace for TASK).
     number: { type: Number, required: true },
@@ -51,8 +52,12 @@ const taskSchema = new mongoose.Schema(
     type: { type: String, enum: Object.values(TASK_TYPE), default: TASK_TYPE.TASK },
     // Optional estimate in minutes (shown as 30m / 2h / 1.5d).
     estimateMinutes: { type: Number, default: null, min: 1 },
-    // Subtask of this task (one level: a subtask has no subtasks).
+    // Subtask of this task (one level: a subtask has no subtasks). A subtask
+    // shares its parent's number and adds its own index: TP-2.1, TP-2.2.
     parent: { type: ObjectId, ref: 'Task', default: null },
+    subIndex: { type: Number, default: null },
+    // Last subtask index handed out (on the parent; never reused).
+    subtaskSeq: { type: Number, default: 0 },
     // Kept by recountSubtasks: how many subtasks, and how many are done.
     subtaskTotal: { type: Number, default: 0 },
     subtaskDone: { type: Number, default: 0 },
@@ -138,7 +143,11 @@ taskSchema.index({ message: 1 }, { unique: true });
 taskSchema.index({ sourceMessage: 1 }, { sparse: true });
 // (organization, number) was the unique key before projects; the migration
 // script drops that index.
-taskSchema.index({ organization: 1, projectKey: 1, number: 1 }, { unique: true });
+// One task per key: TP-2 (no subIndex) and its subtasks TP-2.1, TP-2.2.
+taskSchema.index(
+  { organization: 1, projectKey: 1, number: 1, subIndex: 1 },
+  { unique: true, name: 'organization_1_projectKey_1_number_1_subIndex_1' },
+);
 taskSchema.index({ organization: 1, formerKeys: 1 });
 taskSchema.index({ project: 1, status: 1, position: 1 });
 taskSchema.index({ channel: 1, status: 1, updatedAt: -1 });
@@ -146,7 +155,12 @@ taskSchema.index({ conversation: 1, status: 1, updatedAt: -1 });
 taskSchema.index({ organization: 1, assignees: 1, status: 1 });
 taskSchema.index({ dueRemindedAt: 1, dueDate: 1 });
 
+/** "TP-2", or "TP-2.1" for a subtask. */
+const keyOf = (task) =>
+  `${task.projectKey || 'TASK'}-${task.number}${task.subIndex ? `.${task.subIndex}` : ''}`;
+
 module.exports = mongoose.model('Task', taskSchema);
+module.exports.keyOf = keyOf;
 module.exports.TASK_TITLE_MAX = TASK_TITLE_MAX;
 module.exports.TASK_DESCRIPTION_MAX = TASK_DESCRIPTION_MAX;
 module.exports.TASK_LABELS_MAX = TASK_LABELS_MAX;

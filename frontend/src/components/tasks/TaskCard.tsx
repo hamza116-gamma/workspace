@@ -123,7 +123,6 @@ export const TaskCard = ({
           {TASK_PRIORITY_LABELS[task.priority]}
         </span>
         <EstimateChip task={task} />
-        <SubtaskProgress task={task} />
         <span className={styles.status}>
           <Dropdown
             size="sm"
@@ -167,6 +166,18 @@ export const TaskCard = ({
             </button>
           )}
         </>
+      )}
+      {task.subtaskTotal > 0 && (
+        // Opens the task's thread, which lists every subtask.
+        <button
+          type="button"
+          className={styles.viewSubtasks}
+          onClick={onOpen}
+          disabled={!onOpen}
+        >
+          View subtasks
+          <SubtaskProgress task={task} />
+        </button>
       )}
       {task.labels.length > 0 && (
         <div className={styles.tcLabels}>

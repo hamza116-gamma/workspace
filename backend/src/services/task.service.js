@@ -4,7 +4,12 @@ const Message = require('../models/message.model');
 const Organization = require('../models/organization.model');
 const ChannelMember = require('../models/channelMember.model');
 const Conversation = require('../models/conversation.model');
-const { TASK_TITLE_MAX, TASK_DESCRIPTION_MAX, TASK_LABELS_MAX } = require('../models/task.model');
+const {
+  TASK_TITLE_MAX,
+  TASK_DESCRIPTION_MAX,
+  TASK_LABELS_MAX,
+  keyOf,
+} = require('../models/task.model');
 const { AppError } = require('../utils/AppError');
 const {
   TASK_PRIORITY,
@@ -47,7 +52,7 @@ const idOf = (value) => String(value?._id ?? value);
 
 const toPublicTask = (task) => ({
   id: String(task._id),
-  key: `${task.projectKey || 'TASK'}-${task.number}`,
+  key: keyOf(task),
   number: task.number,
   projectId: task.project ? idOf(task.project) : null,
   projectKey: task.projectKey || 'TASK',
@@ -428,8 +433,9 @@ const createSubtask = async ({ organizationId, actor, parent, payload }) => {
       ...place,
       message: anchor._id,
       project: project ? project._id : null,
-      projectKey: project ? project.key : 'TASK',
-      number: await nextNumber(organizationId, project),
+      projectKey: parent.projectKey || 'TASK',
+      number: parent.number,
+      subIndex: await nextSubIndex(parent),
       position: -Date.now(),
       parent: parent._id,
       ...fields,
@@ -443,7 +449,18 @@ const createSubtask = async ({ organizationId, actor, parent, payload }) => {
   return populate(Task.findById(taskId));
 };
 
-const listSubtasks = (parent) => populate(Task.find({ parent: parent._id }).sort({ createdAt: 1 }));
+// TP-2.1, TP-2.2, ... (an index is never reused, even after a delete).
+const nextSubIndex = async (parent) =>
+  (
+    await Task.findByIdAndUpdate(
+      parent._id,
+      { $inc: { subtaskSeq: 1 } },
+      { new: true, projection: { subtaskSeq: 1 } },
+    )
+  ).subtaskSeq;
+
+const listSubtasks = (parent) =>
+  populate(Task.find({ parent: parent._id }).sort({ subIndex: 1, createdAt: 1 }));
 
 /**
  * Turns a message into a task card (fields from prepareFields). The message
@@ -708,8 +725,22 @@ const deleteTask = async (task, { subtasks = 'keep' } = {}) => {
     for (const child of children) {
       await deleteOneTask(child);
     }
-  } else if (children.length) {
-    await Task.updateMany({ parent: task._id }, { $set: { parent: null } });
+  } else {
+    // Kept as normal tasks: own number (TP-9); the old TP-2.1 keeps working.
+    const project = await projectOf(task);
+    for (const child of children) {
+      await Task.updateOne(
+        { _id: child._id },
+        {
+          $set: {
+            parent: null,
+            subIndex: null,
+            number: await nextNumber(task.organization, project),
+          },
+          $addToSet: { formerKeys: keyOf(child) },
+        },
+      );
+    }
   }
   await deleteOneTask(task);
   if (task.parent) {
@@ -823,38 +854,45 @@ const moveToProject = async (task, project) => {
   const members = await projectService.memberIds(project);
   const dropped = new Set();
   // The task first, then its subtasks (they keep belonging to it).
+  let number = null;
   for (const item of [task, ...(await Task.find({ parent: task._id }))]) {
     for (const id of item.assignees.map(idOf).filter((id) => !members.has(id))) {
       dropped.add(id);
     }
-    await moveOne(item, project, members);
+    // The parent gets the next project number; its subtasks share it.
+    number = await moveOne(item, project, members, item.parent ? number : null);
   }
   return { task: await findByIdForOrg(task._id, task.organization), dropped: [...dropped] };
 };
 
-const moveOne = async (task, project, members) => {
+const moveOne = async (task, project, members, sharedNumber = null) => {
   const dropped = task.assignees.map(idOf).filter((id) => !members.has(id));
-  const numbered = await Project.findByIdAndUpdate(
-    project._id,
-    { $inc: { seq: 1 } },
-    { new: true, projection: { seq: 1 } },
-  );
+  const number =
+    sharedNumber ??
+    (
+      await Project.findByIdAndUpdate(
+        project._id,
+        { $inc: { seq: 1 } },
+        { new: true, projection: { seq: 1 } },
+      )
+    ).seq;
   await Task.updateOne(
     { _id: task._id, project: null },
     {
       $set: {
         project: project._id,
         projectKey: project.key,
-        number: numbered.seq,
+        number,
         // Same group in the new project's statuses ("In review" -> its
         // first "in progress" status).
         status: firstStatus(statusesOf(project), task.statusGroup || STATUS_GROUP.TODO).key,
         statusGroup: firstStatus(statusesOf(project), task.statusGroup || STATUS_GROUP.TODO).group,
       },
-      $addToSet: { formerKeys: `${task.projectKey}-${task.number}` },
+      $addToSet: { formerKeys: keyOf(task) },
       $pull: { assignees: { $in: dropped } },
     },
   );
+  return number;
 };
 
 // "My tasks": everything assigned to the user, limited to chats they can
@@ -910,7 +948,7 @@ const inChat = (task, messageId) =>
 
 const lockedTask = (task) => ({
   id: idOf(task._id),
-  key: `${task.projectKey}-${task.number}`,
+  key: keyOf(task),
   projectId: idOf(task.project),
   title: task.title,
   description: '',

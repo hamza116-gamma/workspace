@@ -2,6 +2,7 @@ const { asyncHandler } = require('../utils/asyncHandler');
 const { success } = require('../utils/response');
 const { AppError } = require('../utils/AppError');
 const taskService = require('../services/task.service');
+const { keyOf } = require('../models/task.model');
 const messageService = require('../services/message.service');
 const projectService = require('../services/project.service');
 const threadService = require('../services/thread.service');
@@ -20,11 +21,7 @@ const respond = (res, task, status = 200) =>
 // Shared tail of every create: activity note, card refresh, notifications.
 const announceCreated = async (req, task) => {
   const io = getIo(req);
-  const reply = await taskService.postActivity(
-    task,
-    req.user._id,
-    `created ${task.projectKey || 'TASK'}-${task.number}`,
-  );
+  const reply = await taskService.postActivity(task, req.user._id, `created ${keyOf(task)}`);
   await emitActivity(io, reply);
   await emitCard(io, task);
   emitTask(io, task, 'task.created');
@@ -211,7 +208,7 @@ const moveToProject = asyncHandler(async (req, res) => {
   const reply = await taskService.postActivity(
     moved,
     req.user._id,
-    `moved this to ${project.name} (${moved.projectKey}-${moved.number})`,
+    `moved this to ${project.name} (${keyOf(moved)})`,
   );
   await emitActivity(io, reply);
   await emitCard(io, moved);
@@ -261,7 +258,7 @@ const createSubtask = asyncHandler(async (req, res) => {
   const reply = await taskService.postActivity(
     parent,
     req.user._id,
-    `added subtask ${subtask.projectKey}-${subtask.number}`,
+    `added subtask ${keyOf(subtask)}`,
   );
   await emitActivity(io, reply);
   await emitParent(req, subtask);

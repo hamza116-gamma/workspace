@@ -15,7 +15,7 @@ import styles from './Tasks.module.css';
 
 // Ticket keys written in a message: WEB-12, API-3. Upper case only, so normal
 // text like "covid-19" is left alone; unknown keys simply show nothing.
-const KEY_PATTERN = /\b([A-Z][A-Z0-9]{1,5}-\d{1,6})\b/g;
+const KEY_PATTERN = /\b([A-Z][A-Z0-9]{1,5}-\d{1,6}(?:\.\d{1,4})?)\b/g;
 const MAX_PREVIEWS = 3;
 
 export const ticketKeysIn = (content: string, exclude?: string) =>

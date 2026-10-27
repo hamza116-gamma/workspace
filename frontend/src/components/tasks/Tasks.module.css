@@ -1277,3 +1277,30 @@ button.open {
     display: none;
   }
 }
+
+/* "View subtasks · 2 / 5" on a chat task card: opens the task's thread. */
+.viewSubtasks {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  align-self: flex-start;
+  margin-top: 6px;
+  padding: 4px 10px;
+  border: 1px solid var(--line-2);
+  border-radius: var(--r-pill, 99px);
+  background: var(--paper, transparent);
+  color: var(--ink-2);
+  font: inherit;
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.viewSubtasks:hover:not(:disabled) {
+  border-color: var(--brand, var(--ink-3));
+  color: var(--ink);
+}
+
+.viewSubtasks:disabled {
+  cursor: default;
+}

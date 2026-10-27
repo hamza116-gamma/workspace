@@ -1,6 +1,8 @@
 const mongoose = require('mongoose');
 const Project = require('../models/project.model');
 const Task = require('../models/task.model');
+
+const { keyOf } = Task;
 const Message = require('../models/message.model');
 const Channel = require('../models/channel.model');
 const ChannelMember = require('../models/channelMember.model');
@@ -523,7 +525,7 @@ const adoptChannelTasks = async (project) => {
       { _id: task._id, project: null },
       {
         $set: { project: project._id, projectKey: project.key, number: numbered.seq },
-        $addToSet: { formerKeys: `${task.projectKey}-${task.number}` },
+        $addToSet: { formerKeys: keyOf(task) },
       },
     );
   }
@@ -779,8 +781,15 @@ const deleteProject = async (project, orgRole, confirmKey) => {
     await Task.updateOne(
       { _id: task._id },
       {
-        $set: { project: null, projectKey: CHAT_TASK_KEY, number: organization.taskSeq },
-        $addToSet: { formerKeys: `${task.projectKey}-${task.number}` },
+        $set: {
+          project: null,
+          projectKey: CHAT_TASK_KEY,
+          number: organization.taskSeq,
+          // A released subtask stands on its own (its parent gets a new number).
+          parent: null,
+          subIndex: null,
+        },
+        $addToSet: { formerKeys: keyOf(task) },
       },
     );
     released += 1;
@@ -839,23 +848,30 @@ const projectIdsForUser = async (organizationId, userId) => {
  * (moved between projects / adopted from TASK-n). Access is the caller's job.
  */
 const resolveTaskKey = async (organizationId, rawKey) => {
-  const match = /^([A-Za-z][A-Za-z0-9]{1,5})-(\d+)$/.exec(String(rawKey || '').trim());
+  const match = /^([A-Za-z][A-Za-z0-9]{1,5})-(\d+)(?:\.(\d+))?$/.exec(String(rawKey || '').trim());
   if (!match) {
     return null;
   }
   const prefix = match[1].toUpperCase();
   const number = Number(match[2]);
-  const key = `${prefix}-${number}`;
+  // TP-2.1 is subtask 1 of TP-2; TP-2 itself has no index.
+  const subIndex = match[3] ? Number(match[3]) : null;
+  const key = `${prefix}-${number}${subIndex ? `.${subIndex}` : ''}`;
 
   if (prefix === CHAT_TASK_KEY) {
-    const task = await Task.findOne({ organization: organizationId, projectKey: prefix, number });
+    const task = await Task.findOne({
+      organization: organizationId,
+      projectKey: prefix,
+      number,
+      subIndex,
+    });
     if (task) {
       return task;
     }
   } else {
     const project = await findByKey(organizationId, prefix);
     if (project) {
-      const task = await Task.findOne({ project: project._id, number });
+      const task = await Task.findOne({ project: project._id, number, subIndex });
       if (task) {
         return task;
       }
