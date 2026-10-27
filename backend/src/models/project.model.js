@@ -1,5 +1,11 @@
 const mongoose = require('mongoose');
-const { PROJECT_STATUS, PROJECT_UPDATES, PROJECT_VISIBILITY } = require('../config/constants');
+const {
+  PROJECT_STATUS,
+  PROJECT_UPDATES,
+  PROJECT_VISIBILITY,
+  STATUS_GROUP,
+  DEFAULT_TASK_STATUSES,
+} = require('../config/constants');
 
 const { ObjectId } = mongoose.Schema.Types;
 
@@ -8,6 +14,18 @@ const { ObjectId } = mongoose.Schema.Types;
  * Members are the people in its home channel plus its linked channels, so
  * access reuses channel membership (no separate roles).
  */
+// A ticket status of this project. `key` never changes (tickets store it);
+// name, colour, group and order can.
+const statusSchema = new mongoose.Schema(
+  {
+    key: { type: String, required: true },
+    name: { type: String, required: true, trim: true, maxlength: 30 },
+    color: { type: String, required: true },
+    group: { type: String, enum: Object.values(STATUS_GROUP), required: true },
+  },
+  { _id: false },
+);
+
 const projectSchema = new mongoose.Schema(
   {
     organization: { type: ObjectId, ref: 'Organization', required: true, index: true },
@@ -31,6 +49,11 @@ const projectSchema = new mongoose.Schema(
     members: [{ type: ObjectId, ref: 'User' }],
     // Extra channels that also see the board (and whose members are members).
     linkedChannels: [{ type: ObjectId, ref: 'Channel' }],
+    // Board columns, in order. Starts as the default set.
+    statuses: {
+      type: [statusSchema],
+      default: () => DEFAULT_TASK_STATUSES.map((status) => ({ ...status })),
+    },
     // Full rights on every ticket, next to the ticket creator and moderators.
     lead: { type: ObjectId, ref: 'User', required: true },
     // Per-project ticket counter.

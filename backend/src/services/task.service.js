@@ -6,7 +6,12 @@ const ChannelMember = require('../models/channelMember.model');
 const Conversation = require('../models/conversation.model');
 const { TASK_TITLE_MAX, TASK_DESCRIPTION_MAX, TASK_LABELS_MAX } = require('../models/task.model');
 const { AppError } = require('../utils/AppError');
-const { TASK_STATUS, TASK_PRIORITY, CHANNEL_MEMBER_STATUS } = require('../config/constants');
+const {
+  TASK_PRIORITY,
+  CHANNEL_MEMBER_STATUS,
+  STATUS_GROUP,
+  DEFAULT_TASK_STATUSES,
+} = require('../config/constants');
 const { toPublicUser } = require('./user.service');
 const channelService = require('./channel.service');
 const conversationService = require('./conversation.service');
@@ -17,12 +22,23 @@ const User = require('../models/user.model');
 const LABEL_MAX = 30;
 const LIST_LIMIT = 200;
 
-const STATUS_LABELS = {
-  [TASK_STATUS.TODO]: 'To do',
-  [TASK_STATUS.IN_PROGRESS]: 'In progress',
-  [TASK_STATUS.IN_REVIEW]: 'In review',
-  [TASK_STATUS.DONE]: 'Done',
+// The statuses a task can have: its project's, or the defaults (chat tasks).
+const statusesOf = (project) =>
+  project?.statuses?.length ? project.statuses : DEFAULT_TASK_STATUSES;
+
+const findStatus = (statuses, key) => statuses.find((status) => status.key === key) || null;
+
+const assertStatus = (statuses, key) => {
+  const status = findStatus(statuses, String(key));
+  if (!status) {
+    throw new AppError(400, 'Unknown status for this project');
+  }
+  return status;
 };
+
+// New tasks start in the first "to do" status (or simply the first one).
+const firstStatus = (statuses, group = STATUS_GROUP.TODO) =>
+  statuses.find((status) => status.group === group) || statuses[0];
 
 const idOf = (value) => String(value?._id ?? value);
 
@@ -44,6 +60,7 @@ const toPublicTask = (task) => ({
   title: task.title,
   description: task.description,
   status: task.status,
+  statusGroup: task.statusGroup || STATUS_GROUP.TODO,
   priority: task.priority,
   assignees: (task.assignees || []).map((user) =>
     user && user.fullName ? toPublicUser(user) : { id: idOf(user) },
@@ -315,17 +332,22 @@ const prepareFields = async (
   payload = {},
   fallbackTitle = '',
   project = null,
-) => ({
-  title: assertTitle(payload.title || fallbackTitle),
-  description: assertDescription(payload.description),
-  status: payload.status ? assertEnum(payload.status, TASK_STATUS, 'status') : TASK_STATUS.TODO,
-  priority: payload.priority
-    ? assertEnum(payload.priority, TASK_PRIORITY, 'priority')
-    : TASK_PRIORITY.MEDIUM,
-  assignees: await assertAssignable(organizationId, target, payload.assignees || [], project),
-  dueDate: payload.dueDate ? assertDueDate(payload.dueDate) : null,
-  labels: payload.labels ? assertLabels(payload.labels) : [],
-});
+) => {
+  const statuses = statusesOf(project);
+  const status = payload.status ? assertStatus(statuses, payload.status) : firstStatus(statuses);
+  return {
+    title: assertTitle(payload.title || fallbackTitle),
+    description: assertDescription(payload.description),
+    status: status.key,
+    statusGroup: status.group,
+    priority: payload.priority
+      ? assertEnum(payload.priority, TASK_PRIORITY, 'priority')
+      : TASK_PRIORITY.MEDIUM,
+    assignees: await assertAssignable(organizationId, target, payload.assignees || [], project),
+    dueDate: payload.dueDate ? assertDueDate(payload.dueDate) : null,
+    labels: payload.labels ? assertLabels(payload.labels) : [],
+  };
+};
 
 /**
  * Turns a message into a task card (fields from prepareFields). The message
@@ -374,7 +396,7 @@ const createTicket = async ({ organizationId, actor, fields, project, sourceMess
       position: -Date.now(),
       ...fields,
       createdBy: actor._id,
-      closedAt: fields.status === TASK_STATUS.DONE ? new Date() : null,
+      closedAt: fields.statusGroup === STATUS_GROUP.DONE ? new Date() : null,
     });
   } catch (error) {
     if (sourceMessage) {
@@ -416,7 +438,7 @@ const createForMessage = async (organizationId, message, actor, fields, project 
       position: -Date.now(),
       ...fields,
       createdBy: actor._id,
-      closedAt: fields.status === TASK_STATUS.DONE ? new Date() : null,
+      closedAt: fields.statusGroup === STATUS_GROUP.DONE ? new Date() : null,
     });
     message.task = taskId;
     return populate(Task.findById(task._id));
@@ -492,11 +514,17 @@ const updateTask = async (task, payload = {}) => {
     }
   }
   if (payload.status !== undefined) {
-    const status = assertEnum(payload.status, TASK_STATUS, 'status');
-    if (status !== task.status) {
-      task.status = status;
-      task.closedAt = status === TASK_STATUS.DONE ? new Date() : null;
-      changes.push(`moved this to ${STATUS_LABELS[status]}`);
+    const status = assertStatus(statusesOf(await projectOf(task)), payload.status);
+    if (status.key !== task.status) {
+      const wasDone = task.statusGroup === STATUS_GROUP.DONE;
+      task.status = status.key;
+      task.statusGroup = status.group;
+      if (status.group !== STATUS_GROUP.DONE) {
+        task.closedAt = null;
+      } else if (!wasDone) {
+        task.closedAt = new Date();
+      }
+      changes.push(`moved this to ${status.name}`);
     }
   }
   if (payload.priority !== undefined) {
@@ -579,9 +607,7 @@ const deleteTask = async (task) => {
 const buildFilter = ({ status, priority, label }) => {
   const filter = {};
   if (status) {
-    const statuses = String(status).split(',');
-    statuses.forEach((value) => assertEnum(value, TASK_STATUS, 'status'));
-    filter.status = { $in: statuses };
+    filter.status = { $in: String(status).split(',').filter(Boolean) };
   }
   if (priority) {
     filter.priority = assertEnum(priority, TASK_PRIORITY, 'priority');
@@ -669,7 +695,15 @@ const moveToProject = async (task, project) => {
   await Task.updateOne(
     { _id: task._id, project: null },
     {
-      $set: { project: project._id, projectKey: project.key, number: numbered.seq },
+      $set: {
+        project: project._id,
+        projectKey: project.key,
+        number: numbered.seq,
+        // Same group in the new project's statuses ("In review" -> its
+        // first "in progress" status).
+        status: firstStatus(statusesOf(project), task.statusGroup || STATUS_GROUP.TODO).key,
+        statusGroup: firstStatus(statusesOf(project), task.statusGroup || STATUS_GROUP.TODO).group,
+      },
       $addToSet: { formerKeys: `${task.projectKey}-${task.number}` },
       $pull: { assignees: { $in: dropped } },
     },
@@ -802,7 +836,7 @@ const claimDueReminders = async (windowMs, limit = 50) => {
       {
         dueRemindedAt: null,
         dueDate: { $ne: null, $lte: new Date(Date.now() + windowMs) },
-        status: { $ne: TASK_STATUS.DONE },
+        statusGroup: { $ne: STATUS_GROUP.DONE },
         'assignees.0': { $exists: true },
       },
       { $set: { dueRemindedAt: new Date() } },
@@ -817,6 +851,7 @@ const claimDueReminders = async (windowMs, limit = 50) => {
 };
 
 module.exports = {
+  statusesOf,
   assertAssignable,
   unassignFromProject,
   createTicket,
@@ -826,7 +861,6 @@ module.exports = {
   assertCanWriteTask,
   projectOf,
   claimDueReminders,
-  STATUS_LABELS,
   toPublicTask,
   targetOf,
   titleFromContent,

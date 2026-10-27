@@ -47,6 +47,7 @@ const emitChanged = (req, project, alsoUserIds = []) => {
 // What the viewer may do: drives buttons in the UI (the server re-checks).
 const withViewer = async (req, project) => ({
   memberCount: (await projectService.memberIds(project)).size,
+  statusCounts: await projectService.statusCounts(project),
   isMember: await projectService.isMember(project, req.user._id),
   // Tickets that would be deleted with the project (no channel to return to).
   channelFreeTickets: await projectService.countChannelFreeTickets(project),

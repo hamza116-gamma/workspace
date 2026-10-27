@@ -6,11 +6,11 @@ import { useAuth } from '@/hooks/useAuth';
 import { taskAccess, updateTask } from '@/lib/tasks';
 import {
   TASK_PRIORITY_LABELS,
-  TASK_STATUS_COLORS,
-  TASK_STATUS_LABELS,
   type Task,
   type TaskStatus,
+  type TaskStatusDef,
 } from '@/types/task';
+import { useTaskStatuses } from '@/hooks/useTaskStatuses';
 import { MentionText } from './MentionText';
 import { dueChip } from '@/lib/taskDue';
 import { EditTaskDialog } from './EditTaskDialog';
@@ -18,11 +18,10 @@ import { Icon } from '@/components/ui/Icon';
 import { Avatar } from '@/components/ui/Avatar';
 import styles from './Tasks.module.css';
 
-const STATUS_OPTIONS = (Object.keys(TASK_STATUS_LABELS) as TaskStatus[]).map((value) => ({
-  value,
-  label: TASK_STATUS_LABELS[value],
-  color: TASK_STATUS_COLORS[value],
-}));
+
+// Status choices for a task: its project's statuses (or the defaults).
+const statusOptions = (statuses: TaskStatusDef[]) =>
+  statuses.map((status) => ({ value: status.key, label: status.name, color: status.color }));
 
 export const DUE_CLASS = {
   later: 'dueLater',
@@ -65,6 +64,8 @@ export const TaskCard = ({
   const { user } = useAuth();
   const [status, setStatus] = useState<TaskStatus>(task.status);
   const [synced, setSynced] = useState<TaskStatus>(task.status);
+  const { statusesFor, statusOf } = useTaskStatuses();
+  const current = statusOf({ ...task, status });
   const [error, setError] = useState('');
   const [expanded, setExpanded] = useState(false);
   const [overflowing, setOverflowing] = useState(false);
@@ -99,10 +100,10 @@ export const TaskCard = ({
     }
   };
 
-  const due = dueChip({ dueDate: task.dueDate, status });
+  const due = dueChip({ dueDate: task.dueDate, statusGroup: current.group });
 
   return (
-    <div className={`${styles.card} ${status === 'DONE' ? styles.done : ''}`}>
+    <div className={`${styles.card} ${current.group === 'DONE' ? styles.done : ''}`}>
       <div className={styles.cardHead}>
         {onOpen ? (
           <button
@@ -123,8 +124,8 @@ export const TaskCard = ({
           <Dropdown
             size="sm"
             ariaLabel="Task status"
-            options={STATUS_OPTIONS}
-            value={status}
+            options={statusOptions(statusesFor(task.projectId))}
+            value={current.key}
             disabled={!canManage}
             onChange={(next) => void changeStatus(next)}
           />

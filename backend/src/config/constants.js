@@ -131,6 +131,33 @@ const TASK_STATUS = {
   DONE: 'DONE',
 };
 
+// Every status belongs to one group. The group drives "is it done?" (progress,
+// closedAt, due reminders, open counts); names and colours are free.
+const STATUS_GROUP = {
+  TODO: 'TODO',
+  IN_PROGRESS: 'IN_PROGRESS',
+  DONE: 'DONE',
+};
+
+// Statuses of chat tasks (Unassigned) and the starting set of a new project.
+// Their keys are the old fixed statuses, so existing tasks keep working.
+const DEFAULT_TASK_STATUSES = [
+  { key: TASK_STATUS.TODO, name: 'To do', color: '#8a94a6', group: STATUS_GROUP.TODO },
+  {
+    key: TASK_STATUS.IN_PROGRESS,
+    name: 'In progress',
+    color: '#3b82f6',
+    group: STATUS_GROUP.IN_PROGRESS,
+  },
+  {
+    key: TASK_STATUS.IN_REVIEW,
+    name: 'In review',
+    color: '#f59e0b',
+    group: STATUS_GROUP.IN_PROGRESS,
+  },
+  { key: TASK_STATUS.DONE, name: 'Done', color: '#22a06b', group: STATUS_GROUP.DONE },
+];
+
 const TASK_PRIORITY = {
   LOW: 'LOW',
   MEDIUM: 'MEDIUM',
@@ -168,6 +195,8 @@ module.exports = {
   PROJECT_VISIBILITY,
   CHAT_TASK_KEY,
   TASK_STATUS,
+  STATUS_GROUP,
+  DEFAULT_TASK_STATUSES,
   TASK_PRIORITY,
   HUDDLE_STATUS,
   HUDDLE_INVITE_STATUS,

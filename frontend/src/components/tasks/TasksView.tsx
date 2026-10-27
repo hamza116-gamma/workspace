@@ -75,7 +75,7 @@ export const TasksView = () => {
         task.title.toLowerCase().includes(needle) ||
         task.key.toLowerCase().includes(needle)),
   );
-  const open = tasks.filter((task) => task.status !== 'DONE').length;
+  const open = tasks.filter((task) => task.statusGroup !== 'DONE').length;
 
   return (
     <div className={`${page.page} ${styles.fillPage}`}>

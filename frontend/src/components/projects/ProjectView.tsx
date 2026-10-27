@@ -8,6 +8,7 @@ import { Icon } from '@/components/ui/Icon';
 import { Spinner } from '@/components/ui/Spinner';
 import { useTaskEvents } from '@/hooks/useTaskEvents';
 import { useSocket } from '@/hooks/useSocket';
+import { rememberProjectStatuses } from '@/hooks/useTaskStatuses';
 import { getProject, listProjectTasks } from '@/lib/projects';
 import { KanbanBoard } from '@/components/tasks/KanbanBoard';
 import { CreateTaskDialog } from '@/components/tasks/CreateTaskDialog';
@@ -48,6 +49,7 @@ export const ProjectView = ({ projectKey }: { projectKey: string }) => {
         router.replace(`/projects/${result.project.key}`);
       }
       setProject(result.project);
+      rememberProjectStatuses(result.project);
       const list = await listProjectTasks(result.project.key);
       setTasks(list.tasks);
       setError('');
@@ -185,11 +187,18 @@ export const ProjectView = ({ projectKey }: { projectKey: string }) => {
         <div className={styles.boardArea}>
           <KanbanBoard
             tasks={tasks}
+            statuses={project.statuses}
             onChange={(task) => setTasks((current) => upsert(current, task))}
           />
         </div>
       ) : (
-        <ProjectSettings project={project} onSaved={setProject} />
+        <ProjectSettings
+          project={project}
+          onSaved={(next) => {
+            setProject(next);
+            rememberProjectStatuses(next);
+          }}
+        />
       )}
 
       <CreateTaskDialog target={createTarget} onClose={() => setCreateTarget(null)} />

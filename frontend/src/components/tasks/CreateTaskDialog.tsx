@@ -11,9 +11,15 @@ import { useProjects } from '@/hooks/useProjects';
 import { createProjectTask } from '@/lib/projects';
 import { useProjectsEnabled } from '@/hooks/useProjectsEnabled';
 import { useChannels } from '@/hooks/useChannels';
+import { useTaskStatuses } from '@/hooks/useTaskStatuses';
 import { MentionInput } from './MentionText';
 import { LabelInput } from './LabelInput';
-import { TASK_PRIORITY_COLORS, TASK_PRIORITY_LABELS, type TaskPriority } from '@/types/task';
+import {
+  TASK_PRIORITY_COLORS,
+  TASK_PRIORITY_LABELS,
+  firstOfGroup,
+  type TaskPriority,
+} from '@/types/task';
 import type { Message } from '@/types/message';
 import type { User } from '@/types/user';
 import styles from './Tasks.module.css';
@@ -83,6 +89,17 @@ export const CreateTaskDialog = ({
   const [projectId, setProjectId] = useState('');
   const pickProject = projectsEnabled && !target?.projectKey && memberProjects.length > 0;
   const chosenProject = memberProjects.find((p) => p.id === projectId);
+  // Status list of where the task goes: the picked project, the board's
+  // project, or the defaults (Unassigned). '' = its first "to do" status.
+  const { statusesFor } = useTaskStatuses();
+  const boardProject = target?.projectKey
+    ? projects.find((p) => p.key === target.projectKey)
+    : undefined;
+  const statusList = statusesFor(chosenProject?.id ?? boardProject?.id ?? null);
+  const [statusKey, setStatusKey] = useState('');
+  const statusValue = statusList.some((item) => item.key === statusKey)
+    ? statusKey
+    : firstOfGroup(statusList, 'TODO').key;
   // Channel to post the card in: optional on a project board, required on
   // the Unassigned board (a task without a project lives in a chat).
   const { channels } = useChannels();
@@ -102,6 +119,7 @@ export const CreateTaskDialog = ({
     setError('');
     setProjectId('');
     setChannelId('');
+    setStatusKey('');
     setAssignees([]);
     if (message) {
       const readable = tokensToDisplay(message.content, message.mentions);
@@ -184,6 +202,7 @@ export const CreateTaskDialog = ({
         description: description.trim(),
         labels,
         priority,
+        status: statusValue,
         assignees,
         dueDate: dueDate ? new Date(`${dueDate}T23:59:00`).toISOString() : null,
       };
@@ -246,6 +265,16 @@ export const CreateTaskDialog = ({
             options={PRIORITY_OPTIONS}
             value={priority}
             onChange={setPriority}
+          />
+          <Dropdown
+            label="Status"
+            options={statusList.map((item) => ({
+              value: item.key,
+              label: item.name,
+              color: item.color,
+            }))}
+            value={statusValue}
+            onChange={setStatusKey}
           />
           <Input
             label="Due date"

@@ -8,10 +8,9 @@ import type { Socket } from 'socket.io-client';
 import {
   TASK_PRIORITY_COLORS,
   TASK_PRIORITY_LABELS,
-  TASK_STATUS_COLORS,
-  TASK_STATUS_LABELS,
   type Task,
 } from '@/types/task';
+import { useTaskStatuses } from '@/hooks/useTaskStatuses';
 import styles from './Tasks.module.css';
 
 // Ticket keys written in a message: WEB-12, API-3. Upper case only, so normal
@@ -97,9 +96,11 @@ export const TicketPreview = ({
   onOpen: (task: Task) => void;
 }) => {
   const task = useTicketByKey(ticketKey);
+  const { statusOf } = useTaskStatuses();
   if (!task) {
     return null;
   }
+  const status = statusOf(task);
   return (
     <button type="button" className={styles.preview} onClick={() => onOpen(task)}>
       <span className={styles.previewTop}>
@@ -107,9 +108,9 @@ export const TicketPreview = ({
         <span className={styles.previewPrio} style={{ color: TASK_PRIORITY_COLORS[task.priority] }}>
           {TASK_PRIORITY_LABELS[task.priority]}
         </span>
-        <span className={styles.chipStatus} style={{ color: TASK_STATUS_COLORS[task.status] }}>
-          <i style={{ background: TASK_STATUS_COLORS[task.status] }} />
-          {TASK_STATUS_LABELS[task.status]}
+        <span className={styles.chipStatus} style={{ color: status.color }}>
+          <i style={{ background: status.color }} />
+          {status.name}
         </span>
       </span>
       <span className={styles.previewTitle}>{task.title}</span>

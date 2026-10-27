@@ -1,5 +1,5 @@
 const mongoose = require('mongoose');
-const { TASK_STATUS, TASK_PRIORITY } = require('../config/constants');
+const { TASK_STATUS, TASK_PRIORITY, STATUS_GROUP } = require('../config/constants');
 
 const { ObjectId } = mongoose.Schema.Types;
 
@@ -29,7 +29,14 @@ const taskSchema = new mongoose.Schema(
     formerKeys: { type: [String], default: [] },
     title: { type: String, required: true, trim: true, maxlength: TASK_TITLE_MAX },
     description: { type: String, trim: true, maxlength: TASK_DESCRIPTION_MAX, default: '' },
-    status: { type: String, enum: Object.values(TASK_STATUS), default: TASK_STATUS.TODO },
+    // Key of one of the project's statuses (or a default one for chat tasks).
+    status: { type: String, required: true, default: TASK_STATUS.TODO },
+    // That status's group, kept in sync: what "done" / "open" queries use.
+    statusGroup: {
+      type: String,
+      enum: Object.values(STATUS_GROUP),
+      default: STATUS_GROUP.TODO,
+    },
     priority: {
       type: String,
       enum: Object.values(TASK_PRIORITY),

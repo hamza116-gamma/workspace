@@ -18,7 +18,7 @@ const Task = require('../src/models/task.model');
 const Project = require('../src/models/project.model');
 const Message = require('../src/models/message.model');
 const projectService = require('../src/services/project.service');
-const { CHAT_TASK_KEY } = require('../src/config/constants');
+const { CHAT_TASK_KEY, DEFAULT_TASK_STATUSES } = require('../src/config/constants');
 
 const APPLY = process.argv.includes('--apply');
 const OLD_INDEX = 'organization_1_number_1';
@@ -86,6 +86,22 @@ const main = async () => {
       { $or: [{ _id: { $in: anchors } }, { parentMessageId: { $in: anchors } }] },
       { $set: { channel: null, project: project._id } },
     );
+  }
+
+  // Phase 3: custom statuses. Projects get the default list; every task gets
+  // its status group (In review counts as "in progress").
+  const noStatuses = { $or: [{ statuses: { $exists: false } }, { statuses: { $size: 0 } }] };
+  console.log(`- projects without statuses: ${await Project.countDocuments(noStatuses)}`);
+  const noGroup = { statusGroup: { $exists: false } };
+  console.log(`- tasks without a status group: ${await Task.countDocuments(noGroup)}`);
+  if (APPLY) {
+    await Project.updateMany(noStatuses, { $set: { statuses: DEFAULT_TASK_STATUSES } });
+    for (const status of DEFAULT_TASK_STATUSES) {
+      await Task.updateMany(
+        { ...noGroup, status: status.key },
+        { $set: { statusGroup: status.group } },
+      );
+    }
   }
 
   if (APPLY) {

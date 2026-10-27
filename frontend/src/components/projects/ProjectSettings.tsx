@@ -12,6 +12,7 @@ import { archiveProject, deleteProject, restoreProject, updateProject } from '@/
 import { PROJECT_KEY_PATTERN, type Project } from '@/types/project';
 import type { User } from '@/types/user';
 import { VisibilityPick } from './NewProjectDialog';
+import { StatusEditor } from './StatusEditor';
 import styles from './Projects.module.css';
 
 /** Name, key, lead, people; archive / restore; delete (admins). */
@@ -172,8 +173,9 @@ export const ProjectSettings = ({
         )}
       </section>
 
-      {/* Right column on wide screens: lifecycle actions. */}
+      {/* Right column on wide screens: statuses and lifecycle actions. */}
       <div className={styles.side}>
+        <StatusEditor project={project} onSaved={onSaved} />
         {project.canManage && (
           <section className={styles.section}>
             <h3>{project.status === 'ARCHIVED' ? 'Restore' : 'Archive'}</h3>

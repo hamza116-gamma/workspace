@@ -11,7 +11,7 @@ import { useFocusMessage } from '@/hooks/useFocusMessage';
 import { searchWorkspace, messageHref } from '@/lib/search';
 import { createConversation } from '@/lib/conversations';
 import { tokensToDisplay } from '@/lib/mentions';
-import { TASK_STATUS_LABELS } from '@/types/task';
+import { useTaskStatuses } from '@/hooks/useTaskStatuses';
 import type { SearchResult } from '@/types/search';
 import styles from './QuickSearch.module.css';
 
@@ -38,6 +38,7 @@ export const QuickSearch = () => {
   const { channels } = useChannels();
   const { conversations } = useConversations();
   const { focusMessage } = useFocusMessage();
+  const { statusOf } = useTaskStatuses();
   const inputRef = useRef<HTMLInputElement>(null);
   const listRef = useRef<HTMLDivElement>(null);
   const [open, setOpen] = useState(false);
@@ -192,7 +193,7 @@ export const QuickSearch = () => {
         group: 'Tasks',
         icon: 'task',
         title: `${task.key} · ${task.title}`,
-        meta: TASK_STATUS_LABELS[task.status],
+        meta: statusOf(task).name,
         run: () => {
           focusMessage(task.messageId);
           go(messageHref(task, task.messageId));
@@ -225,7 +226,7 @@ export const QuickSearch = () => {
     });
     return list;
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [query, result, channels, conversations, user?.id]);
+  }, [query, result, channels, conversations, user?.id, statusOf]);
 
   // Keep the highlighted row in view.
   useEffect(() => {

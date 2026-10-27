@@ -191,12 +191,13 @@
   gap: 12px;
 }
 
-/* Settings fill the page: two columns on wide screens (General | archive,
-   delete), one column on narrow ones; scrolls inside when taller. */
+/* Settings fill the page: two columns when there is room (General |
+   statuses, archive, delete), else one; scrolls inside when taller. Based on
+   the space the page really has, not the window (sidebars take a lot). */
 .settings {
   display: grid;
   flex: 1;
-  grid-template-columns: minmax(0, 3fr) minmax(0, 2fr);
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 420px), 1fr));
   align-content: start;
   gap: 18px;
   min-height: 0;
@@ -214,11 +215,6 @@
   gap: 18px;
 }
 
-@media (max-width: 1000px) {
-  .settings {
-    grid-template-columns: minmax(0, 1fr);
-  }
-}
 
 /* Board inside the project page: the page already has side padding. */
 .boardArea {
@@ -343,4 +339,94 @@
   font-size: 13px;
   line-height: 1.5;
   color: var(--ink-3);
+}
+
+/* Status editor (project settings). */
+.statusList {
+  container-type: inline-size;
+  display: grid;
+  gap: 6px;
+  margin: 0 0 10px;
+  padding: 0;
+  list-style: none;
+}
+
+.statusRow {
+  display: grid;
+  grid-template-columns: 30px minmax(120px, 1fr) 140px 40px auto;
+  align-items: center;
+  gap: 8px;
+}
+
+.statusColor {
+  width: 30px;
+  height: 30px;
+  padding: 2px;
+  border: 1px solid var(--line-2);
+  border-radius: 8px;
+  background: transparent;
+  cursor: pointer;
+}
+
+.statusName {
+  height: 32px;
+  padding: 0 10px;
+  border: 1px solid var(--line-2);
+  border-radius: 8px;
+  background: var(--surface-1);
+  color: var(--ink);
+  font: inherit;
+  font-size: 13px;
+}
+
+.statusGroup {
+  min-width: 0;
+}
+
+.statusCount {
+  color: var(--ink-3);
+  font-size: 12px;
+  text-align: center;
+}
+
+.statusActions {
+  display: flex;
+  gap: 2px;
+}
+
+.statusActions button {
+  width: 26px;
+  height: 26px;
+  border: 0;
+  border-radius: 6px;
+  background: transparent;
+  color: var(--ink-3);
+  cursor: pointer;
+}
+
+.statusActions button:hover:not(:disabled) {
+  background: var(--surface-2);
+  color: var(--ink);
+}
+
+.statusActions button:disabled {
+  opacity: 0.35;
+  cursor: default;
+}
+
+.moveTickets {
+  display: grid;
+  gap: 6px;
+  margin-bottom: 10px;
+}
+
+/* Narrow editor: name on its own line, group and count below. */
+@container (max-width: 400px) {
+  .statusRow {
+    grid-template-columns: 30px 1fr auto;
+  }
+  .statusGroup,
+  .statusCount {
+    grid-column: 2 / -1;
+  }
 }

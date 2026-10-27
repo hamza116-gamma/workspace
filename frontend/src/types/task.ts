@@ -1,6 +1,24 @@
 import type { User } from './user';
 
-export type TaskStatus = 'TODO' | 'IN_PROGRESS' | 'IN_REVIEW' | 'DONE';
+// Key of one of the task's project statuses (or a default one for chat tasks).
+export type TaskStatus = string;
+// Every status is in one group; the group decides "done" / "open".
+export type StatusGroup = 'TODO' | 'IN_PROGRESS' | 'DONE';
+export type TaskStatusDef = { key: string; name: string; color: string; group: StatusGroup };
+
+export const STATUS_GROUP_LABELS: Record<StatusGroup, string> = {
+  TODO: 'To do',
+  IN_PROGRESS: 'In progress',
+  DONE: 'Done',
+};
+
+// Chat tasks (Unassigned) and a new project's starting set; same as the server.
+export const DEFAULT_STATUSES: TaskStatusDef[] = [
+  { key: 'TODO', name: 'To do', color: '#8a94a6', group: 'TODO' },
+  { key: 'IN_PROGRESS', name: 'In progress', color: '#3b82f6', group: 'IN_PROGRESS' },
+  { key: 'IN_REVIEW', name: 'In review', color: '#f59e0b', group: 'IN_PROGRESS' },
+  { key: 'DONE', name: 'Done', color: '#22a06b', group: 'DONE' },
+];
 export type TaskPriority = 'LOW' | 'MEDIUM' | 'HIGH' | 'URGENT';
 
 export type Task = {
@@ -20,6 +38,7 @@ export type Task = {
   title: string;
   description: string;
   status: TaskStatus;
+  statusGroup: StatusGroup;
   priority: TaskPriority;
   assignees: User[];
   dueDate: string | null;
@@ -49,12 +68,6 @@ export type TaskInput = {
   labels?: string[];
 };
 
-export const TASK_STATUS_LABELS: Record<TaskStatus, string> = {
-  TODO: 'To do',
-  IN_PROGRESS: 'In progress',
-  IN_REVIEW: 'In review',
-  DONE: 'Done',
-};
 
 export const TASK_PRIORITY_LABELS: Record<TaskPriority, string> = {
   LOW: 'Low',
@@ -63,12 +76,6 @@ export const TASK_PRIORITY_LABELS: Record<TaskPriority, string> = {
   URGENT: 'Urgent',
 };
 
-export const TASK_STATUS_COLORS: Record<TaskStatus, string> = {
-  TODO: '#98a2b3',
-  IN_PROGRESS: '#2e90fa',
-  IN_REVIEW: '#f79009',
-  DONE: '#12b76a',
-};
 
 export const TASK_PRIORITY_COLORS: Record<TaskPriority, string> = {
   LOW: '#98a2b3',
@@ -76,3 +83,7 @@ export const TASK_PRIORITY_COLORS: Record<TaskPriority, string> = {
   HIGH: '#f79009',
   URGENT: '#f04438',
 };
+
+/** First status of a group in a list (where a moved / new task lands). */
+export const firstOfGroup = (statuses: TaskStatusDef[], group: StatusGroup) =>
+  statuses.find((status) => status.group === group) ?? statuses[0];

@@ -19,6 +19,8 @@ const {
   ORG_ROLES,
   MEMBER_STATUS,
   PROJECT_VISIBILITY,
+  STATUS_GROUP,
+  DEFAULT_TASK_STATUSES,
 } = require('../config/constants');
 const { toPublicUser } = require('./user.service');
 
@@ -37,6 +39,9 @@ const toPublicProject = (project, extra = {}) => ({
   description: project.description,
   homeChannelId: project.homeChannel ? idOf(project.homeChannel) : null,
   visibility: project.visibility || PROJECT_VISIBILITY.PRIVATE,
+  statuses: (project.statuses?.length ? project.statuses : DEFAULT_TASK_STATUSES).map(
+    ({ key, name, color, group }) => ({ key, name, color, group }),
+  ),
   // People added directly (private projects; empty for public ones).
   memberIds: (project.members || []).map(idOf),
   linkedChannelIds: (project.linkedChannels || []).map(idOf),
@@ -287,7 +292,7 @@ const countsFor = async (projectIds) => {
       $group: {
         _id: '$project',
         total: { $sum: 1 },
-        done: { $sum: { $cond: [{ $eq: ['$status', 'DONE'] }, 1, 0] } },
+        done: { $sum: { $cond: [{ $eq: ['$statusGroup', 'DONE'] }, 1, 0] } },
       },
     },
   ]);
@@ -326,6 +331,107 @@ const assertLinked = async (organizationId, value, homeChannelId) => {
     }
   }
   return ids;
+};
+
+const STATUS_MAX = 20;
+const COLOR_PATTERN = /^#[0-9a-f]{6}$/i;
+
+/**
+ * Validates a new status list: 1-30 character unique names, a colour, a
+ * group, and at least one "to do" and one "done" status. Existing statuses
+ * keep their key; new ones (no key) get one.
+ */
+const assertStatuses = (value, current) => {
+  if (!Array.isArray(value) || value.length === 0) {
+    throw new AppError(400, 'A project needs statuses');
+  }
+  if (value.length > STATUS_MAX) {
+    throw new AppError(400, `A project can have at most ${STATUS_MAX} statuses`);
+  }
+  const known = new Set(current.map((status) => status.key));
+  const names = new Set();
+  const keys = new Set();
+  const list = value.map((raw) => {
+    const name = String(raw?.name || '').trim();
+    if (!name || name.length > 30) {
+      throw new AppError(400, 'Status names must be 1-30 characters');
+    }
+    if (names.has(name.toLowerCase())) {
+      throw new AppError(400, `Two statuses are called "${name}"`);
+    }
+    names.add(name.toLowerCase());
+    if (!Object.values(STATUS_GROUP).includes(raw.group)) {
+      throw new AppError(400, `Pick a group for "${name}"`);
+    }
+    const color = COLOR_PATTERN.test(raw.color || '') ? raw.color.toLowerCase() : '#8a94a6';
+    let key = raw.key && known.has(raw.key) ? raw.key : null;
+    if (!key || keys.has(key)) {
+      key = `S${new mongoose.Types.ObjectId().toHexString().slice(-8).toUpperCase()}`;
+    }
+    keys.add(key);
+    return { key, name, color, group: raw.group };
+  });
+  if (!list.some((status) => status.group === STATUS_GROUP.TODO)) {
+    throw new AppError(400, 'Keep at least one "to do" status');
+  }
+  if (!list.some((status) => status.group === STATUS_GROUP.DONE)) {
+    throw new AppError(400, 'Keep at least one "done" status');
+  }
+  return list;
+};
+
+/**
+ * Applies a new status list. Tickets in a removed status must be moved:
+ * `moveTo` maps each removed key that has tickets to a remaining key.
+ * Tickets follow a status whose group changed (closedAt too).
+ */
+const applyStatuses = async (project, value, moveTo = {}) => {
+  const before = project.statuses?.length ? project.statuses : DEFAULT_TASK_STATUSES;
+  const next = assertStatuses(value, before);
+  const nextKeys = new Map(next.map((status) => [status.key, status]));
+  for (const old of before) {
+    if (nextKeys.has(old.key)) {
+      continue;
+    }
+    const count = await Task.countDocuments({ project: project._id, status: old.key });
+    if (!count) {
+      continue;
+    }
+    const target = nextKeys.get(moveTo?.[old.key]);
+    if (!target) {
+      throw new AppError(
+        409,
+        `"${old.name}" has ${count} ${count === 1 ? 'ticket' : 'tickets'}. Choose where to move them`,
+      );
+    }
+    await moveStatusTickets(project._id, old.key, target);
+  }
+  for (const status of next) {
+    const old = before.find((item) => item.key === status.key);
+    if (old && old.group !== status.group) {
+      await moveStatusTickets(project._id, status.key, status);
+    }
+  }
+  project.statuses = next;
+};
+
+const moveStatusTickets = async (projectId, fromKey, to) => {
+  const filter = { project: projectId, status: fromKey };
+  if (to.group === STATUS_GROUP.DONE) {
+    await Task.updateMany({ ...filter, closedAt: null }, { $set: { closedAt: new Date() } });
+  } else {
+    await Task.updateMany(filter, { $set: { closedAt: null } });
+  }
+  await Task.updateMany(filter, { $set: { status: to.key, statusGroup: to.group } });
+};
+
+/** Tickets per status key (for the settings editor). */
+const statusCounts = async (project) => {
+  const rows = await Task.aggregate([
+    { $match: { project: project._id } },
+    { $group: { _id: '$status', count: { $sum: 1 } } },
+  ]);
+  return Object.fromEntries(rows.map((row) => [row._id, row.count]));
 };
 
 const assertVisibility = (value) => {
@@ -534,6 +640,10 @@ const updateProject = async (current, actorId, orgRole, payload = {}) => {
       payload.linkedChannelIds,
       project.homeChannel,
     );
+  }
+  if (payload.statuses !== undefined) {
+    await applyStatuses(project, payload.statuses, payload.moveStatusTo);
+    changes.push('statuses');
   }
   const visibility = assertVisibility(payload.visibility);
   if (visibility && visibility !== (project.visibility || PROJECT_VISIBILITY.PRIVATE)) {
@@ -748,6 +858,7 @@ const resolveTaskKey = async (organizationId, rawKey) => {
 };
 
 module.exports = {
+  statusCounts,
   KEY_PATTERN,
   toPublicProject,
   assertKey,

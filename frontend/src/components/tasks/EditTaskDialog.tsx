@@ -12,13 +12,13 @@ import { LabelInput } from './LabelInput';
 import {
   TASK_PRIORITY_COLORS,
   TASK_PRIORITY_LABELS,
-  TASK_STATUS_COLORS,
-  TASK_STATUS_LABELS,
   type Task,
   type TaskPriority,
   type TaskStatus,
+  type TaskStatusDef,
 } from '@/types/task';
 import type { User } from '@/types/user';
+import { useTaskStatuses } from '@/hooks/useTaskStatuses';
 import styles from './Tasks.module.css';
 
 const PRIORITY_OPTIONS = (Object.keys(TASK_PRIORITY_LABELS) as TaskPriority[]).map((value) => ({
@@ -27,11 +27,10 @@ const PRIORITY_OPTIONS = (Object.keys(TASK_PRIORITY_LABELS) as TaskPriority[]).m
   color: TASK_PRIORITY_COLORS[value],
 }));
 
-const STATUS_OPTIONS = (Object.keys(TASK_STATUS_LABELS) as TaskStatus[]).map((value) => ({
-  value,
-  label: TASK_STATUS_LABELS[value],
-  color: TASK_STATUS_COLORS[value],
-}));
+
+// Status choices for a task: its project's statuses (or the defaults).
+const statusOptions = (statuses: TaskStatusDef[]) =>
+  statuses.map((status) => ({ value: status.key, label: status.name, color: status.color }));
 
 const DESCRIPTION_MAX = 4000;
 
@@ -67,6 +66,7 @@ export const EditTaskDialog = ({
   const [labels, setLabels] = useState<string[]>(task.labels);
   const [priority, setPriority] = useState<TaskPriority>(task.priority);
   const [status, setStatus] = useState<TaskStatus>(task.status);
+  const { statusesFor } = useTaskStatuses();
   // Two-step delete: first click asks, second click deletes.
   const [confirmDelete, setConfirmDelete] = useState(false);
   const [dueDate, setDueDate] = useState(toDateInput(task.dueDate));
@@ -188,7 +188,12 @@ export const EditTaskDialog = ({
             onChange={(event) => setDescription(event.target.value)}
           />
         </div>
-        <Dropdown label="Status" options={STATUS_OPTIONS} value={status} onChange={setStatus} />
+        <Dropdown
+          label="Status"
+          options={statusOptions(statusesFor(task.projectId))}
+          value={status}
+          onChange={setStatus}
+        />
         <div className={styles.row}>
           <Dropdown
             label="Priority"

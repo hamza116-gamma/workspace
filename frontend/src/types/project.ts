@@ -1,4 +1,5 @@
 import type { User } from './user';
+import type { TaskStatusDef } from './task';
 
 export type ProjectUpdates = 'OFF' | 'KEY' | 'SUMMARY';
 export type ProjectStatus = 'ACTIVE' | 'ARCHIVED';
@@ -16,6 +17,10 @@ export type Project = {
   // null = no channel: private to the people in memberIds.
   homeChannelId: string | null;
   visibility: ProjectVisibility;
+  // Board columns, in order (each in a group: to do / in progress / done).
+  statuses: TaskStatusDef[];
+  // Tickets per status key (for the settings editor).
+  statusCounts?: Record<string, number>;
   // People added directly (private projects; empty when public).
   memberIds: string[];
   // Everyone who is a member (the whole workspace when public).
@@ -42,6 +47,9 @@ export type ProjectInput = {
   // '' removes the home channel.
   homeChannelId?: string;
   visibility?: ProjectVisibility;
+  statuses?: TaskStatusDef[];
+  // Removed status key -> status its tickets move to.
+  moveStatusTo?: Record<string, string>;
   memberIds?: string[];
   linkedChannelIds?: string[];
   leadId?: string;
