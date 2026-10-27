@@ -4,13 +4,10 @@ import { useEffect, useState } from 'react';
 import { Button } from '@/components/ui/Button';
 import { Dropdown } from '@/components/ui/Dropdown';
 import { updateProject } from '@/lib/projects';
-import {
-  STATUS_GROUP_LABELS,
-  type StatusGroup,
-  type TaskStatusDef,
-} from '@/types/task';
+import { STATUS_GROUP_LABELS, type StatusGroup, type TaskStatusDef } from '@/types/task';
 import type { Project } from '@/types/project';
-import styles from './Projects.module.css';
+import { SettingsCard } from './SettingsCard';
+import styles from './ProjectSettings.module.css';
 
 const GROUP_OPTIONS = (Object.keys(STATUS_GROUP_LABELS) as StatusGroup[]).map((value) => ({
   value,
@@ -84,21 +81,65 @@ export const StatusEditor = ({
     }
   };
 
+  const dirty =
+    JSON.stringify(rows.map(({ key, name, color, group }) => [key, name, color, group])) !==
+    JSON.stringify(
+      project.statuses.map(({ key, name, color, group }) => [key, name, color, group]),
+    );
+
   return (
-    <section className={styles.section}>
-      <h3>Statuses</h3>
-      <p className={styles.hint}>
-        The board&apos;s columns, in order. Each status is in a group: <b>Done</b> statuses count
-        as finished; tickets start in the first <b>To do</b> status.
-      </p>
-      {(error || notice) && <p className={error ? styles.error : styles.notice}>{error || notice}</p>}
+    <SettingsCard
+      title="Statuses"
+      text={
+        <>
+          The board&apos;s columns, in order. <b>Counts as</b> tells the app what a status means:
+          tickets start in the first <b>To do</b>, and <b>Done</b> ones count as finished.
+        </>
+      }
+      foot={
+        editable ? (
+          <>
+            <span className={styles.grow}>
+              {error ? (
+                <span className={styles.fail}>{error}</span>
+              ) : notice && !dirty ? (
+                <span className={styles.ok}>{notice}</span>
+              ) : null}
+            </span>
+            <Button
+              variant="secondary"
+              onClick={() =>
+                setRows((current) => [
+                  ...current,
+                  ...toRows([
+                    { key: '', name: 'New status', color: '#8a94a6', group: 'IN_PROGRESS' },
+                  ]),
+                ])
+              }
+            >
+              + Add status
+            </Button>
+            <Button disabled={busy || !dirty} onClick={() => void save()}>
+              {busy ? 'Saving…' : 'Save statuses'}
+            </Button>
+          </>
+        ) : undefined
+      }
+    >
+      <div className={styles.statusHead} aria-hidden>
+        <span />
+        <span>Name</span>
+        <span>Counts as</span>
+        <span className={styles.center}>Tickets</span>
+        <span />
+      </div>
       <ul className={styles.statusList}>
         {rows.map((row, index) => (
           <li key={row.id} className={styles.statusRow}>
             <input
               type="color"
               aria-label={`Colour of ${row.name}`}
-              className={styles.statusColor}
+              className={styles.swatch}
               value={row.color}
               disabled={!editable}
               onChange={(event) => patch(row.id, { color: event.target.value })}
@@ -111,84 +152,78 @@ export const StatusEditor = ({
               disabled={!editable}
               onChange={(event) => patch(row.id, { name: event.target.value })}
             />
-            <span className={styles.statusGroup}>
-              <Dropdown
-                size="sm"
-                ariaLabel="Group"
-                options={GROUP_OPTIONS}
-                value={row.group}
-                disabled={!editable}
-                onChange={(group) => patch(row.id, { group })}
-              />
-            </span>
+            <Dropdown
+              size="sm"
+              ariaLabel={`What ${row.name} counts as`}
+              options={GROUP_OPTIONS}
+              value={row.group}
+              disabled={!editable}
+              onChange={(group) => patch(row.id, { group })}
+            />
             <span className={styles.statusCount} title="Tickets in this status">
-              {row.key ? (counts[row.key] ?? 0) : 'new'}
+              {row.key ? (counts[row.key] ?? 0) : <span className={styles.newTag}>new</span>}
             </span>
-            {editable && (
-              <span className={styles.statusActions}>
-                <button
-                  type="button"
-                  aria-label="Move up"
-                  disabled={index === 0}
-                  onClick={() => shift(index, -1)}
-                >
-                  ↑
-                </button>
-                <button
-                  type="button"
-                  aria-label="Move down"
-                  disabled={index === rows.length - 1}
-                  onClick={() => shift(index, 1)}
-                >
-                  ↓
-                </button>
-                <button
-                  type="button"
-                  aria-label={`Remove ${row.name}`}
-                  disabled={rows.length === 1}
-                  onClick={() => setRows((current) => current.filter((item) => item.id !== row.id))}
-                >
-                  ✕
-                </button>
-              </span>
-            )}
+            <span className={styles.statusActions}>
+              {editable && (
+                <>
+                  <button
+                    type="button"
+                    className={styles.iconBtn}
+                    aria-label="Move up"
+                    title="Move up"
+                    disabled={index === 0}
+                    onClick={() => shift(index, -1)}
+                  >
+                    ↑
+                  </button>
+                  <button
+                    type="button"
+                    className={styles.iconBtn}
+                    aria-label="Move down"
+                    title="Move down"
+                    disabled={index === rows.length - 1}
+                    onClick={() => shift(index, 1)}
+                  >
+                    ↓
+                  </button>
+                  <button
+                    type="button"
+                    className={`${styles.iconBtn} ${styles.iconDanger}`}
+                    aria-label={`Remove ${row.name}`}
+                    title="Remove"
+                    disabled={rows.length === 1}
+                    onClick={() =>
+                      setRows((current) => current.filter((item) => item.id !== row.id))
+                    }
+                  >
+                    ✕
+                  </button>
+                </>
+              )}
+            </span>
           </li>
         ))}
       </ul>
-      {orphaned.map((status) => (
-        <div key={status.key} className={styles.moveTickets}>
-          <p className={styles.hint}>
-            <b>{status.name}</b> has {counts[status.key]}{' '}
-            {counts[status.key] === 1 ? 'ticket' : 'tickets'}. Move them to:
-          </p>
-          <Dropdown
-            size="sm"
-            ariaLabel={`Where ${status.name} tickets go`}
-            placeholder="Pick a status"
-            options={targets}
-            value={moveTo[status.key] ?? ''}
-            onChange={(value) => setMoveTo((current) => ({ ...current, [status.key]: value }))}
-          />
-        </div>
-      ))}
-      {editable && (
-        <div className={styles.actions}>
-          <Button
-            variant="secondary"
-            onClick={() =>
-              setRows((current) => [
-                ...current,
-                ...toRows([{ key: '', name: 'New status', color: '#8a94a6', group: 'IN_PROGRESS' }]),
-              ])
-            }
-          >
-            + Add status
-          </Button>
-          <Button disabled={busy} onClick={() => void save()}>
-            Save statuses
-          </Button>
+      {orphaned.length > 0 && (
+        <div className={styles.moveBox}>
+          {orphaned.map((status) => (
+            <div key={status.key} className={styles.moveRow}>
+              <span>
+                <b>{status.name}</b> has {counts[status.key]}{' '}
+                {counts[status.key] === 1 ? 'ticket' : 'tickets'}. Move them to
+              </span>
+              <Dropdown
+                size="sm"
+                ariaLabel={`Where ${status.name} tickets go`}
+                placeholder="Pick a status"
+                options={targets}
+                value={moveTo[status.key] ?? ''}
+                onChange={(value) => setMoveTo((current) => ({ ...current, [status.key]: value }))}
+              />
+            </div>
+          ))}
         </div>
       )}
-    </section>
+    </SettingsCard>
   );
 };

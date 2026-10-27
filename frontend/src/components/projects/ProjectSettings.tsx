@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState, type ReactNode } from 'react';
 import { useRouter } from 'next/navigation';
 import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
@@ -9,13 +9,41 @@ import { useOrg } from '@/hooks/useOrg';
 import { useOrgMembers } from '@/hooks/useOrgMembers';
 import { listAssignable } from '@/lib/tasks';
 import { archiveProject, deleteProject, restoreProject, updateProject } from '@/lib/projects';
-import { PROJECT_KEY_PATTERN, type Project } from '@/types/project';
+import { PROJECT_KEY_PATTERN, type Project, type ProjectVisibility } from '@/types/project';
 import type { User } from '@/types/user';
-import { VisibilityPick } from './NewProjectDialog';
 import { StatusEditor } from './StatusEditor';
-import styles from './Projects.module.css';
+import { SettingsCard } from './SettingsCard';
+import styles from './ProjectSettings.module.css';
 
-/** Name, key, lead, people; archive / restore; delete (admins). */
+/** One setting: label and explanation on the left, the control on the right. */
+const Row = ({
+  label,
+  text,
+  children,
+}: {
+  label: string;
+  text?: ReactNode;
+  children: ReactNode;
+}) => (
+  <div className={styles.row}>
+    <div>
+      <p className={styles.rowLabel}>{label}</p>
+      {text && <p className={styles.rowText}>{text}</p>}
+    </div>
+    <div className={styles.control}>{children}</div>
+  </div>
+);
+
+const VISIBILITY_CHOICES: { value: ProjectVisibility; title: string; text: string }[] = [
+  {
+    value: 'PUBLIC',
+    title: 'Public',
+    text: 'Everyone in the workspace, including people who join later.',
+  },
+  { value: 'PRIVATE', title: '🔒 Private', text: 'Only the people you pick below.' },
+];
+
+/** General, access, statuses and the danger zone of one project. */
 export const ProjectSettings = ({
   project,
   onSaved,
@@ -35,19 +63,21 @@ export const ProjectSettings = ({
     .filter((member) => member.status === 'ACTIVE')
     .map((member) => ({ value: member.user.id, label: member.user.fullName }));
   const [members, setMembers] = useState<User[]>([]);
+  const [confirming, setConfirming] = useState(false);
   const [confirmKey, setConfirmKey] = useState('');
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
   const [notice, setNotice] = useState('');
   const editable = Boolean(project.canManage) && project.status === 'ACTIVE';
 
-  useEffect(() => {
+  const reset = () => {
     setName(project.name);
     setKey(project.key);
     setLeadId(project.lead.id);
     setPeople(project.memberIds);
     setVisibility(project.visibility);
-  }, [project]);
+  };
+  useEffect(reset, [project]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Lead candidates = current project members.
   useEffect(() => {
@@ -73,6 +103,14 @@ export const ProjectSettings = ({
 
   const keyChanged = key !== project.key;
   const keyValid = PROJECT_KEY_PATTERN.test(key) && key !== 'TASK';
+  const samePeople =
+    [...people].sort().join() === [...project.memberIds].sort().join() || visibility === 'PUBLIC';
+  const dirty =
+    name !== project.name ||
+    keyChanged ||
+    leadId !== project.lead.id ||
+    visibility !== project.visibility ||
+    !samePeople;
 
   const save = () =>
     run(
@@ -87,175 +125,247 @@ export const ProjectSettings = ({
         onSaved(next);
         if (keyChanged) router.replace(`/projects/${next.key}`);
       },
-      keyChanged ? `Saved. Old ${project.key}-n links still work.` : 'Saved.',
+      keyChanged ? `Saved. Old ${project.key}-n links still work.` : 'Changes saved.',
     );
 
   return (
-    <div className={styles.settings}>
-      {!project.canManage && (
-        <p className={`${styles.banner} ${styles.span}`}>
-          Only the project lead, a moderator or an admin can change these.
-        </p>
-      )}
-      {(error || notice) && (
-        <p className={`${error ? styles.error : styles.notice} ${styles.span}`}>
-          {error || notice}
-        </p>
-      )}
-      <section className={styles.section}>
-        <h3>General</h3>
-        <Input
-          label="Project name"
-          name="settings-name"
-          value={name}
-          disabled={!editable}
-          onChange={(event) => setName(event.target.value)}
-        />
-        <Input
-          label="Key"
-          name="settings-key"
-          value={key}
-          maxLength={6}
-          disabled={!editable}
-          error={key && !keyValid ? '2-6 letters or digits, starting with a letter' : undefined}
-          onChange={(event) => setKey(event.target.value.toUpperCase().replace(/[^A-Z0-9]/g, ''))}
-        />
-        {keyChanged && keyValid && (
-          <p className={styles.hint}>
-            Tickets become <b>{key}-n</b>. Links and mentions of <b>{project.key}-n</b> keep
-            working.
+    <div className={styles.page}>
+      <div className={styles.column}>
+        {!project.canManage && (
+          <p className={styles.banner}>
+            You can view these settings. Only the project lead or a workspace admin can change them.
           </p>
         )}
-        <Dropdown
-          label="Project lead"
-          options={members.map((user) => ({ value: user.id, label: user.fullName }))}
-          value={leadId}
-          onChange={setLeadId}
-          disabled={!editable || members.length === 0}
-        />
-        <h3 className={styles.subhead}>Members</h3>
-        <VisibilityPick
-          value={visibility}
-          disabled={!editable}
-          onChange={(next) => {
-            setVisibility(next);
-            // Going private: start from the lead; pick who else stays.
-            if (next === 'PRIVATE' && people.length === 0) setPeople([leadId]);
-          }}
-        />
-        {visibility === 'PRIVATE' ? (
-          <>
-            <p className={styles.hint}>
-              Only these people can see the project and its tickets. Anyone removed is unassigned
-              from its tickets.
-            </p>
-            <Dropdown
-              multiple
-              label="People"
-              placeholder="Pick the people"
-              options={orgPeople}
-              value={people}
-              onChange={setPeople}
+
+        <SettingsCard title="General" text="How the project is named and who leads it.">
+          <Row label="Project name">
+            <Input
+              hideLabel
+              label="Project name"
+              name="settings-name"
+              value={name}
+              maxLength={80}
               disabled={!editable}
+              onChange={(event) => setName(event.target.value)}
             />
-          </>
-        ) : (
-          <p className={styles.hint}>
-            Everyone in the workspace is a member, including people who join later.
-          </p>
-        )}
-        {editable && (
-          <div className={styles.actions}>
-            <Button disabled={busy || !name.trim() || !keyValid} onClick={() => void save()}>
-              Save changes
-            </Button>
-          </div>
-        )}
-      </section>
-
-      {/* Right column on wide screens: statuses and lifecycle actions. */}
-      <div className={styles.side}>
-        <StatusEditor project={project} onSaved={onSaved} />
-        {project.canManage && (
-          <section className={styles.section}>
-            <h3>{project.status === 'ARCHIVED' ? 'Restore' : 'Archive'}</h3>
-            <p className={styles.hint}>
-              {project.status === 'ARCHIVED'
-                ? 'Make the project active again.'
-                : 'Archived projects are read-only and hidden from the list. You can restore them.'}
-            </p>
-            <div className={styles.actions}>
-              {project.status === 'ARCHIVED' ? (
-                <Button
-                  variant="secondary"
-                  disabled={busy}
-                  onClick={() =>
-                    void run(
-                      async () => onSaved((await restoreProject(project.key)).project),
-                      'Restored.',
-                    )
-                  }
-                >
-                  Restore project
-                </Button>
-              ) : (
-                <Button
-                  variant="secondary"
-                  disabled={busy}
-                  onClick={() =>
-                    void run(
-                      async () => onSaved((await archiveProject(project.key)).project),
-                      'Archived.',
-                    )
-                  }
-                >
-                  Archive project
-                </Button>
-              )}
+          </Row>
+          <Row label="Key" text="Prefix of every ticket number.">
+            <div className={styles.keyField}>
+              <Input
+                hideLabel
+                label="Key"
+                name="settings-key"
+                value={key}
+                maxLength={6}
+                disabled={!editable}
+                error={
+                  key && !keyValid ? '2-6 letters or digits, starting with a letter' : undefined
+                }
+                onChange={(event) =>
+                  setKey(event.target.value.toUpperCase().replace(/[^A-Z0-9]/g, ''))
+                }
+              />
+              <span className={styles.keyPreview}>{keyValid ? key : 'KEY'}-12</span>
             </div>
-          </section>
-        )}
-
-        {isAdmin && (
-          <section className={`${styles.section} ${styles.danger}`}>
-            <h3>Delete project</h3>
-            <p className={styles.hint}>
-              Old channel tasks moved into the project go back to their chat as TASK-n. The chat
-              messages tickets were made from stay; only the card link is removed.
-            </p>
-            {(project.channelFreeTickets ?? 0) > 0 && (
-              <p className={styles.error}>
-                {project.channelFreeTickets}{' '}
-                {project.channelFreeTickets === 1 ? 'ticket has' : 'tickets have'} no chat to go
-                back to and will be deleted with the project.
+            {keyChanged && keyValid && (
+              <p className={styles.note}>
+                Tickets become <b>{key}-n</b>. Old <b>{project.key}-n</b> links and mentions keep
+                working.
               </p>
             )}
-            <p className={styles.hint}>
-              Type <b>{project.key}</b> to confirm.
-            </p>
-            <Input
-              label="Project key"
-              name="confirm-key"
-              value={confirmKey}
-              onChange={(event) => setConfirmKey(event.target.value.toUpperCase())}
+          </Row>
+          <Row label="Project lead" text="Can change settings and every ticket.">
+            <Dropdown
+              ariaLabel="Project lead"
+              options={members.map((user) => ({ value: user.id, label: user.fullName }))}
+              value={leadId}
+              onChange={setLeadId}
+              disabled={!editable || members.length === 0}
             />
-            <div className={styles.actions}>
-              <Button
-                variant="danger"
-                disabled={busy || confirmKey !== project.key}
-                onClick={() =>
-                  void run(async () => {
-                    await deleteProject(project.key, confirmKey);
-                    router.push('/projects');
-                  }, 'Deleted.')
-                }
-              >
-                Delete project
-              </Button>
+          </Row>
+        </SettingsCard>
+
+        <SettingsCard
+          title="Access"
+          text="Who is in the project. Anyone who loses access is unassigned from its tickets."
+        >
+          <Row label="Visibility">
+            <div className={styles.choices} role="radiogroup" aria-label="Visibility">
+              {VISIBILITY_CHOICES.map((choice) => (
+                <button
+                  key={choice.value}
+                  type="button"
+                  role="radio"
+                  aria-checked={visibility === choice.value}
+                  className={`${styles.choice} ${visibility === choice.value ? styles.choiceOn : ''}`}
+                  disabled={!editable}
+                  onClick={() => {
+                    setVisibility(choice.value);
+                    // Going private: start from the lead; pick who else stays.
+                    if (choice.value === 'PRIVATE' && people.length === 0) setPeople([leadId]);
+                  }}
+                >
+                  <span className={styles.choiceTitle}>{choice.title}</span>
+                  <span className={styles.choiceText}>{choice.text}</span>
+                </button>
+              ))}
             </div>
-          </section>
+          </Row>
+          {visibility === 'PRIVATE' && (
+            <Row
+              label="People"
+              text={`${people.length} ${people.length === 1 ? 'person' : 'people'}`}
+            >
+              <Dropdown
+                multiple
+                ariaLabel="People"
+                placeholder="Pick the people"
+                options={orgPeople}
+                value={people}
+                onChange={setPeople}
+                disabled={!editable}
+              />
+            </Row>
+          )}
+        </SettingsCard>
+
+        <StatusEditor project={project} onSaved={onSaved} />
+
+        {(project.canManage || isAdmin) && (
+          <SettingsCard danger title="Danger zone" text="These affect the whole project.">
+            {project.canManage && (
+              <div className={styles.dangerRow}>
+                <div>
+                  <p className={styles.rowLabel}>
+                    {project.status === 'ARCHIVED' ? 'Restore project' : 'Archive project'}
+                  </p>
+                  <p className={styles.rowText}>
+                    {project.status === 'ARCHIVED'
+                      ? 'Make it active and editable again.'
+                      : 'Read-only and hidden from the list. You can restore it later.'}
+                  </p>
+                </div>
+                <Button
+                  variant="secondary"
+                  disabled={busy}
+                  onClick={() =>
+                    void run(
+                      async () =>
+                        onSaved(
+                          (project.status === 'ARCHIVED'
+                            ? await restoreProject(project.key)
+                            : await archiveProject(project.key)
+                          ).project,
+                        ),
+                      project.status === 'ARCHIVED' ? 'Restored.' : 'Archived.',
+                    )
+                  }
+                >
+                  {project.status === 'ARCHIVED' ? 'Restore' : 'Archive'}
+                </Button>
+              </div>
+            )}
+            {isAdmin && (
+              <>
+                <div className={styles.dangerRow}>
+                  <div>
+                    <p className={styles.rowLabel}>Delete project</p>
+                    <p className={styles.rowText}>
+                      Permanent. Old channel tasks go back to their chat as TASK-n; chat messages
+                      stay.
+                    </p>
+                  </div>
+                  {!confirming && (
+                    <Button variant="danger" onClick={() => setConfirming(true)}>
+                      Delete…
+                    </Button>
+                  )}
+                </div>
+                {confirming && (
+                  <div className={styles.confirm}>
+                    {(project.channelFreeTickets ?? 0) > 0 && (
+                      <p className={styles.warn}>
+                        {project.channelFreeTickets}{' '}
+                        {project.channelFreeTickets === 1 ? 'ticket has' : 'tickets have'} no chat
+                        to go back to and will be deleted too.
+                      </p>
+                    )}
+                    <p className={styles.note}>
+                      Type <b>{project.key}</b> to confirm.
+                    </p>
+                    <div className={styles.confirmRow}>
+                      <Input
+                        hideLabel
+                        label="Project key"
+                        name="confirm-key"
+                        value={confirmKey}
+                        autoFocus
+                        onChange={(event) => setConfirmKey(event.target.value.toUpperCase())}
+                      />
+                      <Button
+                        variant="secondary"
+                        onClick={() => {
+                          setConfirming(false);
+                          setConfirmKey('');
+                        }}
+                      >
+                        Cancel
+                      </Button>
+                      <Button
+                        variant="danger"
+                        disabled={busy || confirmKey !== project.key}
+                        onClick={() =>
+                          void run(async () => {
+                            await deleteProject(project.key, confirmKey);
+                            router.push('/projects');
+                          }, 'Deleted.')
+                        }
+                      >
+                        Delete project
+                      </Button>
+                    </div>
+                  </div>
+                )}
+              </>
+            )}
+          </SettingsCard>
         )}
       </div>
+
+      {/* Appears for unsaved General / Access changes, and for their result. */}
+      {((editable && dirty) || error || notice) && (
+        <div className={styles.saveBar} role="status">
+          <span className={styles.saveText}>
+            {error ? (
+              <span className={styles.fail}>{error}</span>
+            ) : dirty ? (
+              'You have unsaved changes.'
+            ) : (
+              <span className={styles.ok}>{notice}</span>
+            )}
+          </span>
+          {editable && dirty ? (
+            <>
+              <Button variant="secondary" disabled={busy} onClick={reset}>
+                Discard
+              </Button>
+              <Button disabled={busy || !name.trim() || !keyValid} onClick={() => void save()}>
+                {busy ? 'Saving…' : 'Save changes'}
+              </Button>
+            </>
+          ) : (
+            <Button
+              variant="secondary"
+              onClick={() => {
+                setError('');
+                setNotice('');
+              }}
+            >
+              Dismiss
+            </Button>
+          )}
+        </div>
+      )}
     </div>
   );
 };
