@@ -29,6 +29,7 @@ const toPublicUser = (user) => ({
   role: user.role,
   isDisabled: user.isDisabled,
   lastLoginAt: user.lastLoginAt,
+  introSeenAt: user.introSeenAt || null,
   createdAt: user.createdAt,
   updatedAt: user.updatedAt,
 });
@@ -91,6 +92,10 @@ const updateProfile = async (user, payload) => {
       throw new AppError(400, 'Unsupported presence state');
     }
     user.presence = payload.presence;
+  }
+  // introSeen: true after the welcome intro, false to replay it.
+  if (payload.introSeen !== undefined) {
+    user.introSeenAt = payload.introSeen ? new Date() : null;
   }
   if (payload.theme !== undefined) {
     if (!Object.values(THEMES).includes(payload.theme)) {

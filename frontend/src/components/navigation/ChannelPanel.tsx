@@ -142,6 +142,7 @@ export const ChannelPanel = () => {
       <button
         type="button"
         className={styles.search}
+        data-tour="search"
         onClick={() => window.dispatchEvent(new Event(OPEN_QUICK_SEARCH))}
         aria-label="Search (Ctrl+K)"
       >
@@ -159,6 +160,7 @@ export const ChannelPanel = () => {
               key={link.label}
               href={link.href}
               className={`${styles.quickItem} ${styles.quickLink}`}
+              data-tour={link.href === '/tasks' ? 'tasks' : undefined}
             >
               <Icon name={link.icon} size={15} />
               <span>{link.label}</span>
@@ -204,7 +206,7 @@ export const ChannelPanel = () => {
           </div>
         )}
 
-        <div className={styles.section}>
+        <div className={styles.section} data-tour="channels">
           <div className={styles.sectionHeader}>
             <span className={styles.sectionLabel}>
               <Icon name="hash" size={14} />

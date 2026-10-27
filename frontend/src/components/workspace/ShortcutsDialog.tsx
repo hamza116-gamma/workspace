@@ -1,6 +1,7 @@
 'use client';
 
 import { Modal } from '@/components/ui/Modal';
+import { OPEN_WELCOME_INTRO } from '@/components/onboarding/WelcomeIntro';
 import styles from './QuickSwitcher.module.css';
 
 const SHORTCUTS: { keys: string; action: string }[] = [
@@ -27,6 +28,16 @@ export const ShortcutsDialog = ({ open, onClose }: { open: boolean; onClose: () 
           </span>
         </div>
       ))}
+      <button
+        type="button"
+        className={styles.replay}
+        onClick={() => {
+          onClose();
+          window.dispatchEvent(new Event(OPEN_WELCOME_INTRO));
+        }}
+      >
+        Replay the welcome intro →
+      </button>
     </div>
   </Modal>
 );

@@ -142,3 +142,19 @@
   font-size: 11px;
   color: var(--ink-2);
 }
+
+.replay {
+  margin-top: 14px;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--brand-ink, var(--brand));
+  font-family: inherit;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.replay:hover {
+  text-decoration: underline;
+}

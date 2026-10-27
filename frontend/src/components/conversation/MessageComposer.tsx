@@ -388,6 +388,7 @@ export const MessageComposer = ({
   return (
     <div
       className={`${styles.wrap} ${dragOver ? styles.dragOver : ''}`}
+      data-tour="composer"
       onDragOver={onDragOver}
       onDragLeave={(event) => {
         if (!event.currentTarget.contains(event.relatedTarget as Node | null)) setDragOver(false);

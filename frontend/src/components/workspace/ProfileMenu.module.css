@@ -1,0 +1,179 @@
+.trigger {
+  padding: 0;
+  border: 0;
+  background: none;
+  cursor: pointer;
+  border-radius: 12px;
+}
+
+.trigger:focus-visible {
+  outline: 2px solid #3fc98e;
+  outline-offset: 2px;
+}
+
+.panel {
+  padding: 0;
+}
+
+.menu {
+  display: flex;
+  flex-direction: column;
+  width: 248px;
+  padding: 6px;
+}
+
+.head {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 8px 10px 10px;
+  margin-bottom: 4px;
+  border-bottom: 1px solid var(--line);
+}
+
+.name {
+  font-size: 14px;
+  font-weight: 650;
+  color: var(--ink);
+}
+
+.email {
+  overflow: hidden;
+  font-size: 12px;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  color: var(--ink-3);
+}
+
+.paused {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  width: fit-content;
+  margin-top: 6px;
+  padding: 2px 8px;
+  border-radius: 999px;
+  background: var(--brand-soft);
+  color: var(--brand-ink, var(--brand));
+  font-size: 11.5px;
+  font-weight: 600;
+}
+
+.row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  padding: 8px 10px;
+  border: 0;
+  border-radius: 8px;
+  background: transparent;
+  color: var(--ink-2);
+  font-family: inherit;
+  font-size: 13.5px;
+  text-align: left;
+  text-decoration: none;
+  cursor: pointer;
+}
+
+.row:hover:not(:disabled) {
+  background: var(--surface-2);
+  color: var(--ink);
+}
+
+.row:disabled {
+  opacity: 0.55;
+  cursor: default;
+}
+
+.rowLabel {
+  flex: 1;
+}
+
+.hint {
+  padding: 1px 7px;
+  border-radius: 999px;
+  background: var(--brand-soft);
+  color: var(--brand-ink, var(--brand));
+  font-size: 11px;
+  font-weight: 600;
+}
+
+.danger {
+  color: #d92d20;
+}
+
+.danger:hover:not(:disabled) {
+  background: #fef3f2;
+  color: #b42318;
+}
+
+.sep {
+  height: 1px;
+  margin: 4px 6px;
+  background: var(--line);
+}
+
+.heading {
+  padding: 8px 10px 4px;
+  font-size: 10.5px;
+  font-weight: 650;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--ink-3);
+}
+
+/* Small on/off switch for toggles. */
+.switch {
+  position: relative;
+  flex: none;
+  width: 30px;
+  height: 17px;
+  border-radius: 999px;
+  background: var(--line-2);
+  transition: background 150ms ease;
+}
+
+.switch::after {
+  content: '';
+  position: absolute;
+  top: 2px;
+  left: 2px;
+  width: 13px;
+  height: 13px;
+  border-radius: 50%;
+  background: #fff;
+  box-shadow: 0 1px 2px rgba(16, 24, 40, 0.2);
+  transition: transform 150ms ease;
+}
+
+.switchOn {
+  background: var(--brand, #1d7a5f);
+}
+
+.switchOn::after {
+  transform: translateX(13px);
+}
+
+.back {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 10px 10px;
+  margin-bottom: 2px;
+  border: 0;
+  border-bottom: 1px solid var(--line);
+  background: none;
+  color: var(--ink);
+  font-family: inherit;
+  font-size: 13.5px;
+  font-weight: 650;
+  text-align: left;
+  cursor: pointer;
+}
+
+.backArrow {
+  display: inline-flex;
+  transform: rotate(180deg);
+  color: var(--ink-3);
+}

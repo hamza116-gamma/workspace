@@ -29,6 +29,7 @@ export const RailNav = () => {
             key={item.href}
             href={item.href}
             className={styles.btn}
+            data-tour={item.href === '/activity' ? 'activity' : undefined}
             aria-current={current ? 'true' : undefined}
             aria-label={badge > 0 ? `${item.label} (${badge} unread)` : item.label}
             title={item.label}

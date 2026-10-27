@@ -1,0 +1,304 @@
+.overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 1400;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 16px;
+  background: rgba(16, 24, 40, 0.45);
+  backdrop-filter: blur(3px);
+  animation: wiFade 160ms ease;
+}
+
+.card {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+  max-width: 520px;
+  border-radius: 20px;
+  background: var(--surface-1);
+  box-shadow: 0 30px 70px rgba(16, 24, 40, 0.3);
+  overflow: hidden;
+  animation: wiRise 200ms ease;
+}
+
+.skip {
+  position: absolute;
+  top: 14px;
+  right: 16px;
+  z-index: 1;
+  padding: 4px 10px;
+  border: 0;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.75);
+  color: var(--ink-2);
+  font-family: inherit;
+  font-size: 12.5px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.skip:hover {
+  background: #fff;
+  color: var(--ink);
+}
+
+/* Soft brand-green header with the slide icon. */
+.hero {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 170px;
+  background:
+    radial-gradient(circle at 20% 20%, rgba(255, 255, 255, 0.55), transparent 45%),
+    linear-gradient(135deg, var(--brand-soft, #e7f4ef), #d1ece2);
+}
+
+.heroIcon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 84px;
+  height: 84px;
+  border-radius: 24px;
+  background: var(--surface-1);
+  color: var(--brand, #1d7a5f);
+  box-shadow: 0 12px 30px rgba(29, 122, 95, 0.25);
+  animation: wiPop 260ms ease;
+}
+
+.body {
+  padding: 22px 28px 6px;
+  animation: wiSlide 220ms ease;
+}
+
+.title {
+  margin: 0 0 8px;
+  font-size: 21px;
+  font-weight: 700;
+  letter-spacing: var(--track-display, -0.01em);
+  color: var(--ink);
+}
+
+.text {
+  margin: 0 0 14px;
+  font-size: 14px;
+  line-height: 1.55;
+  color: var(--ink-2);
+}
+
+.points {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.points li {
+  display: flex;
+  align-items: flex-start;
+  gap: 9px;
+  font-size: 13.5px;
+  line-height: 1.45;
+  color: var(--ink);
+}
+
+.points li svg {
+  flex: none;
+  margin-top: 2px;
+  padding: 2px;
+  border-radius: 50%;
+  background: var(--brand-soft, #e7f4ef);
+  color: var(--brand, #1d7a5f);
+  box-sizing: content-box;
+}
+
+.footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 20px 28px 22px;
+}
+
+.dots {
+  display: flex;
+  gap: 6px;
+}
+
+.dot {
+  width: 8px;
+  height: 8px;
+  padding: 0;
+  border: 0;
+  border-radius: 999px;
+  background: var(--line-2, #d0d5dd);
+  cursor: pointer;
+  transition: all 160ms ease;
+}
+
+.dotOn {
+  width: 22px;
+  background: var(--brand, #1d7a5f);
+}
+
+.actions {
+  display: flex;
+  gap: 8px;
+}
+
+/* ---- Spotlight tour --------------------------------------------------- */
+.tourLayer {
+  position: fixed;
+  inset: 0;
+  z-index: 1400;
+}
+
+/* The hole: a huge shadow darkens everything except the target. */
+.hole {
+  position: fixed;
+  border-radius: 12px;
+  box-shadow:
+    0 0 0 3px var(--brand, #1d7a5f),
+    0 0 0 9999px rgba(16, 24, 40, 0.55);
+  pointer-events: none;
+  transition: all 220ms ease;
+}
+
+.tip {
+  position: fixed;
+  width: 320px;
+  padding: 16px 16px 14px;
+  border-radius: 14px;
+  background: var(--surface-1);
+  box-shadow: 0 20px 50px rgba(16, 24, 40, 0.3);
+  transition:
+    top 220ms ease,
+    left 220ms ease;
+}
+
+.tipStep {
+  font-size: 11px;
+  font-weight: 650;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--brand, #1d7a5f);
+}
+
+.tipTitle {
+  margin: 4px 0 6px;
+  font-size: 16px;
+  font-weight: 680;
+  color: var(--ink);
+}
+
+.tipText {
+  margin: 0 0 14px;
+  font-size: 13.5px;
+  line-height: 1.5;
+  color: var(--ink-2);
+}
+
+.tipActions {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 8px;
+}
+
+.link {
+  margin-right: auto;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--ink-3);
+  font-family: inherit;
+  font-size: 12.5px;
+  cursor: pointer;
+}
+
+.link:hover {
+  color: var(--ink);
+}
+
+@media (max-width: 600px) {
+  .hero {
+    height: 130px;
+  }
+
+  .body,
+  .footer {
+    padding-left: 20px;
+    padding-right: 20px;
+  }
+
+  .footer {
+    flex-direction: column-reverse;
+    align-items: stretch;
+  }
+
+  .dots {
+    justify-content: center;
+  }
+
+  .actions {
+    justify-content: flex-end;
+    flex-wrap: wrap;
+  }
+}
+
+@keyframes wiFade {
+  from {
+    opacity: 0;
+  }
+}
+
+@keyframes wiRise {
+  from {
+    opacity: 0;
+    transform: translateY(10px) scale(0.98);
+  }
+}
+
+@keyframes wiPop {
+  from {
+    transform: scale(0.85);
+    opacity: 0;
+  }
+}
+
+@keyframes wiSlide {
+  from {
+    opacity: 0;
+    transform: translateX(10px);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .overlay,
+  .card,
+  .heroIcon,
+  .body,
+  .hole,
+  .tip {
+    animation: none;
+    transition: none;
+  }
+}
+
+/* Taller header that holds an animated demo. */
+.heroDemo {
+  height: 200px;
+  padding: 0 24px;
+}
+
+@media (max-width: 600px) {
+  .heroDemo {
+    height: 190px;
+    padding: 0 12px;
+  }
+}

@@ -13,9 +13,9 @@ import {
 } from '@/lib/desktopNotify';
 import styles from './NotificationsMenu.module.css';
 
-// Rail bell: pause notifications (DND) presets, resume, and per-device
-// desktop / sound toggles.
-export const NotificationsMenu = () => {
+// Pause notifications (DND) presets, resume, and per-device desktop / sound
+// toggles. Shared by the bell menu and the rail profile menu.
+export const useNotificationItems = () => {
   const { active, dndUntil, pause, resume } = useDnd();
   const [prefs, setPrefs] = useState<NotifyPrefs>({ desktop: true, sound: true });
   const [permission, setPermission] = useState<string>('default');
@@ -56,7 +56,8 @@ export const NotificationsMenu = () => {
   const items: MenuItem[] = [
     {
       heading: true,
-      label: active && dndUntil ? `Paused until ${formatDndUntil(dndUntil)}` : 'Pause notifications',
+      label:
+        active && dndUntil ? `Paused until ${formatDndUntil(dndUntil)}` : 'Pause notifications',
     },
     ...(active
       ? [{ label: 'Resume notifications', icon: 'bell' as const, onSelect: run(resume) }]
@@ -80,14 +81,30 @@ export const NotificationsMenu = () => {
     },
   ];
 
+  return { items, active, dndUntil };
+};
+
+// Rail bell (stand-alone dropdown of the items above).
+export const NotificationsMenu = () => {
+  const { items, active, dndUntil } = useNotificationItems();
   return (
     <DropdownMenu
       items={items}
       align="left"
       icon={active ? 'moon' : 'bell'}
-      label={active && dndUntil ? `Notifications paused until ${formatDndUntil(dndUntil)}` : 'Notifications'}
+      label={
+        active && dndUntil
+          ? `Notifications paused until ${formatDndUntil(dndUntil)}`
+          : 'Notifications'
+      }
       triggerClassName={`${styles.trigger} ${active ? styles.paused : ''}`}
-      triggerContent={active ? <span className={styles.badge} aria-hidden>z</span> : null}
+      triggerContent={
+        active ? (
+          <span className={styles.badge} aria-hidden>
+            z
+          </span>
+        ) : null
+      }
     />
   );
 };

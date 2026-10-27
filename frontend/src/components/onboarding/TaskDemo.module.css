@@ -1,0 +1,729 @@
+/*
+ * Fixed 380×170 stage (scaled down on narrow screens), 12s loop.
+ * Click targets (x, y = centre, stage px) and when they are clicked:
+ *   ⋯ button          (352, 30)   20%
+ *   "Create task" row (300, 89)   30%
+ *   form submit       (282, 146)  58%
+ *   status pill       (325, 52)   78%
+ * Timeline:
+ *   0-9%    message          10%     toolbar appears
+ *   22%     menu opens       31%     menu closes, form opens
+ *   36-46%  form fields fill (priority, due, assignee)
+ *   60%     form closes, message becomes the task card
+ *   66%     assignee + due   80%     status -> In progress
+ *   92-100% fade out, loop
+ */
+.frame {
+  display: flex;
+  justify-content: center;
+  width: 100%;
+}
+
+.stage {
+  --t: 12s;
+  position: relative;
+  flex: none;
+  width: 380px;
+  height: 170px;
+  font-size: 12px;
+  color: #101828;
+  animation: stageLoop var(--t) infinite;
+}
+
+@media (max-width: 440px) {
+  .stage {
+    transform: scale(0.8);
+  }
+}
+
+/* ---- message (top 30, height 56) ------------------------------------- */
+.message {
+  position: absolute;
+  top: 30px;
+  left: 0;
+  width: 380px;
+  height: 56px;
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  padding: 0 12px;
+  box-sizing: border-box;
+  border-radius: 12px;
+  background: #fff;
+  box-shadow: 0 6px 18px rgba(16, 24, 40, 0.1);
+  animation: messageLife var(--t) infinite;
+}
+
+.avatar,
+.avatarSm {
+  display: inline-flex;
+  flex: none;
+  align-items: center;
+  justify-content: center;
+  background: #d1ece2;
+  color: #1d7a5f;
+  font-weight: 700;
+}
+
+.avatar {
+  width: 30px;
+  height: 30px;
+  border-radius: 8px;
+}
+
+.avatarSm {
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  font-size: 9px;
+}
+
+.msgHead span {
+  margin-left: 4px;
+  font-size: 10.5px;
+  color: #98a2b3;
+}
+
+.msgText {
+  margin-top: 2px;
+}
+
+.mention {
+  padding: 0 3px;
+  border-radius: 4px;
+  background: #eff8ff;
+  color: #175cd3;
+  font-weight: 600;
+}
+
+/* ---- toolbar: left 290, top 18, 78×24; ⋯ at x 343-361 ----------------- */
+.toolbar {
+  position: absolute;
+  top: 18px;
+  left: 290px;
+  width: 78px;
+  height: 24px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 6px;
+  box-sizing: border-box;
+  border: 1px solid #eaecf0;
+  border-radius: 8px;
+  background: #fff;
+  box-shadow: 0 4px 10px rgba(16, 24, 40, 0.1);
+  opacity: 0;
+  animation: toolbarLife var(--t) infinite;
+}
+
+.more {
+  width: 18px;
+  text-align: center;
+  border-radius: 4px;
+  font-weight: 700;
+  animation: morePress var(--t) infinite;
+}
+
+/* ---- menu: left 230, top 46, 140 wide; rows 26px (Create task 76-102) -- */
+.menu {
+  position: absolute;
+  top: 46px;
+  left: 230px;
+  width: 140px;
+  padding: 4px;
+  box-sizing: border-box;
+  border: 1px solid #eaecf0;
+  border-radius: 10px;
+  background: #fff;
+  box-shadow: 0 12px 26px rgba(16, 24, 40, 0.16);
+  opacity: 0;
+  transform-origin: top right;
+  animation: menuLife var(--t) infinite;
+}
+
+.menuItem {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  height: 26px;
+  padding: 0 8px;
+  border-radius: 6px;
+  color: #344054;
+}
+
+.menuTask {
+  animation: menuHighlight var(--t) infinite;
+}
+
+.taskGlyph {
+  width: 9px;
+  height: 11px;
+  border: 1.5px solid currentColor;
+  border-radius: 2px;
+}
+
+/* ---- form: left 50, top 6, 280×158; submit 238-326 × 134-158 ---------- */
+.form {
+  position: absolute;
+  top: 6px;
+  left: 50px;
+  width: 280px;
+  height: 158px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 10px 12px;
+  box-sizing: border-box;
+  border-radius: 12px;
+  background: #fff;
+  box-shadow: 0 16px 36px rgba(16, 24, 40, 0.22);
+  opacity: 0;
+  transform: scale(0.94);
+  animation: formLife var(--t) infinite;
+}
+
+.formTitle {
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.field {
+  padding: 6px 8px;
+  border: 1px solid #b2ddff;
+  border-radius: 7px;
+  box-shadow: 0 0 0 3px #eff8ff;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.formRow {
+  display: flex;
+  gap: 6px;
+}
+
+.chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  height: 22px;
+  padding: 0 8px;
+  border: 1px solid #eaecf0;
+  border-radius: 7px;
+  font-weight: 600;
+  color: #344054;
+  opacity: 0;
+}
+
+.chip i {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+}
+
+.fPrio {
+  animation: fPrio var(--t) infinite;
+}
+.fDue {
+  animation: fDue var(--t) infinite;
+}
+.fWho {
+  animation: fWho var(--t) infinite;
+}
+
+.formActions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+  margin-top: auto;
+}
+
+.cancel,
+.submit {
+  display: inline-flex;
+  align-items: center;
+  height: 24px;
+  padding: 0 10px;
+  border-radius: 7px;
+  font-weight: 650;
+  white-space: nowrap;
+}
+
+.cancel {
+  border: 1px solid #eaecf0;
+  color: #475467;
+}
+
+.submit {
+  width: 88px;
+  justify-content: center;
+  box-sizing: border-box;
+  background: #1d7a5f;
+  color: #fff;
+  animation: submitPress var(--t) infinite;
+}
+
+/* ---- task card: top 30; status pill 284-366 × 43-61 ------------------- */
+.card {
+  position: absolute;
+  top: 30px;
+  left: 0;
+  width: 380px;
+  padding: 12px 14px 10px 16px;
+  box-sizing: border-box;
+  border: 1px solid #eaecf0;
+  border-left: 3px solid #1d7a5f;
+  border-radius: 12px;
+  background: #fff;
+  box-shadow: 0 8px 22px rgba(16, 24, 40, 0.12);
+  opacity: 0;
+  transform: scale(0.96);
+  animation: cardLife var(--t) infinite;
+}
+
+.cardHead {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  height: 18px;
+}
+
+.key {
+  font-size: 10.5px;
+  font-weight: 700;
+  color: #667085;
+}
+
+.prio {
+  padding: 1px 6px;
+  border-radius: 999px;
+  background: #fef0c7;
+  color: #b54708;
+  font-size: 10px;
+  font-weight: 650;
+}
+
+.status {
+  position: relative;
+  margin-left: auto;
+  width: 82px;
+  height: 18px;
+  font-size: 10.5px;
+  font-weight: 600;
+}
+
+.statusTodo,
+.statusDoing {
+  position: absolute;
+  inset: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid #eaecf0;
+  border-radius: 6px;
+}
+
+.statusTodo {
+  color: #667085;
+  animation: statusOut var(--t) infinite;
+}
+
+.statusDoing {
+  color: #175cd3;
+  background: #eff8ff;
+  border-color: #b2ddff;
+  opacity: 0;
+  animation: statusIn var(--t) infinite;
+}
+
+.cardTitle {
+  margin: 6px 0 8px;
+  font-size: 12.5px;
+  font-weight: 650;
+}
+
+.cardFoot {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  opacity: 0;
+  animation: footIn var(--t) infinite;
+}
+
+.assignee {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  font-weight: 600;
+  color: #344054;
+}
+
+.due {
+  padding: 1px 7px;
+  border: 1px solid #fedf89;
+  border-radius: 6px;
+  background: #fffaeb;
+  color: #b54708;
+  font-size: 10.5px;
+  font-weight: 600;
+}
+
+/* ---- cursor + click ripple --------------------------------------------
+   The cursor's tip is its top-left corner, so top/left = target point. */
+.cursor {
+  position: absolute;
+  z-index: 3;
+  top: 140px;
+  left: 190px;
+  animation: cursorPath var(--t) infinite;
+}
+
+.ripple {
+  position: absolute;
+  z-index: 2;
+  width: 20px;
+  height: 20px;
+  margin: -10px 0 0 -10px;
+  border-radius: 50%;
+  background: rgba(29, 122, 95, 0.35);
+  opacity: 0;
+  pointer-events: none;
+  animation: ripplePath var(--t) infinite;
+}
+
+/* ---- keyframes -------------------------------------------------------- */
+@keyframes stageLoop {
+  0%,
+  91% {
+    opacity: 1;
+  }
+  97%,
+  100% {
+    opacity: 0;
+  }
+}
+
+@keyframes messageLife {
+  0%,
+  58% {
+    opacity: 1;
+    transform: none;
+  }
+  62%,
+  100% {
+    opacity: 0;
+    transform: scale(0.97);
+  }
+}
+
+@keyframes toolbarLife {
+  0%,
+  9% {
+    opacity: 0;
+  }
+  11%,
+  30% {
+    opacity: 1;
+  }
+  32%,
+  100% {
+    opacity: 0;
+  }
+}
+
+@keyframes morePress {
+  0%,
+  19% {
+    background: transparent;
+  }
+  20%,
+  30% {
+    background: #e7f4ef;
+  }
+  31%,
+  100% {
+    background: transparent;
+  }
+}
+
+@keyframes menuLife {
+  0%,
+  20% {
+    opacity: 0;
+    transform: translateY(-4px) scale(0.97);
+  }
+  22%,
+  30% {
+    opacity: 1;
+    transform: none;
+  }
+  31.5%,
+  100% {
+    opacity: 0;
+    transform: translateY(-4px) scale(0.97);
+  }
+}
+
+@keyframes menuHighlight {
+  0%,
+  27% {
+    background: transparent;
+    color: #344054;
+  }
+  28%,
+  30% {
+    background: #e7f4ef;
+    color: #1d7a5f;
+  }
+  31%,
+  100% {
+    background: transparent;
+  }
+}
+
+@keyframes formLife {
+  0%,
+  31% {
+    opacity: 0;
+    transform: scale(0.94);
+  }
+  34%,
+  58% {
+    opacity: 1;
+    transform: none;
+  }
+  61%,
+  100% {
+    opacity: 0;
+    transform: scale(0.96);
+  }
+}
+
+@keyframes fPrio {
+  0%,
+  37% {
+    opacity: 0;
+    transform: scale(0.8);
+  }
+  39%,
+  100% {
+    opacity: 1;
+    transform: none;
+  }
+}
+@keyframes fDue {
+  0%,
+  41% {
+    opacity: 0;
+    transform: scale(0.8);
+  }
+  43%,
+  100% {
+    opacity: 1;
+    transform: none;
+  }
+}
+@keyframes fWho {
+  0%,
+  45% {
+    opacity: 0;
+    transform: scale(0.8);
+  }
+  47%,
+  100% {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+@keyframes submitPress {
+  0%,
+  57% {
+    filter: none;
+    transform: none;
+  }
+  58%,
+  59% {
+    filter: brightness(1.15);
+    transform: scale(0.96);
+  }
+  60%,
+  100% {
+    filter: none;
+    transform: none;
+  }
+}
+
+@keyframes cardLife {
+  0%,
+  60% {
+    opacity: 0;
+    transform: scale(0.96);
+  }
+  64%,
+  100% {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+@keyframes footIn {
+  0%,
+  65% {
+    opacity: 0;
+  }
+  68%,
+  100% {
+    opacity: 1;
+  }
+}
+
+@keyframes statusOut {
+  0%,
+  79% {
+    opacity: 1;
+  }
+  81%,
+  100% {
+    opacity: 0;
+  }
+}
+
+@keyframes statusIn {
+  0%,
+  79% {
+    opacity: 0;
+    transform: scale(0.9);
+  }
+  81%,
+  100% {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+/* Cursor tip moves between the click targets listed at the top. */
+@keyframes cursorPath {
+  0%,
+  9% {
+    top: 140px;
+    left: 190px;
+  }
+  18%,
+  21% {
+    top: 30px;
+    left: 352px;
+  }
+  27%,
+  31% {
+    top: 89px;
+    left: 300px;
+  }
+  38% {
+    top: 120px;
+    left: 230px;
+  }
+  52%,
+  59% {
+    top: 146px;
+    left: 282px;
+  }
+  73%,
+  79% {
+    top: 52px;
+    left: 325px;
+  }
+  88%,
+  100% {
+    top: 150px;
+    left: 210px;
+  }
+}
+
+/* One ripple, placed at each target just as it is clicked. */
+@keyframes ripplePath {
+  0%,
+  19.4% {
+    opacity: 0;
+    top: 30px;
+    left: 352px;
+    transform: scale(0.4);
+  }
+  20% {
+    opacity: 1;
+    top: 30px;
+    left: 352px;
+    transform: scale(1.4);
+  }
+  21.5%,
+  29.4% {
+    opacity: 0;
+    top: 89px;
+    left: 300px;
+    transform: scale(0.4);
+  }
+  30% {
+    opacity: 1;
+    top: 89px;
+    left: 300px;
+    transform: scale(1.4);
+  }
+  31.5%,
+  57.4% {
+    opacity: 0;
+    top: 146px;
+    left: 282px;
+    transform: scale(0.4);
+  }
+  58% {
+    opacity: 1;
+    top: 146px;
+    left: 282px;
+    transform: scale(1.4);
+  }
+  59.5%,
+  77.4% {
+    opacity: 0;
+    top: 52px;
+    left: 325px;
+    transform: scale(0.4);
+  }
+  78% {
+    opacity: 1;
+    top: 52px;
+    left: 325px;
+    transform: scale(1.4);
+  }
+  79.5%,
+  100% {
+    opacity: 0;
+    top: 52px;
+    left: 325px;
+    transform: scale(0.4);
+  }
+}
+
+/* Reduced motion: show the finished task card, no movement. */
+@media (prefers-reduced-motion: reduce) {
+  .stage,
+  .stage * {
+    animation: none !important;
+  }
+
+  .message,
+  .toolbar,
+  .menu,
+  .form,
+  .cursor,
+  .ripple,
+  .statusTodo {
+    display: none;
+  }
+
+  .card,
+  .cardFoot,
+  .statusDoing {
+    opacity: 1;
+    transform: none;
+  }
+}
