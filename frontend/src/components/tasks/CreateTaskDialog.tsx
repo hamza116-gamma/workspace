@@ -279,31 +279,7 @@ export const CreateTaskDialog = ({
             onChange={(event) => setDescription(event.target.value)}
           />
         </div>
-        <div className={styles.row}>
-          <Dropdown
-            label="Priority"
-            options={PRIORITY_OPTIONS}
-            value={priority}
-            onChange={setPriority}
-          />
-          <Dropdown
-            label="Status"
-            options={statusList.map((item) => ({
-              value: item.key,
-              label: item.name,
-              color: item.color,
-            }))}
-            value={statusValue}
-            onChange={setStatusKey}
-          />
-          <Input
-            label="Due date"
-            name="task-due"
-            type="date"
-            value={dueDate}
-            onChange={(event) => setDueDate(event.target.value)}
-          />
-        </div>
+        {/* Project first: the status list below follows it. */}
         {pickProject && (
           <Dropdown
             label="Project"
@@ -339,6 +315,31 @@ export const CreateTaskDialog = ({
             {chosenProject.name} see the card but can&apos;t open it.
           </p>
         )}
+        <div className={styles.row}>
+          <Dropdown
+            label="Priority"
+            options={PRIORITY_OPTIONS}
+            value={priority}
+            onChange={setPriority}
+          />
+          <Dropdown
+            label="Status"
+            options={statusList.map((item) => ({
+              value: item.key,
+              label: item.name,
+              color: item.color,
+            }))}
+            value={statusValue}
+            onChange={setStatusKey}
+          />
+          <Input
+            label="Due date"
+            name="task-due"
+            type="date"
+            value={dueDate}
+            onChange={(event) => setDueDate(event.target.value)}
+          />
+        </div>
         <LabelInput value={labels} onChange={setLabels} />
         <button
           type="button"
