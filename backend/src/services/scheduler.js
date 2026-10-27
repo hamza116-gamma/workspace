@@ -5,6 +5,8 @@ const { emitScheduledUpdated } = require('../sockets/scheduledEvents');
 
 const POLL_MS = 15 * 1000;
 const MAX_PER_TICK = 50;
+// Task reminder: assignees hear about a task 24h before it is due.
+const TASK_DUE_WINDOW_MS = 24 * 60 * 60 * 1000;
 
 let timer = null;
 let running = false;
@@ -13,6 +15,17 @@ let ioRef = null;
 // Lazy: message.controller pulls in sockets/services that are not needed to
 // load this module.
 const postMessage = (...args) => require('../controllers/message.controller').postMessage(...args);
+const taskService = () => require('./task.service');
+const taskEvents = () => require('../sockets/taskEvents');
+
+const sendTaskReminders = async () => {
+  const tasks = await taskService().claimDueReminders(TASK_DUE_WINDOW_MS);
+  for (const task of tasks) {
+    await taskEvents()
+      .notifyDue(ioRef, task)
+      .catch((error) => logger.warn(`Task reminder ${task._id} failed: ${error.message}`));
+  }
+};
 
 /**
  * Sends one already-claimed item through the normal message pipeline
@@ -58,6 +71,7 @@ const tick = async () => {
       }
       await sendClaimed(item);
     }
+    await sendTaskReminders();
   } catch (error) {
     logger.error('Scheduler tick failed', error);
   } finally {

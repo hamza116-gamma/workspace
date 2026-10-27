@@ -19,6 +19,7 @@ export type UpdateChannelInput = {
   name?: string;
   topic?: string;
   purpose?: string;
+  type?: ChannelType;
 };
 
 export const listChannels = (options: { joinedOnly?: boolean; archived?: boolean } = {}) => {

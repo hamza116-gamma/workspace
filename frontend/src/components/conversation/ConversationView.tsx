@@ -47,6 +47,7 @@ export const ConversationView = ({
     jumpToLatest,
     latestToken,
     typingUsers,
+    recordingUsers,
     send,
     edit,
     remove,
@@ -96,6 +97,7 @@ export const ConversationView = ({
             canModerate={canModerate}
             editRequest={editRequest}
           />
+          <TypingIndicator users={typingUsers} recording={recordingUsers} />
           <MessageComposer
             disabled={!canSend}
             placeholder={composerPlaceholder}
@@ -113,7 +115,6 @@ export const ConversationView = ({
                 : null
             }
           />
-          <TypingIndicator users={typingUsers} />
         </>
       )}
     </div>

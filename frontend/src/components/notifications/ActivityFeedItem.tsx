@@ -5,6 +5,7 @@ import { Icon } from '@/components/ui/Icon';
 import { getInitials } from '@/lib/initials';
 import { shortWhen } from '@/lib/relativeDays';
 import type { NotificationItem } from '@/types/notification';
+import { MentionText } from '@/components/tasks/MentionText';
 import styles from './Activity.module.css';
 
 type Props = {
@@ -14,6 +15,8 @@ type Props = {
   where: string;
   onOpen: () => void;
   onRemove: () => void;
+  // Workspace member names: their @mentions in the snippet are highlighted.
+  mentionNames?: string[];
 };
 
 const FeedIcon = ({ item }: { item: NotificationItem }) => {
@@ -26,9 +29,18 @@ const FeedIcon = ({ item }: { item: NotificationItem }) => {
           <Icon name="message" size={15} />
         </span>
       );
+    case 'TASK_ASSIGNED':
+    case 'TASK_DUE':
+      return (
+        <span className={`${styles.feedIc} ${styles.info}`}>
+          <Icon name="task" size={15} />
+        </span>
+      );
     case 'DM':
       return (
-        <span className={`${styles.feedIc} ${styles.brand}`}>{getInitials(item.actor.fullName)}</span>
+        <span className={`${styles.feedIc} ${styles.brand}`}>
+          {getInitials(item.actor.fullName)}
+        </span>
       );
     default:
       return (
@@ -40,7 +52,15 @@ const FeedIcon = ({ item }: { item: NotificationItem }) => {
 };
 
 // One row of the Recent feed (design: .feed-item).
-export const ActivityFeedItem = ({ item, href, action, where, onOpen, onRemove }: Props) => {
+export const ActivityFeedItem = ({
+  item,
+  href,
+  action,
+  where,
+  onOpen,
+  onRemove,
+  mentionNames = [],
+}: Props) => {
   const unread = !item.readAt;
   return (
     <div className={`${styles.feedItem} ${unread ? styles.unread : ''}`}>
@@ -50,7 +70,11 @@ export const ActivityFeedItem = ({ item, href, action, where, onOpen, onRemove }
           <p>
             <b>{item.actor.fullName}</b> {action}
           </p>
-          {item.snippet && <div className={styles.quote}>{item.snippet}</div>}
+          {item.snippet && (
+            <div className={styles.quote}>
+              <MentionText text={item.snippet} names={mentionNames} />
+            </div>
+          )}
           <p className={styles.hintTime}>
             {shortWhen(item.createdAt)}
             {where && ` · ${where}`}

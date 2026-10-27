@@ -5,10 +5,19 @@ import { usePathname, useRouter, useSearchParams } from 'next/navigation';
 import { useSearch } from '@/hooks/useSearch';
 import { Spinner } from '@/components/ui/Spinner';
 import { Alert } from '@/components/ui/Alert';
-import { Icon } from '@/components/ui/Icon';
+import { Icon, type IconName } from '@/components/ui/Icon';
 import type { SearchType } from '@/types/search';
 import { SearchResults } from './SearchResults';
 import styles from './SearchView.module.css';
+
+const TAB_ICONS: Record<SearchType, IconName> = {
+  all: 'search',
+  messages: 'message',
+  channels: 'hash',
+  people: 'users',
+  files: 'file',
+  tasks: 'task',
+};
 
 const TABS: { type: SearchType; label: string }[] = [
   { type: 'all', label: 'All' },
@@ -16,9 +25,20 @@ const TABS: { type: SearchType; label: string }[] = [
   { type: 'channels', label: 'Channels' },
   { type: 'people', label: 'People' },
   { type: 'files', label: 'Files' },
+  { type: 'tasks', label: 'Tasks' },
 ];
 
-const OPERATORS = ['from:me', 'in:#general', 'in:@name', 'has:link', 'has:file', 'has:pin', 'before:2026-01-31', 'on:2026-01-15', '"exact phrase"'];
+const OPERATORS = [
+  'from:me',
+  'in:#general',
+  'in:@name',
+  'has:link',
+  'has:file',
+  'has:pin',
+  'before:2026-01-31',
+  'on:2026-01-15',
+  '"exact phrase"',
+];
 
 const isType = (value: string | null): value is SearchType =>
   TABS.some((tab) => tab.type === value);
@@ -57,7 +77,7 @@ export const SearchView = () => {
         <span className={styles.eyebrow}>Workspace</span>
         <h1 className={styles.title}>Search</h1>
         <p className={styles.subtitle}>
-          Messages, channels, people and files you have access to. Private channels and
+          Messages, channels, people, files and tasks you have access to. Private channels and
           conversations you are not part of are never searched.
         </p>
       </header>
@@ -69,7 +89,9 @@ export const SearchView = () => {
           navigate(draft, type);
         }}
       >
-        <Icon name="search" size={16} />
+        <span className={styles.searchIcon} aria-hidden>
+          <Icon name="search" size={16} />
+        </span>
         <input
           type="search"
           value={draft}
@@ -78,18 +100,32 @@ export const SearchView = () => {
           aria-label="Search the workspace"
           autoFocus
         />
+        {draft && (
+          <button
+            type="button"
+            className={styles.clear}
+            onClick={() => setDraft('')}
+            aria-label="Clear search"
+            title="Clear"
+          >
+            <Icon name="close" size={14} />
+          </button>
+        )}
+        <kbd className={styles.kbd}>Enter ↵</kbd>
         <button type="submit" className={styles.submit}>
           Search
         </button>
       </form>
 
       <div className={styles.hint}>
-        <span>Narrow it down:</span>
+        <span className={styles.hintLabel}>Filters</span>
         {OPERATORS.map((operator) => (
           <button
             key={operator}
             type="button"
-            className={styles.operator}
+            className={`${styles.operator} ${
+              draft.split(/s+/).includes(operator) ? styles.operatorOn : ''
+            }`}
             onClick={() => setDraft((current) => `${current.trim()} ${operator}`.trim())}
           >
             {operator}
@@ -106,6 +142,7 @@ export const SearchView = () => {
             aria-pressed={tab.type === type}
             onClick={() => navigate(query, tab.type)}
           >
+            <Icon name={TAB_ICONS[tab.type]} size={13} />
             {tab.label}
           </button>
         ))}

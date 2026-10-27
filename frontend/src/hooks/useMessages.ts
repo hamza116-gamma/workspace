@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useAuth } from './useAuth';
 import { useSocket } from './useSocket';
-import { useTypingUsers, type TypingPayload } from './useTypingUsers';
+import { useTypingUsers, type ComposerActivity, type TypingPayload } from './useTypingUsers';
 import {
   deleteMessage,
   listChannelMessages,
@@ -69,7 +69,7 @@ export const useMessages = (target: MessageTarget | null) => {
   // Incremented when the window is replaced by the latest page (MessageList
   // then scrolls to the bottom).
   const [latestToken, setLatestToken] = useState(0);
-  const { typingUsers, applyTyping, resetTyping } = useTypingUsers(user?.id);
+  const { typingUsers, recordingUsers, applyTyping, resetTyping } = useTypingUsers(user?.id);
 
   // Switching chats: show the cached window during this very render (no
   // spinner, no flash of the previous chat).
@@ -318,9 +318,9 @@ export const useMessages = (target: MessageTarget | null) => {
   }, []);
 
   const setTypingActive = useCallback(
-    (active: boolean) => {
+    (active: boolean, activity: ComposerActivity = 'typing') => {
       if (!socket || !kind || !id) return;
-      socket.emit(active ? 'typing.start' : 'typing.stop', { kind, id });
+      socket.emit(active ? 'typing.start' : 'typing.stop', { kind, id, activity });
     },
     [socket, kind, id],
   );
@@ -339,6 +339,7 @@ export const useMessages = (target: MessageTarget | null) => {
     latestToken,
     resync,
     typingUsers,
+    recordingUsers,
     send,
     edit,
     remove,

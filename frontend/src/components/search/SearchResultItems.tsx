@@ -13,6 +13,7 @@ import { formatBytes } from '@/lib/attachments';
 import { formatFullTimestamp } from '@/lib/format';
 import { messageHref } from '@/lib/search';
 import type { SearchChannel, SearchFile, SearchMessage, SearchPerson } from '@/types/search';
+import { TASK_STATUS_LABELS, type Task } from '@/types/task';
 import styles from './SearchView.module.css';
 
 // Opening a result focuses the message; thread replies open their thread
@@ -20,7 +21,8 @@ import styles from './SearchView.module.css';
 export const MessageResult = ({ message }: { message: SearchMessage }) => {
   const { focusMessage } = useFocusMessage();
   const { openThread } = useThreadPanel();
-  const rootId = message.parentMessageId && !message.alsoSentToChannel ? message.parentMessageId : null;
+  const rootId =
+    message.parentMessageId && !message.alsoSentToChannel ? message.parentMessageId : null;
   const where =
     message.location.kind === 'channel'
       ? `#${message.location.name || 'channel'}`
@@ -103,7 +105,12 @@ export const PersonResult = ({ person }: { person: SearchPerson }) => {
           {[person.jobTitle, person.department].filter(Boolean).join(' · ') || person.email}
         </span>
       </span>
-      <button type="button" className={styles.action} onClick={() => void message()} disabled={busy}>
+      <button
+        type="button"
+        className={styles.action}
+        onClick={() => void message()}
+        disabled={busy}
+      >
         <Icon name="message" size={14} />
         Message
       </button>
@@ -127,6 +134,34 @@ export const FileResult = ({ file }: { file: SearchFile }) => {
           <span className={styles.name}>{file.name}</span>
           <span className={styles.meta}>
             {formatBytes(file.bytes)} · {formatFullTimestamp(file.createdAt)}
+          </span>
+        </span>
+      </Link>
+    </li>
+  );
+};
+
+export const TaskResult = ({ task }: { task: Task }) => {
+  const { focusMessage } = useFocusMessage();
+  return (
+    <li className={styles.item}>
+      <Link
+        href={messageHref(task, task.messageId)}
+        className={`${styles.open} ${styles.row}`}
+        onClick={() => focusMessage(task.messageId)}
+      >
+        <span className={styles.badgeIcon} aria-hidden>
+          <Icon name="task" size={15} />
+        </span>
+        <span className={styles.rowText}>
+          <span className={styles.name}>
+            {task.key} · {task.title}
+          </span>
+          <span className={styles.meta}>
+            {TASK_STATUS_LABELS[task.status]} ·{' '}
+            {task.assignees.length
+              ? task.assignees.map((user) => user.fullName).join(', ')
+              : 'Unassigned'}
           </span>
         </span>
       </Link>

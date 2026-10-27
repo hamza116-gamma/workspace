@@ -23,6 +23,7 @@ export const ThreadPanel = () => {
     error,
     following,
     typingUsers,
+    recordingUsers,
     send,
     react,
     edit,
@@ -114,6 +115,7 @@ export const ThreadPanel = () => {
 
       {root && (
         <>
+          <TypingIndicator users={typingUsers} recording={recordingUsers} />
           <MessageComposer
             placeholder="Reply…"
             mentionables={mentionables}
@@ -126,7 +128,6 @@ export const ThreadPanel = () => {
                 : null
             }
           />
-          <TypingIndicator users={typingUsers} />
         </>
       )}
     </aside>

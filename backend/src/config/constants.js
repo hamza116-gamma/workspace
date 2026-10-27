@@ -118,8 +118,25 @@ const HUDDLE_INVITE_STATUS = {
   MISSED: 'MISSED',
 };
 
+// Tasks (Phase 7): a task lives on a chat message; its thread is the discussion.
+const TASK_STATUS = {
+  TODO: 'TODO',
+  IN_PROGRESS: 'IN_PROGRESS',
+  IN_REVIEW: 'IN_REVIEW',
+  DONE: 'DONE',
+};
+
+const TASK_PRIORITY = {
+  LOW: 'LOW',
+  MEDIUM: 'MEDIUM',
+  HIGH: 'HIGH',
+  URGENT: 'URGENT',
+};
+
 module.exports = {
   AUDIT_ACTIONS,
+  TASK_STATUS,
+  TASK_PRIORITY,
   HUDDLE_STATUS,
   HUDDLE_INVITE_STATUS,
   ROLES,

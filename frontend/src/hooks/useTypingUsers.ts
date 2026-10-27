@@ -7,13 +7,18 @@ export type TypingPayload = {
   id: string;
   user: { id: string; fullName: string };
   typing: boolean;
+  // What they are doing in the composer (absent = typing, older servers).
+  activity?: ComposerActivity;
 };
+
+export type ComposerActivity = 'typing' | 'recording';
+type Entry = { name: string; activity: ComposerActivity };
 
 // A typing entry expires on its own if no typing=false ever arrives.
 const TYPING_EXPIRY_MS = 7000;
 
 export const useTypingUsers = (selfId: string | undefined) => {
-  const [typing, setTyping] = useState<Record<string, string>>({});
+  const [typing, setTyping] = useState<Record<string, Entry>>({});
   const timers = useRef(new Map<string, ReturnType<typeof setTimeout>>());
 
   const drop = useCallback((userId: string) => {
@@ -46,10 +51,12 @@ export const useTypingUsers = (selfId: string | undefined) => {
         payload.user.id,
         setTimeout(() => drop(payload.user.id), TYPING_EXPIRY_MS),
       );
+      const activity = payload.activity ?? 'typing';
       setTyping((prev) =>
-        prev[payload.user.id] === payload.user.fullName
+        prev[payload.user.id]?.name === payload.user.fullName &&
+        prev[payload.user.id]?.activity === activity
           ? prev
-          : { ...prev, [payload.user.id]: payload.user.fullName },
+          : { ...prev, [payload.user.id]: { name: payload.user.fullName, activity } },
       );
     },
     [selfId, drop],
@@ -63,5 +70,13 @@ export const useTypingUsers = (selfId: string | undefined) => {
 
   useEffect(() => reset, [reset]);
 
-  return { typingUsers: Object.values(typing), applyTyping: apply, resetTyping: reset };
+  const entries = Object.values(typing);
+  return {
+    typingUsers: entries.filter((entry) => entry.activity === 'typing').map((entry) => entry.name),
+    recordingUsers: entries
+      .filter((entry) => entry.activity === 'recording')
+      .map((entry) => entry.name),
+    applyTyping: apply,
+    resetTyping: reset,
+  };
 };

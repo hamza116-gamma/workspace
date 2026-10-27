@@ -5,6 +5,7 @@ import { Button } from '@/components/ui/Button';
 import { Avatar } from '@/components/ui/Avatar';
 import { MessageContent } from './MessageContent';
 import { MessageAttachments } from './MessageAttachments';
+import { TaskCard } from '@/components/tasks/TaskCard';
 import { formatFullTimestamp } from '@/lib/format';
 import type { Message } from '@/types/message';
 import styles from './DeleteMessageDialog.module.css';
@@ -20,9 +21,16 @@ export const DeleteMessageDialog = ({
   onCancel: () => void;
   onConfirm: () => void;
 }) => (
-  <Modal open={open} title="Delete message" onClose={onCancel}>
+  <Modal open={open} title={message?.task ? 'Delete task' : 'Delete message'} onClose={onCancel}>
     <p className={styles.intro}>
-      Are you sure you want to delete this message? This cannot be undone.
+      {message?.task ? (
+        <>
+          This deletes <strong>{message.task.key}</strong> and its task card. Replies in its thread
+          stay. This cannot be undone.
+        </>
+      ) : (
+        'Are you sure you want to delete this message? This cannot be undone.'
+      )}
     </p>
 
     {message && (
@@ -32,10 +40,20 @@ export const DeleteMessageDialog = ({
           <span className={styles.previewName}>{message.sender.fullName}</span>
           <span className={styles.previewTime}>{formatFullTimestamp(message.createdAt)}</span>
         </div>
-        {message.content && (
+        {message.task ? (
           <div className={styles.previewBody}>
-            <MessageContent content={message.content} mentions={message.mentions} />
+            <TaskCard
+              task={message.task}
+              readOnly
+              mentionNames={message.mentions.map((user) => user.fullName)}
+            />
           </div>
+        ) : (
+          message.content && (
+            <div className={styles.previewBody}>
+              <MessageContent content={message.content} mentions={message.mentions} />
+            </div>
+          )
         )}
 
         {(message.attachments?.length ?? 0) > 0 && (
@@ -51,7 +69,7 @@ export const DeleteMessageDialog = ({
         Cancel
       </Button>
       <Button variant="danger" type="button" onClick={onConfirm}>
-        Delete
+        {message?.task ? 'Delete task' : 'Delete'}
       </Button>
     </div>
   </Modal>

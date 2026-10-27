@@ -1,4 +1,5 @@
 import type { User } from './user';
+import type { Task } from './task';
 
 export type ReactionUser = {
   id: string;
@@ -63,6 +64,9 @@ export type Message = {
   attachments: MessageAttachment[];
   // Set on a huddle call-log card (Huddle.message).
   huddleId?: string | null;
+  // Set when the message is a task card (its thread is the discussion).
+  taskId?: string | null;
+  task?: Task | null;
   editedAt: string | null;
   deletedAt: string | null;
   createdAt: string;

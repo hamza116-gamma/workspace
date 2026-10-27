@@ -17,6 +17,7 @@ import { UnreadProvider } from '@/context/UnreadContext';
 import { ThreadProvider } from '@/context/ThreadContext';
 import { HuddleProvider } from '@/context/HuddleContext';
 import { WorkspaceShell } from '@/components/workspace/WorkspaceShell';
+import { QuickSearch } from '@/components/search/QuickSearch';
 
 export default function AppGroupLayout({ children }: { children: React.ReactNode }) {
   return (
@@ -38,7 +39,10 @@ export default function AppGroupLayout({ children }: { children: React.ReactNode
                                   <NotificationProvider>
                                     <DownloadProvider>
                                       <HuddleProvider>
-                                        <WorkspaceShell>{children}</WorkspaceShell>
+                                        <WorkspaceShell>
+                                          {children}
+                                          <QuickSearch />
+                                        </WorkspaceShell>
                                       </HuddleProvider>
                                     </DownloadProvider>
                                   </NotificationProvider>

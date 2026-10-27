@@ -1,0 +1,245 @@
+'use client';
+
+import { useEffect, useState } from 'react';
+import { Modal } from '@/components/ui/Modal';
+import { Button } from '@/components/ui/Button';
+import { Input } from '@/components/ui/Input';
+import { Dropdown } from '@/components/ui/Dropdown';
+import { deleteTask, listAssignable, updateTask, type TaskAccess } from '@/lib/tasks';
+import { useAuth } from '@/hooks/useAuth';
+import { MentionInput } from './MentionText';
+import { LabelInput } from './LabelInput';
+import {
+  TASK_PRIORITY_COLORS,
+  TASK_PRIORITY_LABELS,
+  TASK_STATUS_COLORS,
+  TASK_STATUS_LABELS,
+  type Task,
+  type TaskPriority,
+  type TaskStatus,
+} from '@/types/task';
+import type { User } from '@/types/user';
+import styles from './Tasks.module.css';
+
+const PRIORITY_OPTIONS = (Object.keys(TASK_PRIORITY_LABELS) as TaskPriority[]).map((value) => ({
+  value,
+  label: TASK_PRIORITY_LABELS[value],
+  color: TASK_PRIORITY_COLORS[value],
+}));
+
+const STATUS_OPTIONS = (Object.keys(TASK_STATUS_LABELS) as TaskStatus[]).map((value) => ({
+  value,
+  label: TASK_STATUS_LABELS[value],
+  color: TASK_STATUS_COLORS[value],
+}));
+
+const DESCRIPTION_MAX = 4000;
+
+// "2026-11-01T..." -> "2026-11-01" in local time (for <input type="date">).
+const toDateInput = (iso: string | null) => {
+  if (!iso) {
+    return '';
+  }
+  const date = new Date(iso);
+  const pad = (value: number) => String(value).padStart(2, '0');
+  return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}`;
+};
+
+/** Edits a task. Only changed fields are sent (each change is noted in the thread). */
+export const EditTaskDialog = ({
+  task,
+  open,
+  mentionNames = [],
+  access = 'full',
+  onClose,
+  onSaved,
+}: {
+  task: Task;
+  open: boolean;
+  mentionNames?: string[];
+  // Assignees ('progress') only change status and description.
+  access?: TaskAccess;
+  onClose: () => void;
+  onSaved: (task: Task) => void;
+}) => {
+  const [title, setTitle] = useState(task.title);
+  const [description, setDescription] = useState(task.description);
+  const [labels, setLabels] = useState<string[]>(task.labels);
+  const [priority, setPriority] = useState<TaskPriority>(task.priority);
+  const [status, setStatus] = useState<TaskStatus>(task.status);
+  // Two-step delete: first click asks, second click deletes.
+  const [confirmDelete, setConfirmDelete] = useState(false);
+  const [dueDate, setDueDate] = useState(toDateInput(task.dueDate));
+  const [assignees, setAssignees] = useState<string[]>([]);
+  const [people, setPeople] = useState<User[] | null>(null);
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState('');
+  const { user } = useAuth();
+  const full = access === 'full';
+
+  useEffect(() => {
+    if (!open) {
+      return;
+    }
+    setTitle(task.title);
+    setDescription(task.description);
+    setLabels(task.labels);
+    setPriority(task.priority);
+    setStatus(task.status);
+    setConfirmDelete(false);
+    setDueDate(toDateInput(task.dueDate));
+    setAssignees(task.assignees.map((user) => user.id));
+    setError('');
+    setPeople(null);
+    let alive = true;
+    listAssignable(task).then(
+      (users) => alive && setPeople(users),
+      () => alive && setPeople([]),
+    );
+    return () => {
+      alive = false;
+    };
+    // Reset only when the dialog opens, not on every live update.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [open]);
+
+  // Deletes the task only; its chat message and thread stay.
+  const remove = async () => {
+    setSaving(true);
+    setError('');
+    try {
+      await deleteTask(task.id);
+      onClose();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Could not delete the task');
+      setConfirmDelete(false);
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const submit = async (event: React.FormEvent) => {
+    event.preventDefault();
+    if (!title.trim()) {
+      setError('Task title is required');
+      return;
+    }
+    const nextDue = dueDate ? new Date(`${dueDate}T23:59:00`).toISOString() : null;
+    const before = task.assignees
+      .map((user) => user.id)
+      .sort()
+      .join(',');
+    const changes = {
+      ...(title.trim() !== task.title ? { title: title.trim() } : {}),
+      ...(description.trim() !== task.description ? { description: description.trim() } : {}),
+      ...(priority !== task.priority ? { priority } : {}),
+      ...(status !== task.status ? { status } : {}),
+      ...(labels.join(',') !== task.labels.join(',') ? { labels } : {}),
+      ...(dueDate !== toDateInput(task.dueDate) ? { dueDate: nextDue } : {}),
+      ...([...assignees].sort().join(',') !== before ? { assignees } : {}),
+    };
+    if (Object.keys(changes).length === 0) {
+      onClose();
+      return;
+    }
+    setSaving(true);
+    setError('');
+    try {
+      const { task: updated } = await updateTask(task.id, changes);
+      onSaved(updated);
+      onClose();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Could not save the task');
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  return (
+    <Modal open={open} title={`Edit ${task.key}`} onClose={onClose}>
+      <form className={styles.form} onSubmit={(event) => void submit(event)}>
+        {!full && (
+          <p className={styles.muted}>
+            You can update the description. The title, priority, due date and assignees are set by
+            the task creator or a moderator; ask in the task thread to change them.
+          </p>
+        )}
+        <MentionInput
+          label="Title"
+          disabled={!full}
+          name="edit-task-title"
+          value={title}
+          names={mentionNames}
+          maxLength={200}
+          autoFocus
+          onChange={setTitle}
+        />
+        <div className={styles.mentionField}>
+          <label htmlFor="edit-task-description" className={styles.mentionLabel}>
+            Description <span className={styles.optional}>(optional)</span>
+          </label>
+          <textarea
+            id="edit-task-description"
+            className={styles.textarea}
+            rows={5}
+            maxLength={DESCRIPTION_MAX}
+            placeholder="Add details, steps, links…"
+            value={description}
+            onChange={(event) => setDescription(event.target.value)}
+          />
+        </div>
+        <Dropdown label="Status" options={STATUS_OPTIONS} value={status} onChange={setStatus} />
+        <div className={styles.row}>
+          <Dropdown
+            label="Priority"
+            disabled={!full}
+            options={PRIORITY_OPTIONS}
+            value={priority}
+            onChange={setPriority}
+          />
+          <Input
+            label="Due date"
+            name="edit-task-due"
+            disabled={!full}
+            type="date"
+            value={dueDate}
+            onChange={(event) => setDueDate(event.target.value)}
+          />
+        </div>
+        <LabelInput value={labels} disabled={!full} onChange={setLabels} />
+        <Dropdown
+          multiple
+          label="Assignees"
+          placeholder={people === null ? 'Loading people…' : 'Unassigned'}
+          disabled={people === null || access === 'progress'}
+          options={(people ?? [])
+            // Unassigned task: a member may only pick it up themselves.
+            .filter((person) => full || person.id === user?.id)
+            .map((person) => ({ value: person.id, label: person.fullName }))}
+          value={assignees}
+          onChange={setAssignees}
+        />
+        {error && <p className={styles.error}>{error}</p>}
+        <div className={styles.actions}>
+          {full && (
+            <Button
+              variant="danger"
+              type="button"
+              className={styles.deleteButton}
+              disabled={saving}
+              onClick={() => (confirmDelete ? void remove() : setConfirmDelete(true))}
+            >
+              {confirmDelete ? 'Click again to delete' : 'Delete task'}
+            </Button>
+          )}
+          <Button variant="secondary" type="button" onClick={onClose}>
+            Cancel
+          </Button>
+          <Button type="submit" disabled={saving}>
+            {saving ? 'Saving…' : 'Save changes'}
+          </Button>
+        </div>
+      </form>
+    </Modal>
+  );
+};

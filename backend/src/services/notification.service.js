@@ -3,8 +3,21 @@ const { toPublicUser } = require('./user.service');
 
 const SNIPPET_MAX = 160;
 
+// Stored mention tokens -> readable text ("<@id>" -> "@Full Name").
+const readableContent = (message) => {
+  const names = new Map(
+    (message.mentionedUserIds || [])
+      .filter((user) => user && user.fullName)
+      .map((user) => [String(user._id), user.fullName]),
+  );
+  return String(message.content || '')
+    .replace(/<@([a-f0-9]{24})>/gi, (_match, id) => `@${names.get(id) || 'someone'}`)
+    .replace(/<!channel>/g, '@channel')
+    .replace(/<!here>/g, '@here');
+};
+
 const buildSnippet = (message) => {
-  const content = String(message.content || '').trim();
+  const content = readableContent(message).trim();
   if (content) {
     return content.length > SNIPPET_MAX ? `${content.slice(0, SNIPPET_MAX)}…` : content;
   }

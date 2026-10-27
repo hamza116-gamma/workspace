@@ -5,6 +5,8 @@ const NOTIFICATION_TYPES = {
   DM: 'DM',
   THREAD_REPLY: 'THREAD_REPLY',
   CHANNEL: 'CHANNEL',
+  TASK_ASSIGNED: 'TASK_ASSIGNED',
+  TASK_DUE: 'TASK_DUE',
 };
 
 const notificationSchema = new mongoose.Schema(

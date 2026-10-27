@@ -1,7 +1,8 @@
 import type { Message, MessageAttachment } from './message';
 import type { User } from './user';
+import type { Task } from './task';
 
-export type SearchType = 'all' | 'messages' | 'channels' | 'people' | 'files';
+export type SearchType = 'all' | 'messages' | 'channels' | 'people' | 'files' | 'tasks';
 
 export type SearchLocation = { kind: 'channel' | 'conversation'; id: string; name: string };
 
@@ -35,4 +36,5 @@ export type SearchResult = {
   channels: SearchList<SearchChannel>;
   people: SearchList<SearchPerson>;
   files: SearchList<SearchFile>;
+  tasks: SearchList<Task>;
 };

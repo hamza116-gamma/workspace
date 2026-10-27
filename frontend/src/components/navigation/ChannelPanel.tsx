@@ -1,7 +1,9 @@
 'use client';
 
 import Link from 'next/link';
-import { useParams, useRouter } from 'next/navigation';
+import { useParams } from 'next/navigation';
+import { OPEN_QUICK_SEARCH } from '@/components/search/QuickSearch';
+import { useMyOpenTaskCount } from '@/hooks/useMyOpenTaskCount';
 import { useDrafts } from '@/hooks/useDrafts';
 import { useOnlineCount } from '@/hooks/useOnlineCount';
 import { useMemo, useRef, useState } from 'react';
@@ -25,6 +27,7 @@ const QUICK_LINKS: { label: string; icon: IconName; href?: string }[] = [
   { label: 'Activity', icon: 'bell', href: '/activity' },
   { label: 'Drafts', icon: 'pencil', href: '/drafts' },
   { label: 'Bookmarks', icon: 'bookmark', href: '/saved' },
+  { label: 'My tasks', icon: 'task', href: '/tasks' },
 ];
 
 // Slack behavior: hovering "Activity" opens the recent-activity dropdown to
@@ -84,24 +87,20 @@ export const ChannelPanel = () => {
   const { channels, loading, error } = useChannels();
   const { conversations, loading: dmLoading, error: dmError } = useConversations();
   const params = useParams<{ channelId?: string; conversationId?: string }>();
-  const [query, setQuery] = useState('');
-  const router = useRouter();
   const { pendingDrafts } = useDrafts();
+  const openTasks = useMyOpenTaskCount();
   const online = useOnlineCount();
   const [channelDialogOpen, setChannelDialogOpen] = useState(false);
 
   // Sidebar shows joined channels only (Slack); starred ones get their own
   // section at the top. Others are found via "Browse channels".
   const { starred, joined } = useMemo(() => {
-    const term = query.trim().toLowerCase();
-    const mine = channels.filter(
-      (channel) => channel.isMember && (!term || channel.name.includes(term)),
-    );
+    const mine = channels.filter((channel) => channel.isMember);
     return {
       starred: mine.filter((channel) => channel.membership?.starred),
       joined: mine.filter((channel) => !channel.membership?.starred),
     };
-  }, [channels, query]);
+  }, [channels]);
   const joinedCount = useMemo(
     () => channels.filter((channel) => channel.isMember).length,
     [channels],
@@ -139,23 +138,17 @@ export const ChannelPanel = () => {
         </div>
       </header>
 
-      <div className={styles.search}>
+      {/* Opens the Ctrl+K quick search (components/search/QuickSearch). */}
+      <button
+        type="button"
+        className={styles.search}
+        onClick={() => window.dispatchEvent(new Event(OPEN_QUICK_SEARCH))}
+        aria-label="Search (Ctrl+K)"
+      >
         <Icon name="search" size={15} />
-        <input
-          type="search"
-          placeholder="Search (Enter for workspace)"
-          value={query}
-          onChange={(event) => setQuery(event.target.value)}
-          onKeyDown={(event) => {
-            // Typing filters channels live; Enter searches the workspace.
-            if (event.key === 'Enter' && query.trim()) {
-              event.preventDefault();
-              router.push(`/search?q=${encodeURIComponent(query.trim())}`);
-            }
-          }}
-          aria-label="Filter channels, press Enter to search the workspace"
-        />
-      </div>
+        <span className={styles.searchLabel}>Search…</span>
+        <kbd className={styles.searchKbd}>Ctrl K</kbd>
+      </button>
 
       <nav className={styles.quick}>
         {QUICK_LINKS.map((link) =>
@@ -171,6 +164,14 @@ export const ChannelPanel = () => {
               <span>{link.label}</span>
               {link.href === '/drafts' && pendingDrafts.length > 0 && (
                 <span className={styles.quickBadge}>{pendingDrafts.length}</span>
+              )}
+              {link.href === '/tasks' && openTasks > 0 && (
+                <span
+                  className={styles.quickBadge}
+                  title={`${openTasks} open tasks assigned to you`}
+                >
+                  {openTasks}
+                </span>
               )}
             </Link>
           ) : (
@@ -228,13 +229,6 @@ export const ChannelPanel = () => {
           {!loading && !error && joinedCount === 0 && (
             <p className={styles.empty}>You haven’t joined any channels yet.</p>
           )}
-          {!loading &&
-            !error &&
-            joinedCount > 0 &&
-            query &&
-            starred.length + joined.length === 0 && (
-              <p className={styles.empty}>No channels match “{query}”.</p>
-            )}
           <div className={styles.list}>
             {joined.map((channel) => (
               <ChannelListItem

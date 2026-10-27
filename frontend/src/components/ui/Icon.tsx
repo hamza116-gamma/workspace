@@ -12,6 +12,7 @@ export type IconName =
   | 'kebab'
   | 'check'
   | 'checkCircle'
+  | 'task'
   | 'star'
   | 'info'
   | 'settings'
@@ -73,6 +74,12 @@ const PATHS: Record<IconName, string[]> = {
   dots: ['M5 12h.01M12 12h.01M19 12h.01'],
   kebab: ['M12 5h.01M12 12h.01M12 19h.01'],
   check: ['M20 6L9 17l-5-5'],
+  // Clipboard with a check (tasks).
+  task: [
+    'M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2',
+    'M9 2h6a1 1 0 0 1 1 1v2a1 1 0 0 1-1 1H9a1 1 0 0 1-1-1V3a1 1 0 0 1 1-1z',
+    'M9 14l2 2 4-4',
+  ],
   checkCircle: ['M12 21a9 9 0 1 0 0-18 9 9 0 0 0 0 18z', 'M8.5 12.5l2.5 2.5 4.5-5'],
   star: ['M12 2l3.09 6.26L22 9.27l-5 4.87L18.18 21 12 17.77 5.82 21 7 14.14l-5-4.87 6.91-1.01z'],
   info: ['M12 21a9 9 0 1 0 0-18 9 9 0 0 0 0 18z', 'M12 16v-5M12 8h.01'],

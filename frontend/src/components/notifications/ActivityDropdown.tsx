@@ -12,6 +12,9 @@ import { Avatar } from '@/components/ui/Avatar';
 import { Icon } from '@/components/ui/Icon';
 import { formatFullTimestamp } from '@/lib/format';
 import type { NotificationItem } from '@/types/notification';
+import { useOrgMembers } from '@/hooks/useOrgMembers';
+import { tokensToDisplay } from '@/lib/mentions';
+import { MentionText } from '@/components/tasks/MentionText';
 import styles from './ActivityDropdown.module.css';
 
 // Slack-style hover card for the sidebar "Activity" item: recent activity
@@ -19,6 +22,7 @@ import styles from './ActivityDropdown.module.css';
 export const ActivityDropdown = ({ onNavigate }: { onNavigate?: () => void }) => {
   const router = useRouter();
   const { items, loading, markRead, markAllRead } = useNotifications();
+  const memberUsers = useOrgMembers().map((member) => member.user);
   const { focusMessage } = useFocusMessage();
   const { channels } = useChannels();
   const { conversations } = useConversations();
@@ -49,6 +53,12 @@ export const ActivityDropdown = ({ onNavigate }: { onNavigate?: () => void }) =>
           : 'mentioned you';
       case 'DM':
         return 'sent you a direct message';
+      case 'TASK_ASSIGNED':
+        return notification.channelId
+          ? `assigned you a task in ${channelName(notification.channelId)}`
+          : 'assigned you a task';
+      case 'TASK_DUE':
+        return 'Your task is due within 24 hours';
       case 'THREAD_REPLY':
         return notification.channelId
           ? `replied in a thread in ${channelName(notification.channelId)}`
@@ -72,11 +82,7 @@ export const ActivityDropdown = ({ onNavigate }: { onNavigate?: () => void }) =>
       <header className={styles.header}>
         <span className={styles.title}>Activity</span>
         {items.length > 0 && (
-          <button
-            type="button"
-            className={styles.markAll}
-            onClick={() => void markAllRead()}
-          >
+          <button type="button" className={styles.markAll} onClick={() => void markAllRead()}>
             Mark all as read
           </button>
         )}
@@ -88,9 +94,7 @@ export const ActivityDropdown = ({ onNavigate }: { onNavigate?: () => void }) =>
         </div>
       )}
 
-      {!loading && items.length === 0 && (
-        <p className={styles.empty}>No activity yet.</p>
-      )}
+      {!loading && items.length === 0 && <p className={styles.empty}>No activity yet.</p>}
 
       {recent.length > 0 && (
         <ul className={styles.list}>
@@ -120,7 +124,12 @@ export const ActivityDropdown = ({ onNavigate }: { onNavigate?: () => void }) =>
                       <span className={styles.action}>{describe(notification)}</span>
                     </span>
                     {notification.snippet && (
-                      <span className={styles.snippet}>{notification.snippet}</span>
+                      <span className={styles.snippet}>
+                        <MentionText
+                          text={tokensToDisplay(notification.snippet, memberUsers)}
+                          names={memberUsers.map((user) => user.fullName)}
+                        />
+                      </span>
                     )}
                     <span className={styles.meta}>
                       {formatFullTimestamp(notification.createdAt)}
@@ -146,11 +155,7 @@ export const ActivityDropdown = ({ onNavigate }: { onNavigate?: () => void }) =>
       )}
 
       {items.length > 8 && (
-        <Link
-          href="/activity"
-          className={styles.viewAll}
-          onClick={() => onNavigate?.()}
-        >
+        <Link href="/activity" className={styles.viewAll} onClick={() => onNavigate?.()}>
           View all activity
         </Link>
       )}

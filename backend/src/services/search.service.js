@@ -1,16 +1,18 @@
 const Attachment = require('../models/attachment.model');
+const Task = require('../models/task.model');
 const OrganizationMember = require('../models/organizationMember.model');
 const { MEMBER_STATUS } = require('../config/constants');
 const { AppError } = require('../utils/AppError');
 const { parseSearchQuery, hasFilters, termRegexes } = require('../utils/searchQuery');
 const { toPublicAttachment } = require('../utils/attachments');
 const { toPublicUser } = require('./user.service');
+const { toPublicTask } = require('./task.service');
 const { loadSearchScope } = require('./searchScope.service');
 const { searchMessages, resolveFrom, dateRange } = require('./searchMessages.service');
 
 const PAGE_SIZE = 20;
 const PREVIEW_SIZE = 5;
-const TYPES = ['all', 'messages', 'channels', 'people', 'files'];
+const TYPES = ['all', 'messages', 'channels', 'people', 'files', 'tasks'];
 
 const matchesAll = (regexes, values) =>
   regexes.every((regex) => values.some((value) => regex.test(String(value || ''))));
@@ -84,6 +86,31 @@ const searchFiles = async ({ organizationId, userId, scope, parsed, page, limit 
   };
 };
 
+// Tasks in chats the user can read. Words match the title, description or a
+// label; "TASK-12" (or "12") matches the task number.
+const searchTasks = async ({ organizationId, scope, parsed, page, limit }) => {
+  const query = {
+    organization: organizationId,
+    $or: [{ channel: { $in: scope.channelIds } }, { conversation: { $in: scope.conversationIds } }],
+  };
+  const and = parsed.terms.map((term) => {
+    const number = /^(?:task-)?(\d+)$/i.exec(term);
+    const [regex] = termRegexes([term]);
+    const anyText = [{ title: regex }, { description: regex }, { labels: regex }];
+    return { $or: number ? [...anyText, { number: Number(number[1]) }] : anyText };
+  });
+  if (and.length > 0) {
+    query.$and = and;
+  }
+  const found = await Task.find(query)
+    .sort({ updatedAt: -1 })
+    .skip(page * limit)
+    .limit(limit + 1)
+    .populate('assignees')
+    .populate('createdBy');
+  return { items: found.slice(0, limit).map(toPublicTask), hasMore: found.length > limit };
+};
+
 const empty = { items: [], hasMore: false };
 
 // GET /search?q=&type=all|messages|channels|people|files&page=
@@ -95,7 +122,14 @@ const search = async ({ organizationId, userId, q, type = 'all', page = 0 }) => 
   const pageIndex = Math.max(Number.parseInt(page, 10) || 0, 0);
   const result = { query: String(q || ''), type, page: pageIndex };
   if (parsed.terms.length === 0 && !hasFilters(parsed)) {
-    return { ...result, messages: empty, channels: empty, people: empty, files: empty };
+    return {
+      ...result,
+      messages: empty,
+      channels: empty,
+      people: empty,
+      files: empty,
+      tasks: empty,
+    };
   }
 
   const scope = await loadSearchScope(organizationId, userId);
@@ -104,7 +138,7 @@ const search = async ({ organizationId, userId, q, type = 'all', page = 0 }) => 
   // Channels / people only match plain words; operators apply to messages + files.
   const onlyWords = parsed.terms.length > 0;
 
-  const [messages, channels, people, files] = await Promise.all([
+  const [messages, channels, people, files, tasks] = await Promise.all([
     all || type === 'messages' ? searchMessages(args(PAGE_SIZE)) : empty,
     (all || type === 'channels') && onlyWords
       ? searchChannels(args(all ? PREVIEW_SIZE : PAGE_SIZE))
@@ -113,8 +147,11 @@ const search = async ({ organizationId, userId, q, type = 'all', page = 0 }) => 
       ? searchPeople(args(all ? PREVIEW_SIZE : PAGE_SIZE))
       : empty,
     all || type === 'files' ? searchFiles(args(all ? PREVIEW_SIZE : PAGE_SIZE)) : empty,
+    (all || type === 'tasks') && onlyWords
+      ? searchTasks(args(all ? PREVIEW_SIZE : PAGE_SIZE))
+      : empty,
   ]);
-  return { ...result, messages, channels, people, files };
+  return { ...result, messages, channels, people, files, tasks };
 };
 
 module.exports = { search, PAGE_SIZE };

@@ -15,6 +15,7 @@ const searchRoutes = require('./search.routes');
 const draftRoutes = require('./drafts.routes');
 const scheduledRoutes = require('./scheduled.routes');
 const huddleRoutes = require('./huddles.routes');
+const taskRoutes = require('./tasks.routes');
 
 const router = Router();
 
@@ -34,5 +35,6 @@ router.use('/search', searchRoutes);
 router.use('/drafts', draftRoutes);
 router.use('/scheduled', scheduledRoutes);
 router.use('/huddles', huddleRoutes);
+router.use('/tasks', taskRoutes);
 
 module.exports = router;

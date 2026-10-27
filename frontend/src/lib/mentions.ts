@@ -16,3 +16,16 @@ export const displayToTokens = (text: string, users: User[]): string => {
 
   return result;
 };
+
+// The reverse: stored tokens back to readable text ("<@id>" -> "@Full Name",
+// "<!channel>" -> "@channel", "<!here>" -> "@here"). Unknown ids become "@someone".
+export const tokensToDisplay = (
+  text: string,
+  mentions: { id: string; fullName?: string }[] = [],
+): string => {
+  const names = new Map(mentions.map((user) => [user.id, user.fullName]));
+  return text
+    .replace(/<@([a-f0-9]{24})>/gi, (_match, id: string) => `@${names.get(id) || 'someone'}`)
+    .replace(/<!channel>/g, '@channel')
+    .replace(/<!here>/g, '@here');
+};

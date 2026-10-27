@@ -4,29 +4,22 @@ import { useEffect, useState } from 'react';
 import { usePathname } from 'next/navigation';
 import { useOrg } from '@/hooks/useOrg';
 import { rememberRecentChat } from '@/lib/recentChats';
-import { QuickSwitcher } from './QuickSwitcher';
 import { ShortcutsDialog } from './ShortcutsDialog';
 
 const CHAT_ROUTE = /^\/(channels|dm)\/([0-9a-fA-F]{24})$/;
 
-/** Global keys: Ctrl/Cmd+K quick switcher, Ctrl/Cmd+/ shortcuts list. */
+/** Global keys: Ctrl/Cmd+/ shortcuts list. (Ctrl/Cmd+K is components/search/QuickSearch.) */
 export const WorkspaceHotkeys = () => {
   const pathname = usePathname();
   const { active } = useOrg();
-  const [switcherOpen, setSwitcherOpen] = useState(false);
   const [shortcutsOpen, setShortcutsOpen] = useState(false);
 
   useEffect(() => {
     const onKey = (event: KeyboardEvent) => {
       if (!(event.ctrlKey || event.metaKey) || event.altKey) return;
       const key = event.key.toLowerCase();
-      if (key === 'k') {
+      if (key === '/') {
         event.preventDefault();
-        setShortcutsOpen(false);
-        setSwitcherOpen((value) => !value);
-      } else if (key === '/') {
-        event.preventDefault();
-        setSwitcherOpen(false);
         setShortcutsOpen((value) => !value);
       }
     };
@@ -44,7 +37,6 @@ export const WorkspaceHotkeys = () => {
 
   return (
     <>
-      <QuickSwitcher open={switcherOpen} onClose={() => setSwitcherOpen(false)} />
       <ShortcutsDialog open={shortcutsOpen} onClose={() => setShortcutsOpen(false)} />
     </>
   );
