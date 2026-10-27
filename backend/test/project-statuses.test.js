@@ -165,3 +165,16 @@ test('chat tasks use the defaults; moving into a project keeps the group', async
   assert.equal(moved.status, custom.statuses[1].key, 'In review -> first in-progress status');
   assert.equal(moved.statusGroup, 'IN_PROGRESS');
 });
+
+test('saving a task always sets its group from its status (and refuses unknown ones)', async () => {
+  const { organization, users, project } = await setup();
+  const task = await ticket(organization, project, users[0], 'Raw save');
+  // Code that only sets the status (and even a wrong group) still ends up right.
+  task.status = 'DONE';
+  task.statusGroup = 'TODO';
+  await task.save();
+  assert.equal((await Task.findById(task._id)).statusGroup, 'DONE');
+
+  task.status = 'NOT_A_STATUS';
+  await assert.rejects(task.save(), /Unknown status/);
+});

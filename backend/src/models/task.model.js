@@ -1,5 +1,10 @@
 const mongoose = require('mongoose');
-const { TASK_STATUS, TASK_PRIORITY, STATUS_GROUP } = require('../config/constants');
+const {
+  TASK_STATUS,
+  TASK_PRIORITY,
+  STATUS_GROUP,
+  DEFAULT_TASK_STATUSES,
+} = require('../config/constants');
 
 const { ObjectId } = mongoose.Schema.Types;
 
@@ -68,6 +73,32 @@ taskSchema.pre('validate', function ensureSingleTarget(next) {
     return;
   }
   next();
+});
+
+// The group always follows the status, whatever code saved the task: it is
+// looked up in the task's project (or the defaults for chat tasks), and an
+// unknown status is refused. Bulk updateMany calls skip this and set both.
+taskSchema.pre('validate', async function syncStatusGroup() {
+  if (!this.isNew && !this.isModified('status') && !this.isModified('project')) {
+    return;
+  }
+  let statuses = DEFAULT_TASK_STATUSES;
+  if (this.project) {
+    const project = await mongoose
+      .model('Project')
+      .findById(this.project._id ?? this.project)
+      .select('statuses')
+      .lean();
+    if (project?.statuses?.length) {
+      statuses = project.statuses;
+    }
+  }
+  const status = statuses.find((item) => item.key === this.status);
+  if (!status) {
+    this.invalidate('status', 'Unknown status for this project');
+    return;
+  }
+  this.statusGroup = status.group;
 });
 
 taskSchema.index({ message: 1 }, { unique: true });
