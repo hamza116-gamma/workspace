@@ -1,0 +1,217 @@
+const { asyncHandler } = require('../utils/asyncHandler');
+const { success } = require('../utils/response');
+const { AppError } = require('../utils/AppError');
+const taskService = require('../services/task.service');
+const messageService = require('../services/message.service');
+const { postMessage } = require('./message.controller');
+const { emitTask, emitCard, emitActivity, notifyAssigned } = require('../sockets/taskEvents');
+
+const getIo = (req) => req.app.get('io');
+const idOf = (value) => String(value?._id ?? value);
+
+const respond = (res, task, status = 200) =>
+  success(res, { task: taskService.toPublicTask(task) }, status);
+
+// Shared tail of every create: activity note, card refresh, notifications.
+const announceCreated = async (req, task) => {
+  const io = getIo(req);
+  const reply = await taskService.postActivity(
+    task,
+    req.user._id,
+    `created ${`TASK-${task.number}`}`,
+  );
+  await emitActivity(io, reply);
+  await emitCard(io, task);
+  emitTask(io, task, 'task.created');
+  await notifyAssigned(io, task, req.user, task.assignees.map(idOf));
+};
+
+// POST /messages/:messageId/task: turn an existing message into a task.
+const createFromMessage = asyncHandler(async (req, res) => {
+  const message = await messageService.findByIdForOrg(req.params.messageId, req.organization._id);
+  if (!message || message.deletedAt) {
+    throw new AppError(404, 'Message not found');
+  }
+  await messageService.assertAccess(message, req.user._id);
+  await messageService.assertCanWrite(message, req.user._id);
+  const fields = await taskService.prepareFields(
+    req.organization._id,
+    taskService.targetOf(message),
+    req.body,
+    taskService.titleFromContent(message.content),
+  );
+  const task = await taskService.createForMessage(req.organization._id, message, req.user, fields);
+  await announceCreated(req, task);
+  respond(res, task, 201);
+});
+
+// POST /channels/:channelId/tasks and /conversations/:conversationId/tasks:
+// posts the task card message (content = title), then attaches the task.
+const createInTarget = (targetKey) =>
+  asyncHandler(async (req, res) => {
+    const doc = targetKey === 'channel' ? req.channel : req.conversation;
+    const fields = await taskService.prepareFields(
+      req.organization._id,
+      { [targetKey]: idOf(doc) },
+      req.body,
+    );
+    const message = await postMessage({
+      io: getIo(req),
+      organizationId: req.organization._id,
+      user: req.user,
+      target: { [targetKey]: doc },
+      body: { content: fields.title },
+    });
+    const task = await taskService.createForMessage(
+      req.organization._id,
+      message,
+      req.user,
+      fields,
+    );
+    await announceCreated(req, task);
+    respond(res, task, 201);
+  });
+
+// GET /channels/:channelId/tasks, /conversations/:conversationId/tasks
+const listInTarget = (targetKey) =>
+  asyncHandler(async (req, res) => {
+    const doc = targetKey === 'channel' ? req.channel : req.conversation;
+    const tasks = await taskService.listForTarget(
+      req.organization._id,
+      { [targetKey]: doc._id },
+      req.query,
+    );
+    success(res, { tasks: tasks.map(taskService.toPublicTask) });
+  });
+
+// GET /tasks: the caller's assigned tasks ("My tasks").
+const listMine = asyncHandler(async (req, res) => {
+  const tasks = await taskService.listAssignedTo(req.organization._id, req.user._id, req.query);
+  success(res, { tasks: tasks.map(taskService.toPublicTask) });
+});
+
+const get = asyncHandler(async (req, res) => {
+  const task = await taskService.loadForRead(req.params.taskId, req.organization._id, req.user._id);
+  respond(res, task);
+});
+
+// Assignees, the creator and channel moderators / workspace admins manage a
+// task. An unassigned task is open to anyone in the chat (to pick it up).
+//
+// Two levels:
+//   full:     the creator, channel moderators, workspace admins: every field.
+//   progress: assignees: status and description only (scope, deadline,
+//             priority and who does it stay with whoever assigned it).
+// On an unassigned task anyone in the chat gets "progress" and may also pick
+// it up by assigning themselves.
+// position = board order; anyone who can move the card may reorder it.
+const PROGRESS_FIELDS = ['status', 'description', 'position'];
+const FULL_FIELDS = [
+  'title',
+  'description',
+  'status',
+  'priority',
+  'dueDate',
+  'labels',
+  'assignees',
+];
+
+const accessLevel = async (req, task) => {
+  const userId = String(req.user._id);
+  if (idOf(task.createdBy) === userId) {
+    return 'full';
+  }
+  const root = await messageService.findByIdForOrg(task.message, req.organization._id);
+  if (root && (await messageService.canModerate(root, req.user._id, req.membership?.role))) {
+    return 'full';
+  }
+  const assignees = task.assignees.map(idOf);
+  if (assignees.length === 0) {
+    return 'unassigned';
+  }
+  return assignees.includes(userId) ? 'progress' : 'none';
+};
+
+const assertCanEdit = async (req, task) => {
+  const level = await accessLevel(req, task);
+  const fields = Object.keys(req.body || {}).filter((key) => FULL_FIELDS.includes(key));
+  if (level === 'full') {
+    return;
+  }
+  if (level === 'none') {
+    throw new AppError(403, 'Only assignees, the creator or a moderator can change this task');
+  }
+  const pickUp =
+    level === 'unassigned' &&
+    Array.isArray(req.body.assignees) &&
+    req.body.assignees.length === 1 &&
+    String(req.body.assignees[0]) === String(req.user._id);
+  const blocked = fields.filter(
+    (key) => !PROGRESS_FIELDS.includes(key) && !(key === 'assignees' && pickUp),
+  );
+  if (blocked.length) {
+    throw new AppError(
+      403,
+      'Only the task creator or a moderator can change the title, priority, due date or assignees',
+    );
+  }
+};
+
+// Each change is noted in the task thread.
+const update = asyncHandler(async (req, res) => {
+  const task = await taskService.loadForWrite(
+    req.params.taskId,
+    req.organization._id,
+    req.user._id,
+  );
+  await assertCanEdit(req, task);
+  const previousAssignees = task.assignees.map(idOf);
+  const { changes, addedAssigneeIds, moved } = await taskService.updateTask(task, req.body);
+  if (moved && !changes.length) {
+    emitTask(getIo(req), task, 'task.updated');
+  }
+  if (changes.length) {
+    const io = getIo(req);
+    const reply = await taskService.postActivity(task, req.user._id, changes.join(' · '));
+    await emitActivity(io, reply);
+    await emitCard(io, task);
+    // Unassigned people still get the event so it leaves their "My tasks".
+    emitTask(io, task, 'task.updated', previousAssignees);
+    await notifyAssigned(io, task, req.user, addedAssigneeIds);
+  }
+  respond(res, task);
+});
+
+// The creator, the card's author, or a channel moderator / workspace admin.
+const remove = asyncHandler(async (req, res) => {
+  const task = await taskService.loadForWrite(
+    req.params.taskId,
+    req.organization._id,
+    req.user._id,
+  );
+  const root = await messageService.findByIdForOrg(task.message, req.organization._id);
+  const isCreator = idOf(task.createdBy) === String(req.user._id);
+  const isAuthor = root && idOf(root.sender) === String(req.user._id);
+  const isModerator =
+    root && (await messageService.canModerate(root, req.user._id, req.membership?.role));
+  if (!isCreator && !isAuthor && !isModerator) {
+    throw new AppError(403, 'You can only delete tasks you created');
+  }
+  await taskService.deleteTask(task);
+  const io = getIo(req);
+  emitTask(io, task, 'task.deleted');
+  await emitCard(io, task);
+  success(res, { id: idOf(task._id) });
+});
+
+module.exports = {
+  createFromMessage,
+  createInChannel: createInTarget('channel'),
+  createInConversation: createInTarget('conversation'),
+  listChannel: listInTarget('channel'),
+  listConversation: listInTarget('conversation'),
+  listMine,
+  get,
+  update,
+  remove,
+};

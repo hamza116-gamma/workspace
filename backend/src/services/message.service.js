@@ -1,5 +1,6 @@
 const mongoose = require('mongoose');
 const Message = require('../models/message.model');
+const Task = require('../models/task.model');
 const ChannelMember = require('../models/channelMember.model');
 const OrganizationMember = require('../models/organizationMember.model');
 const { AppError } = require('../utils/AppError');
@@ -24,7 +25,7 @@ const notificationService = require('./notification.service');
 const DEFAULT_LIMIT = 30;
 const MAX_LIMIT = 100;
 
-const toPublicMessage = (message, reactions = [], attachments = []) => ({
+const toPublicMessage = (message, reactions = [], attachments = [], task = null) => ({
   id: message._id,
   channelId: message.channel ? String(message.channel) : null,
   conversationId: message.conversation ? String(message.conversation) : null,
@@ -47,6 +48,8 @@ const toPublicMessage = (message, reactions = [], attachments = []) => ({
   mentionHere: Boolean(message.mentionHere),
   links: message.links || [],
   huddleId: message.huddle ? String(message.huddle._id ?? message.huddle) : null,
+  taskId: message.task ? String(message.task._id ?? message.task) : null,
+  task,
   reactions,
   attachments,
   editedAt: message.editedAt,
@@ -366,6 +369,11 @@ const deleteMessage = async (message, userId, { orgRole } = {}) => {
   await pinService.removeForMessage(message._id);
   await savedService.removeForMessage(message._id);
   await notificationService.removeForMessage(message._id);
+  // Deleting a task card deletes the task (its thread replies stay).
+  if (message.task) {
+    await Task.deleteOne({ _id: message.task, message: message._id });
+    message.task = null;
+  }
   message.deletedAt = new Date();
   message.content = '';
   message.links = [];

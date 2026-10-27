@@ -7,6 +7,7 @@ import {
   FileResult,
   MessageResult,
   PersonResult,
+  TaskResult,
 } from './SearchResultItems';
 import styles from './SearchView.module.css';
 
@@ -55,12 +56,14 @@ export const SearchResults = ({
   onShowAll: (type: SearchType) => void;
 }) => {
   const all = type === 'all';
-  const show = (key: SearchType) => (all || type === key) && result[key as Exclude<SearchType, 'all'>].items.length > 0;
+  const show = (key: SearchType) =>
+    (all || type === key) && (result[key as Exclude<SearchType, 'all'>]?.items.length ?? 0) > 0;
   const nothing =
     result.messages.items.length +
       result.channels.items.length +
       result.people.items.length +
-      result.files.items.length ===
+      result.files.items.length +
+      (result.tasks?.items.length ?? 0) ===
     0;
 
   if (nothing) {
@@ -100,6 +103,19 @@ export const SearchResults = ({
         >
           {result.people.items.map((person) => (
             <PersonResult key={person.id} person={person} />
+          ))}
+        </Section>
+      )}
+      {show('tasks') && (
+        <Section
+          title="Tasks"
+          icon="task"
+          count={result.tasks.items.length}
+          more={result.tasks.hasMore}
+          onShowAll={all ? () => onShowAll('tasks') : undefined}
+        >
+          {result.tasks.items.map((task) => (
+            <TaskResult key={task.id} task={task} />
           ))}
         </Section>
       )}

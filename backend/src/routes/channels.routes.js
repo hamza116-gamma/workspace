@@ -14,6 +14,7 @@ const pinController = require('../controllers/pin.controller');
 const linkController = require('../controllers/link.controller');
 const unreadController = require('../controllers/unread.controller');
 const scheduledController = require('../controllers/scheduled.controller');
+const taskController = require('../controllers/task.controller');
 
 const router = Router();
 
@@ -48,6 +49,13 @@ router.post(
   requireChannel,
   requireChannelWrite,
   scheduledController.createForChannel,
+);
+router.get('/:channelId/tasks', requireChannel, taskController.listChannel);
+router.post(
+  '/:channelId/tasks',
+  requireChannel,
+  requireChannelWrite,
+  taskController.createInChannel,
 );
 router.post('/:channelId/read', requireChannel, unreadController.readChannel);
 

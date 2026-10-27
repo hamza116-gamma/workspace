@@ -1,11 +1,12 @@
 import type { NotificationItem } from '@/types/notification';
 
-export type ActivityFilter = 'ALL' | 'MENTIONS' | 'THREADS' | 'REACTIONS';
+export type ActivityFilter = 'ALL' | 'MENTIONS' | 'THREADS' | 'TASKS' | 'REACTIONS';
 
 export const FILTERS: { id: ActivityFilter; label: string }[] = [
   { id: 'ALL', label: 'All' },
   { id: 'MENTIONS', label: 'Mentions' },
   { id: 'THREADS', label: 'Threads' },
+  { id: 'TASKS', label: 'Tasks' },
   { id: 'REACTIONS', label: 'Reactions' },
 ];
 
@@ -14,6 +15,7 @@ export const FILTERS: { id: ActivityFilter; label: string }[] = [
 const TYPES: Record<Exclude<ActivityFilter, 'ALL'>, string[]> = {
   MENTIONS: ['MENTION'],
   THREADS: ['THREAD_REPLY'],
+  TASKS: ['TASK_ASSIGNED', 'TASK_DUE'],
   REACTIONS: ['REACTION'],
 };
 

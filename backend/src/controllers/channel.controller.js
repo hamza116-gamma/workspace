@@ -5,9 +5,11 @@ const organizationService = require('../services/organization.service');
 const auditService = require('../services/audit.service');
 const userService = require('../services/user.service');
 const defaultChannelService = require('../services/defaultChannel.service');
-const { CHANNEL_TYPES, AUDIT_ACTIONS } = require('../config/constants');
+const { CHANNEL_TYPES, AUDIT_ACTIONS, ORG_ROLES } = require('../config/constants');
+const { AppError } = require('../utils/AppError');
 const { leaveChannelRooms } = require('../sockets/kick');
 const { emitChannelUpdated, emitMembershipChanged } = require('../sockets/channelEvents');
+const { releaseChannelAssignee } = require('../sockets/taskEvents');
 
 const toChannelWithContext = (channel, membership, memberCount) =>
   channelService.toPublicChannel(channel, { membership, memberCount });
@@ -61,9 +63,34 @@ const get = asyncHandler(async (req, res) => {
   });
 });
 
+// Public -> private: people who are not members lose live access at once.
+const dropNonMemberSockets = async (io, channel) => {
+  if (!io) {
+    return;
+  }
+  const members = await channelService.listMembers(channel._id);
+  const memberIds = new Set(members.map((member) => String(member.user?._id ?? member.user)));
+  const sockets = await io.in(`channel:${channel._id}`).fetchSockets();
+  sockets
+    .filter((socket) => !memberIds.has(String(socket.data?.user?._id ?? socket.data?.userId)))
+    .forEach((socket) => socket.leave(`channel:${channel._id}`));
+};
+
 const update = asyncHandler(async (req, res) => {
-  const before = { name: req.channel.name, topic: req.channel.topic, purpose: req.channel.purpose };
+  const changingType = req.body.type !== undefined && req.body.type !== req.channel.type;
+  if (changingType && ![ORG_ROLES.OWNER, ORG_ROLES.ADMIN].includes(req.membership?.role)) {
+    throw new AppError(403, 'Only workspace owners and admins can change channel visibility');
+  }
+  const before = {
+    name: req.channel.name,
+    topic: req.channel.topic,
+    purpose: req.channel.purpose,
+    type: req.channel.type,
+  };
   const channel = await channelService.updateChannel(req.channel, req.body);
+  if (changingType && channel.type === CHANNEL_TYPES.PRIVATE) {
+    await dropNonMemberSockets(getIo(req), channel);
+  }
   const changes = Object.keys(before)
     .filter((field) => before[field] !== channel[field])
     .map((field) => ({ field, from: before[field], to: channel[field] }));
@@ -108,6 +135,12 @@ const join = asyncHandler(async (req, res) => {
 const leave = asyncHandler(async (req, res) => {
   await channelService.leaveChannel(req.channel, req.user);
   notifyMembership(req, req.user._id, false);
+  await releaseChannelAssignee(
+    getIo(req),
+    req.channel._id,
+    req.user._id,
+    'was unassigned (left the channel)',
+  );
   if (req.channel.type === CHANNEL_TYPES.PRIVATE) {
     await leaveChannelRooms(getIo(req), req.user._id, req.channel._id);
   }
@@ -133,6 +166,12 @@ const addMembers = asyncHandler(async (req, res) => {
 const removeMember = asyncHandler(async (req, res) => {
   await channelService.removeMember(req.channel, req.params.userId);
   notifyMembership(req, req.params.userId, false);
+  await releaseChannelAssignee(
+    getIo(req),
+    req.channel._id,
+    req.params.userId,
+    'was unassigned (removed from the channel)',
+  );
   if (String(req.params.userId) !== String(req.user._id)) {
     const removed = await userService.findById(req.params.userId);
     await audit(req, AUDIT_ACTIONS.CHANNEL_MEMBER_REMOVED, req.channel, {

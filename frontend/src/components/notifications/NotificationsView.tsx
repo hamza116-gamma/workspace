@@ -9,6 +9,7 @@ import { useOrg } from '@/hooks/useOrg';
 import { useSaved } from '@/hooks/useSaved';
 import { useActivitySummary } from '@/hooks/useActivitySummary';
 import { useOrgMembers } from '@/hooks/useOrgMembers';
+import { tokensToDisplay } from '@/lib/mentions';
 import { PageHeader } from '@/components/ui/PageHeader';
 import { Button } from '@/components/ui/Button';
 import { Pill } from '@/components/ui/Pill';
@@ -34,6 +35,8 @@ export const NotificationsView = () => {
   const saved = useSaved();
   const summary = useActivitySummary();
   const members = useOrgMembers();
+  const memberUsers = members.map((member) => member.user);
+  const memberNames = memberUsers.map((user) => user.fullName);
   const [filter, setFilter] = useState<ActivityFilter>('ALL');
 
   const visible = useMemo(() => applyFilter(items, filter), [items, filter]);
@@ -50,13 +53,35 @@ export const NotificationsView = () => {
     const channel = channelName(item.channelId);
     switch (item.type) {
       case 'MENTION':
-        return channel ? <>mentioned you in <b>{channel}</b></> : 'mentioned you';
+        return channel ? (
+          <>
+            mentioned you in <b>{channel}</b>
+          </>
+        ) : (
+          'mentioned you'
+        );
       case 'DM':
         return 'sent you a message';
+      case 'TASK_ASSIGNED':
+        return channel ? (
+          <>
+            assigned you a task in <b>{channel}</b>
+          </>
+        ) : (
+          'assigned you a task'
+        );
+      case 'TASK_DUE':
+        return 'your task is due within 24 hours';
       case 'THREAD_REPLY':
         return 'replied to a thread you follow';
       default:
-        return channel ? <>posted in <b>{channel}</b></> : 'posted a message';
+        return channel ? (
+          <>
+            posted in <b>{channel}</b>
+          </>
+        ) : (
+          'posted a message'
+        );
     }
   };
 
@@ -124,7 +149,8 @@ export const NotificationsView = () => {
             {visibleUnread > 0 && <Pill tone="info">{visibleUnread} unread</Pill>}
           </div>
 
-          {loading && items.length === 0 &&
+          {loading &&
+            items.length === 0 &&
             [0, 1, 2].map((key) => (
               <div key={key} className={styles.skelRow} aria-hidden>
                 <span className={styles.skelIc} />
@@ -152,7 +178,9 @@ export const NotificationsView = () => {
           {visible.map((item) => (
             <ActivityFeedItem
               key={item.id}
-              item={item}
+              // Older snippets were stored with raw mention tokens.
+              item={{ ...item, snippet: tokensToDisplay(item.snippet, memberUsers) }}
+              mentionNames={memberNames}
               href={href(item)}
               action={action(item)}
               where={where(item)}

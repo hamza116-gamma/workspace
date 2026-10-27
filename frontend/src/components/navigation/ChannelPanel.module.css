@@ -293,3 +293,28 @@
   background: var(--pos);
   flex: none;
 }
+
+/* Search trigger (button): full width, label + shortcut hint. */
+button.search {
+  width: calc(100% - 20px);
+  font-family: inherit;
+  font-size: 13.5px;
+  text-align: left;
+  cursor: pointer;
+}
+
+.searchLabel {
+  flex: 1;
+}
+
+.searchKbd {
+  padding: 1px 6px;
+  border: 1px solid var(--line-2);
+  border-bottom-width: 2px;
+  border-radius: 5px;
+  background: var(--surface-1);
+  font-family: inherit;
+  font-size: 10.5px;
+  font-weight: 600;
+  color: var(--ink-3);
+}

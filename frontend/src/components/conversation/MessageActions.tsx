@@ -21,6 +21,7 @@ export const MessageActions = ({
   onTogglePin,
   saved,
   onToggleSave,
+  onCreateTask,
 }: {
   message: Message;
   isOwn: boolean;
@@ -35,6 +36,7 @@ export const MessageActions = ({
   onTogglePin?: () => void;
   saved?: boolean;
   onToggleSave?: () => void;
+  onCreateTask?: () => void;
 }) => {
   const copyText = () => {
     void navigator.clipboard?.writeText(message.content);
@@ -44,9 +46,7 @@ export const MessageActions = ({
     const base = message.channelId
       ? `/channels/${message.channelId}`
       : `/dm/${message.conversationId}`;
-    void navigator.clipboard?.writeText(
-      `${window.location.origin}${base}?message=${message.id}`,
-    );
+    void navigator.clipboard?.writeText(`${window.location.origin}${base}?message=${message.id}`);
   };
 
   const items: MenuItem[] = [
@@ -54,6 +54,10 @@ export const MessageActions = ({
     { label: 'Copy text', icon: 'copy', onSelect: copyText },
     { label: 'Copy link', icon: 'link', onSelect: copyLink },
   ];
+
+  if (onCreateTask && !message.taskId && !message.huddleId && !message.parentMessageId) {
+    items.push({ label: 'Create task', icon: 'task', onSelect: onCreateTask });
+  }
 
   if (onTogglePin) {
     items.push({

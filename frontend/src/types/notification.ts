@@ -1,6 +1,12 @@
 import type { User } from './user';
 
-export type NotificationType = 'MENTION' | 'DM' | 'THREAD_REPLY' | 'CHANNEL';
+export type NotificationType =
+  | 'MENTION'
+  | 'DM'
+  | 'THREAD_REPLY'
+  | 'CHANNEL'
+  | 'TASK_ASSIGNED'
+  | 'TASK_DUE';
 
 export type NotificationItem = {
   id: string;

@@ -5,6 +5,7 @@ import { Icon } from '@/components/ui/Icon';
 import { DropdownMenu } from '@/components/ui/DropdownMenu';
 import { displayToTokens } from '@/lib/mentions';
 import { matchSlashCommands, runSlashCommand, type SlashCommand } from '@/lib/slashCommands';
+import { CreateTaskDialog } from '@/components/tasks/CreateTaskDialog';
 import { updateChannel } from '@/lib/channels';
 import { formatScheduleTime } from '@/lib/scheduleTimes';
 import { useAudioRecorder } from '@/hooks/useAudioRecorder';
@@ -71,7 +72,7 @@ export const MessageComposer = ({
   mentionables?: User[];
   allowChannelMention?: boolean;
   onSend: (content: string, attachments: PendingAttachment[]) => Promise<void> | void;
-  onTyping?: (active: boolean) => void;
+  onTyping?: (active: boolean, activity?: 'typing' | 'recording') => void;
 }) => {
   const [value, setValue] = useState('');
   const [sending, setSending] = useState(false);
@@ -173,6 +174,12 @@ export const MessageComposer = ({
     editorRef.current?.focus();
   };
 
+  const [taskTarget, setTaskTarget] = useState<{
+    channelId: string | null;
+    conversationId: string | null;
+    title: string;
+  } | null>(null);
+
   const runCommand = async (content: string) => {
     const channelId = scheduleTarget?.kind === 'channel' ? scheduleTarget.id : null;
     return runSlashCommand(content, {
@@ -204,6 +211,19 @@ export const MessageComposer = ({
         if (result?.kind === 'done') {
           replaceValue('');
           setNotice(result.notice);
+          return;
+        }
+        if (result?.kind === 'task') {
+          if (!scheduleTarget) {
+            setSendError('/task only works in a channel or direct message');
+            return;
+          }
+          replaceValue('');
+          setTaskTarget({
+            channelId: scheduleTarget.kind === 'channel' ? scheduleTarget.id : null,
+            conversationId: scheduleTarget.kind === 'channel' ? null : scheduleTarget.id,
+            title: result.title,
+          });
           return;
         }
         if (result?.kind === 'send') text = result.content;
@@ -244,6 +264,20 @@ export const MessageComposer = ({
 
   const recordingRef = useRef(false);
   recordingRef.current = recording;
+
+  // Others see "is recording audio" while a clip records (re-sent so it
+  // does not expire on the server mid-recording).
+  useEffect(() => {
+    if (!recording) {
+      return;
+    }
+    onTyping?.(true, 'recording');
+    const beat = setInterval(() => onTyping?.(true, 'recording'), 4000);
+    return () => {
+      clearInterval(beat);
+      onTyping?.(false, 'recording');
+    };
+  }, [recording, onTyping]);
 
   // Sends the clip: when still recording (auto-stop at the cap) it stops
   // first, otherwise it sends the recorded preview.
@@ -583,6 +617,7 @@ export const MessageComposer = ({
         }}
       />
       <LinkDialog {...controls.linkDialog} />
+      <CreateTaskDialog target={taskTarget} onClose={() => setTaskTarget(null)} />
     </div>
   );
 };

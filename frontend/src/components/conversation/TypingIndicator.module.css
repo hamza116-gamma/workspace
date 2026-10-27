@@ -3,10 +3,20 @@
   display: flex;
   align-items: center;
   gap: 8px;
-  min-height: 22px;
-  padding: 0 var(--msg-px, 22px) 8px;
+  /* A light pill so it stands apart from the chat background. */
+  align-self: flex-start;
+  width: fit-content;
+  max-width: calc(100% - 2 * var(--msg-px, 22px));
+  min-height: 24px;
+  margin: 2px var(--msg-px, 22px) 6px;
+  padding: 3px 12px 3px 10px;
+  border: 1px solid var(--line);
+  border-radius: var(--r-pill, 999px);
+  background: var(--brand-soft, #e7f4ef);
+  box-shadow: 0 1px 2px rgba(16, 24, 40, 0.05);
   font-size: 12px;
-  color: var(--ink-3);
+  font-weight: 560;
+  color: var(--brand-ink, #1d7a5f);
   min-width: 0;
   animation: qlFade var(--t) var(--ease);
 }
@@ -21,7 +31,7 @@
   width: 5px;
   height: 5px;
   border-radius: 50%;
-  background: var(--ink-3);
+  background: currentColor;
   animation: blink 1.2s infinite;
 }
 
@@ -48,5 +58,40 @@
   }
   40% {
     opacity: 1;
+  }
+}
+
+/* Recording: red mic with a soft pulse (typing keeps the green dots). */
+.mic {
+  display: inline-flex;
+  flex: none;
+  align-items: center;
+  justify-content: center;
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  background: #fee4e2;
+  color: #d92d20;
+  animation: micPulse 1.4s ease-in-out infinite;
+}
+
+.recordingText {
+  color: #b42318;
+}
+
+.sep {
+  margin: 0 6px;
+  opacity: 0.6;
+}
+
+@keyframes micPulse {
+  50% {
+    box-shadow: 0 0 0 4px rgba(240, 68, 56, 0.15);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .mic {
+    animation: none;
   }
 }

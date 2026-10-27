@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation';
 import { useActiveChannel } from '@/hooks/useActiveChannel';
 import { useAttachments } from '@/hooks/useAttachments';
 import { useFocusMessage } from '@/hooks/useFocusMessage';
+import { TasksBoard } from '@/components/tasks/TasksBoard';
 import { useLinks } from '@/hooks/useLinks';
 import { useMentionables } from '@/hooks/useMentionables';
 import { useOrg } from '@/hooks/useOrg';
@@ -33,7 +34,7 @@ import headerStyles from './ConversationHeader.module.css';
 import type { ChannelNotify } from '@/types/channel';
 import styles from './ChannelWorkspace.module.css';
 
-type ChannelTab = 'messages' | 'files' | 'links' | 'pins' | 'members';
+type ChannelTab = 'messages' | 'files' | 'links' | 'pins' | 'tasks' | 'members';
 
 export const ChannelWorkspace = ({ channelId }: { channelId: string }) => {
   const router = useRouter();
@@ -286,6 +287,11 @@ export const ChannelWorkspace = ({ channelId }: { channelId: string }) => {
       onClick: () => setTab('links'),
     });
   }
+  tabs.push({
+    label: 'Tasks',
+    active: tab === 'tasks',
+    onClick: () => setTab('tasks'),
+  });
   if (channel.isMember) {
     tabs.push({
       label: 'Members',
@@ -318,6 +324,13 @@ export const ChannelWorkspace = ({ channelId }: { channelId: string }) => {
         attachments={tab === 'files' ? attachments : []}
         links={tab === 'links' ? links : []}
         loading={filesLoading || linksLoading}
+      />
+    ) : tab === 'tasks' ? (
+      <TasksBoard
+        channelId={channel.id}
+        canModerate={canManage}
+        canCreate={channel.isMember && !isArchived}
+        onOpenTask={(task) => openPinned(task.messageId)}
       />
     ) : tab === 'pins' ? (
       <ChannelPins onSelectMessage={openPinned} />

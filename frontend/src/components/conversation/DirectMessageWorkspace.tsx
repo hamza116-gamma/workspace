@@ -22,6 +22,8 @@ import { MemberFacepile } from './MemberFacepile';
 import { HuddleStartButton } from '@/components/huddle/HuddleStartButton';
 import { ConversationView } from './ConversationView';
 import { ConversationHeader, type ConversationTab } from './ConversationHeader';
+import { useFocusMessage } from '@/hooks/useFocusMessage';
+import { TasksBoard } from '@/components/tasks/TasksBoard';
 import { FilesLinks } from './FilesLinks';
 import headerStyles from './ConversationHeader.module.css';
 import { MemberPickerDialog } from './MemberPickerDialog';
@@ -61,7 +63,8 @@ export const DirectMessageWorkspace = ({ conversationId }: { conversationId: str
   );
   const [addOpen, setAddOpen] = useState(false);
   const { isMuted, setMuted } = useConversationMute();
-  const [tab, setTab] = useState<'messages' | 'files' | 'links'>('messages');
+  const [tab, setTab] = useState<'messages' | 'files' | 'links' | 'tasks'>('messages');
+  const { focusMessage } = useFocusMessage();
   const markedRef = useRef<string | null>(null);
 
   useEffect(() => {
@@ -186,6 +189,7 @@ export const DirectMessageWorkspace = ({ conversationId }: { conversationId: str
       onClick: () => setTab('links'),
     });
   }
+  tabs.push({ label: 'Tasks', active: tab === 'tasks', onClick: () => setTab('tasks') });
 
   return (
     <>
@@ -221,6 +225,14 @@ export const DirectMessageWorkspace = ({ conversationId }: { conversationId: str
               attachments={tab === 'files' ? attachments : []}
               links={tab === 'links' ? links : []}
               loading={filesLoading || linksLoading}
+            />
+          ) : tab === 'tasks' ? (
+            <TasksBoard
+              conversationId={conversation.id}
+              onOpenTask={(task) => {
+                setTab('messages');
+                focusMessage(task.messageId);
+              }}
             />
           ) : undefined
         }

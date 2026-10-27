@@ -3,7 +3,7 @@ import { tomorrowAtNine } from './dnd';
 
 /**
  * Slash commands, run in the browser when the composer sends:
- * /shrug /tableflip /unflip /me /dnd /topic.
+ * /shrug /tableflip /unflip /me /dnd /topic /task.
  */
 export type SlashCommand = { name: string; args?: string; description: string };
 
@@ -18,6 +18,7 @@ export const SLASH_COMMANDS: SlashCommand[] = [
     description: 'Pause notifications (default 1 hour)',
   },
   { name: 'topic', args: 'text', description: 'Set the channel topic' },
+  { name: 'task', args: '[title]', description: 'Create a task in this conversation' },
 ];
 
 /** Commands matching what is typed ("/sh" -> shrug); null when not a "/word". */
@@ -38,6 +39,8 @@ export type SlashContext = {
 export type SlashResult =
   | { kind: 'send'; content: string }
   | { kind: 'done'; notice: string }
+  // Open the Create task form with this title.
+  | { kind: 'task'; title: string }
   | { kind: 'error'; message: string };
 
 const DND_DURATIONS: Record<string, number> = {
@@ -92,6 +95,8 @@ export const runSlashCommand = async (
       }
       await context.setTopic(context.channelId, rest);
       return { kind: 'done', notice: rest ? 'Topic updated' : 'Topic cleared' };
+    case 'task':
+      return { kind: 'task', title: rest };
     default:
       return null;
   }

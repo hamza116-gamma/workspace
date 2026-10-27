@@ -249,6 +249,16 @@ const updateChannel = async (channel, payload) => {
   if (payload.purpose !== undefined) {
     channel.purpose = toOptionalString(payload.purpose);
   }
+  // Visibility (Slack: workspace owners/admins only; the controller checks).
+  if (payload.type !== undefined && payload.type !== channel.type) {
+    if (!Object.values(CHANNEL_TYPES).includes(payload.type)) {
+      throw new AppError(400, 'Invalid channel visibility');
+    }
+    if (payload.type === CHANNEL_TYPES.PRIVATE) {
+      assertNotDefault(channel, 'The default channel must stay public');
+    }
+    channel.type = payload.type;
+  }
 
   await channel.save();
   return channel;

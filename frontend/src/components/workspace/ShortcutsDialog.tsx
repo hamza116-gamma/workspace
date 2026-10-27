@@ -4,7 +4,7 @@ import { Modal } from '@/components/ui/Modal';
 import styles from './QuickSwitcher.module.css';
 
 const SHORTCUTS: { keys: string; action: string }[] = [
-  { keys: 'Ctrl/Cmd + K', action: 'Jump to a channel, conversation or person' },
+  { keys: 'Ctrl/Cmd + K', action: 'Search: jump to channels, people, tasks and messages' },
   { keys: 'Ctrl/Cmd + /', action: 'Show keyboard shortcuts' },
   { keys: 'Enter', action: 'Send message' },
   { keys: 'Shift + Enter', action: 'New line' },

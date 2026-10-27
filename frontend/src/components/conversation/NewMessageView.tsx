@@ -71,7 +71,8 @@ export const NewMessageView = () => {
   }, [recipientKey]);
 
   const target = resolved ? { kind: 'conversation' as const, id: resolved.id } : null;
-  const { messages, loading, typingUsers, edit, remove, react, setTyping } = useMessages(target);
+  const { messages, loading, typingUsers, recordingUsers, edit, remove, react, setTyping } =
+    useMessages(target);
   const { mark } = useUnread();
   const targetKey = target ? `conversation:${target.id}` : undefined;
 
@@ -132,9 +133,7 @@ export const NewMessageView = () => {
           <Icon name="message" size={24} />
         </span>
         <h2 className={styles.emptyTitle}>{names}</h2>
-        <p className={styles.emptyText}>
-          This is the beginning of your conversation with {names}.
-        </p>
+        <p className={styles.emptyText}>This is the beginning of your conversation with {names}.</p>
       </div>
     );
 
@@ -245,6 +244,7 @@ export const NewMessageView = () => {
         onMarkUnread={(messageId) => targetKey && mark(targetKey, messageId)}
       />
 
+      <TypingIndicator users={typingUsers} recording={recordingUsers} />
       <MessageComposer
         disabled={recipients.length === 0}
         placeholder={composerPlaceholder}
@@ -252,7 +252,6 @@ export const NewMessageView = () => {
         onSend={handleSend}
         onTyping={setTyping}
       />
-      <TypingIndicator users={typingUsers} />
     </div>
   );
 };

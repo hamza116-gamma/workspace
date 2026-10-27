@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useState } from 'react';
 import { useAuth } from './useAuth';
 import { useSocket } from './useSocket';
-import { useTypingUsers, type TypingPayload } from './useTypingUsers';
+import { useTypingUsers, type ComposerActivity, type TypingPayload } from './useTypingUsers';
 import {
   deleteMessage,
   followThread,
@@ -26,7 +26,7 @@ export const useThread = (rootId: string | null) => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [following, setFollowing] = useState(false);
-  const { typingUsers, applyTyping, resetTyping } = useTypingUsers(user?.id);
+  const { typingUsers, recordingUsers, applyTyping, resetTyping } = useTypingUsers(user?.id);
 
   const load = useCallback(async () => {
     if (!rootId) {
@@ -150,7 +150,8 @@ export const useThread = (rootId: string | null) => {
   );
 
   const react = useCallback(
-    async (messageId: string, emoji: string) => applyMessage((await toggleReaction(messageId, emoji)).message),
+    async (messageId: string, emoji: string) =>
+      applyMessage((await toggleReaction(messageId, emoji)).message),
     [applyMessage],
   );
 
@@ -172,11 +173,15 @@ export const useThread = (rootId: string | null) => {
   );
 
   const setTypingActive = useCallback(
-    (active: boolean) => {
+    (active: boolean, activity: ComposerActivity = 'typing') => {
       if (!socket || !rootId) {
         return;
       }
-      socket.emit(active ? 'typing.start' : 'typing.stop', { kind: 'thread', id: rootId });
+      socket.emit(active ? 'typing.start' : 'typing.stop', {
+        kind: 'thread',
+        id: rootId,
+        activity,
+      });
     },
     [socket, rootId],
   );
@@ -201,6 +206,7 @@ export const useThread = (rootId: string | null) => {
     error,
     following,
     typingUsers,
+    recordingUsers,
     send,
     react,
     edit,

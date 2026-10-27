@@ -8,6 +8,7 @@ const attachmentController = require('../controllers/attachment.controller');
 const linkController = require('../controllers/link.controller');
 const unreadController = require('../controllers/unread.controller');
 const scheduledController = require('../controllers/scheduled.controller');
+const taskController = require('../controllers/task.controller');
 
 const router = Router();
 
@@ -32,6 +33,8 @@ router.post(
   requireConversation,
   scheduledController.createForConversation,
 );
+router.get('/:conversationId/tasks', requireConversation, taskController.listConversation);
+router.post('/:conversationId/tasks', requireConversation, taskController.createInConversation);
 router.post('/:conversationId/read', requireConversation, unreadController.readConversation);
 
 router.patch(

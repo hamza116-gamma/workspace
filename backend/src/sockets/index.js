@@ -14,6 +14,9 @@ const { MEMBER_STATUS } = require('../config/constants');
 const { registerHuddleHandlers, leaveHuddlesOnDisconnect } = require('./huddle.sockets');
 
 const TYPING_TTL_MS = 5000;
+// Recording a voice clip: clients re-send every few seconds while recording.
+const RECORDING_TTL_MS = 8000;
+const ACTIVITIES = ['typing', 'recording'];
 
 const typingTimers = new Map();
 
@@ -34,6 +37,8 @@ const stopTyping = (io, socket, kind, id) => {
   });
 };
 
+// activity: what the user is doing in the composer ("typing" | "recording").
+
 const handleTyping = (io, socket, payload, typing) => {
   const kind = payload?.kind;
   const id = payload?.id;
@@ -48,18 +53,23 @@ const handleTyping = (io, socket, payload, typing) => {
     return;
   }
 
+  const activity = ACTIVITIES.includes(payload?.activity) ? payload.activity : 'typing';
   io.to(roomFor(kind, id)).emit('typing.updated', {
     kind,
     id: String(id),
     user: { id: String(socket.data.user._id), fullName: socket.data.user.fullName },
     typing: true,
+    activity,
   });
 
   const key = `${socket.id}:${kind}:${id}`;
   clearTimeout(typingTimers.get(key));
   typingTimers.set(
     key,
-    setTimeout(() => stopTyping(io, socket, kind, id), TYPING_TTL_MS),
+    setTimeout(
+      () => stopTyping(io, socket, kind, id),
+      activity === 'recording' ? RECORDING_TTL_MS : TYPING_TTL_MS,
+    ),
   );
 };
 

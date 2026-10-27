@@ -37,6 +37,8 @@ const messageSchema = new mongoose.Schema(
     replyUserIds: [{ type: mongoose.Schema.Types.ObjectId, ref: 'User' }],
     // Huddle call-log card (one per huddle; not editable).
     huddle: { type: mongoose.Schema.Types.ObjectId, ref: 'Huddle', default: null },
+    // Task card (the message is the task's root; its thread is the discussion).
+    task: { type: mongoose.Schema.Types.ObjectId, ref: 'Task', default: null },
     editedAt: { type: Date, default: null },
     deletedAt: { type: Date, default: null },
   },

@@ -17,6 +17,8 @@ const organizationSchema = new mongoose.Schema(
       expiresAt: { type: Date, default: null },
       createdBy: { type: mongoose.Schema.Types.ObjectId, ref: 'User', default: null },
     },
+    // Per-workspace task number sequence (TASK-1, TASK-2, ...).
+    taskSeq: { type: Number, default: 0 },
     status: {
       type: String,
       enum: Object.values(ORGANIZATION_STATUS),

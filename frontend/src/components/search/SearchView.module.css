@@ -72,21 +72,41 @@
 .searchBox {
   display: flex;
   align-items: center;
-  gap: 10px;
+  gap: 8px;
   max-width: 760px;
-  height: 44px;
-  padding: 0 6px 0 14px;
+  height: 54px;
+  padding: 0 7px 0 8px;
   background: var(--surface-1);
   border: 1px solid var(--line-2);
-  border-radius: var(--r-md);
-  box-shadow: var(--sh-1);
+  border-radius: 14px;
+  box-shadow:
+    0 1px 2px rgba(16, 24, 40, 0.05),
+    0 6px 20px rgba(16, 24, 40, 0.05);
   color: var(--ink-3);
   transition: all var(--t) var(--ease);
 }
 
+.searchBox:hover {
+  border-color: var(--brand-3);
+}
+
 .searchBox:focus-within {
   border-color: var(--brand-3);
-  box-shadow: 0 0 0 3px var(--brand-soft);
+  box-shadow:
+    0 0 0 4px var(--brand-soft),
+    0 6px 20px rgba(16, 24, 40, 0.06);
+}
+
+.searchIcon {
+  display: inline-flex;
+  flex: none;
+  align-items: center;
+  justify-content: center;
+  width: 38px;
+  height: 38px;
+  border-radius: 10px;
+  background: var(--brand-soft);
+  color: var(--brand-ink, var(--brand));
 }
 
 .searchBox input {
@@ -97,7 +117,51 @@
   background: transparent;
   color: var(--ink);
   font-family: inherit;
-  font-size: 14px;
+  font-size: 15px;
+}
+
+/* Native clear "x" replaced by our own button. */
+.searchBox input::-webkit-search-cancel-button {
+  display: none;
+}
+
+.clear {
+  display: inline-flex;
+  flex: none;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  border: 0;
+  border-radius: 50%;
+  background: var(--surface-2);
+  color: var(--ink-3);
+  cursor: pointer;
+  transition: all var(--t) var(--ease);
+}
+
+.clear:hover {
+  background: var(--line);
+  color: var(--ink);
+}
+
+.kbd {
+  flex: none;
+  padding: 2px 7px;
+  border: 1px solid var(--line-2);
+  border-bottom-width: 2px;
+  border-radius: 6px;
+  background: var(--surface-2);
+  color: var(--ink-3);
+  font-family: inherit;
+  font-size: 11px;
+  font-weight: 600;
+}
+
+@media (max-width: 600px) {
+  .kbd {
+    display: none;
+  }
 }
 
 .submit,
@@ -121,9 +185,14 @@
 }
 
 .submit {
+  height: 40px;
+  padding: 0 18px;
   border-color: transparent;
+  border-radius: 10px;
   background: var(--brand);
   color: #ffffff;
+  font-size: 13.5px;
+  font-weight: 620;
 }
 
 .submit:hover {
@@ -172,19 +241,41 @@
   color: var(--brand-ink);
 }
 
+.operatorOn {
+  background: var(--brand);
+  border-color: transparent;
+  color: #ffffff;
+}
+
+.hintLabel {
+  margin-right: 2px;
+  font-size: 10.5px;
+  font-weight: 650;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+/* Segmented control. */
 .tabs {
-  display: flex;
-  gap: 4px;
+  display: inline-flex;
+  flex-wrap: wrap;
+  gap: 2px;
   max-width: 760px;
-  margin-bottom: 18px;
-  border-bottom: 1px solid var(--line);
+  margin-bottom: 20px;
+  padding: 4px;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: var(--surface-2);
 }
 
 .tab {
-  height: 36px;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  height: 32px;
   padding: 0 12px;
   border: 0;
-  border-bottom: 2px solid transparent;
+  border-radius: 9px;
   background: transparent;
   color: var(--ink-2);
   font-family: inherit;
@@ -195,12 +286,16 @@
 }
 
 .tab:hover {
+  background: var(--surface-1);
   color: var(--ink);
 }
 
-.tabActive {
-  border-bottom-color: var(--brand);
-  color: var(--brand-ink);
+.tabActive,
+.tabActive:hover {
+  background: var(--surface-1);
+  box-shadow: 0 1px 3px rgba(16, 24, 40, 0.1);
+  color: var(--brand-ink, var(--brand));
+  font-weight: 640;
 }
 
 .results {
