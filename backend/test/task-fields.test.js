@@ -90,7 +90,7 @@ test('project subtasks get project keys, hidden threads and keep the parent coun
     parent,
     payload: { title: 'Ship it' },
   });
-  assert.equal(`${one.projectKey}-${one.number}`, 'FLD-2');
+  assert.equal(Task.keyOf(one), 'FLD-1.1', 'subtask key follows its parent');
   assert.equal(String(one.parent), String(parent._id));
   assert.equal((await Message.findById(one.message)).ticketThread, true, 'hidden thread');
 

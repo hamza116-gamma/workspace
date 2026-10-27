@@ -155,7 +155,7 @@ const main = async () => {
 
   const total = await Task.countDocuments({});
   const clash = await Task.aggregate([
-    { $group: { _id: { o: '$organization', k: '$projectKey', n: '$number' }, c: { $sum: 1 } } },
+    { $group: { _id: { o: '$organization', k: '$projectKey', n: '$number', s: '$subIndex' }, c: { $sum: 1 } } },
     { $match: { c: { $gt: 1 } } },
   ]);
   console.log(`- tasks in total: ${total}; duplicate keys: ${clash.length}`);
