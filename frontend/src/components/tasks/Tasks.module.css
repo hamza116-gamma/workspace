@@ -1134,3 +1134,144 @@ button.open {
   font-size: 12px;
   cursor: pointer;
 }
+
+/* ---- step header (create / edit task) ---- */
+.steps {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 6px;
+  margin: 0 0 4px;
+  padding: 0;
+  list-style: none;
+}
+
+.stepItem {
+  min-width: 0;
+}
+
+.step {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  padding: 8px 10px;
+  border: 1px solid var(--line);
+  border-radius: var(--r-md, 10px);
+  background: transparent;
+  color: var(--ink-3);
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+  transition:
+    border-color 120ms var(--ease, ease),
+    background 120ms var(--ease, ease);
+}
+
+.step:disabled {
+  cursor: default;
+}
+
+.step:hover:not(:disabled) {
+  border-color: var(--line-2);
+}
+
+.step_current {
+  border-color: var(--brand, var(--ink));
+  background: var(--brand-soft, var(--surface-2));
+  color: var(--ink);
+}
+
+.step_done {
+  color: var(--ink-2);
+}
+
+.stepNum {
+  display: grid;
+  flex: none;
+  place-items: center;
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  background: var(--surface-2);
+  font-size: 11.5px;
+  font-weight: 700;
+}
+
+.step_current .stepNum {
+  background: var(--brand, var(--ink));
+  color: var(--on-brand, #fff);
+}
+
+.step_done .stepNum {
+  background: var(--pos-soft, #ecfdf3);
+  color: var(--pos, #12805c);
+}
+
+.stepText {
+  display: grid;
+  min-width: 0;
+}
+
+.stepLabel {
+  font-size: 12.5px;
+  font-weight: 650;
+}
+
+.stepHint {
+  overflow: hidden;
+  color: var(--ink-3);
+  font-size: 11px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* Footer: Back on the left; Next / Create on the right. */
+.stepActions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.stepActions .grow {
+  flex: 1;
+}
+
+/* Subtask titles typed while creating a task. */
+.draftList {
+  display: grid;
+  gap: 4px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.draftRow {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 10px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  font-size: 13px;
+}
+
+.draftRow span {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.draftRow button {
+  border: 0;
+  background: transparent;
+  color: var(--ink-3);
+  cursor: pointer;
+}
+
+@media (max-width: 520px) {
+  .stepHint {
+    display: none;
+  }
+}

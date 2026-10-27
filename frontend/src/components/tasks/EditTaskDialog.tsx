@@ -24,6 +24,7 @@ import {
 import type { User } from '@/types/user';
 import { useTaskStatuses } from '@/hooks/useTaskStatuses';
 import { Subtasks } from './Subtasks';
+import { TaskSteps, type TaskStep } from './TaskSteps';
 import styles from './Tasks.module.css';
 
 const TYPE_OPTIONS = (Object.keys(TASK_TYPE_LABELS) as TaskType[]).map((value) => ({
@@ -36,7 +37,6 @@ const PRIORITY_OPTIONS = (Object.keys(TASK_PRIORITY_LABELS) as TaskPriority[]).m
   label: TASK_PRIORITY_LABELS[value],
   color: TASK_PRIORITY_COLORS[value],
 }));
-
 
 // Status choices for a task: its project's statuses (or the defaults).
 const statusOptions = (statuses: TaskStatusDef[]) =>
@@ -81,6 +81,8 @@ export const EditTaskDialog = ({
   const { statusesFor } = useTaskStatuses();
   // Two-step delete: first click asks, second click deletes.
   const [confirmDelete, setConfirmDelete] = useState(false);
+  // Same three steps as Create, used as tabs; Save works from any of them.
+  const [step, setStep] = useState<TaskStep>(0);
   // A task with subtasks: delete them too, or keep them as separate tasks.
   const [subtaskChoice, setSubtaskChoice] = useState<'keep' | 'delete'>('keep');
   const [dueDate, setDueDate] = useState(toDateInput(task.dueDate));
@@ -103,6 +105,7 @@ export const EditTaskDialog = ({
     setEstimate(formatEstimate(task.estimateMinutes));
     setStatus(task.status);
     setConfirmDelete(false);
+    setStep(0);
     setDueDate(toDateInput(task.dueDate));
     setAssignees(task.assignees.map((user) => user.id));
     setError('');
@@ -178,91 +181,112 @@ export const EditTaskDialog = ({
   return (
     <Modal open={open} title={`Edit ${task.key}`} onClose={onClose}>
       <form className={styles.form} onSubmit={(event) => void submit(event)}>
-        {!full && (
-          <p className={styles.muted}>
-            You can update the description. The title, priority, due date and assignees are set by
-            the task creator or a moderator; ask in the task thread to change them.
-          </p>
+        <TaskSteps
+          step={step}
+          onStep={setStep}
+          hints={[
+            undefined,
+            statusesFor(task.projectId).find((item) => item.key === status)?.name,
+            task.subtaskTotal ? `${task.subtaskDone} / ${task.subtaskTotal} done` : 'None yet',
+          ]}
+        />
+        {step === 0 && (
+          <>
+            {!full && (
+              <p className={styles.muted}>
+                You can update the description. The title, priority, due date and assignees are set
+                by the task creator or a moderator; ask in the task thread to change them.
+              </p>
+            )}
+            <MentionInput
+              label="Title"
+              disabled={!full}
+              name="edit-task-title"
+              value={title}
+              names={mentionNames}
+              maxLength={200}
+              autoFocus
+              onChange={setTitle}
+            />
+            <div className={styles.mentionField}>
+              <label htmlFor="edit-task-description" className={styles.mentionLabel}>
+                Description <span className={styles.optional}>(optional)</span>
+              </label>
+              <textarea
+                id="edit-task-description"
+                className={styles.textarea}
+                rows={5}
+                maxLength={DESCRIPTION_MAX}
+                placeholder="Add details, steps, links…"
+                value={description}
+                onChange={(event) => setDescription(event.target.value)}
+              />
+            </div>
+          </>
         )}
-        <MentionInput
-          label="Title"
-          disabled={!full}
-          name="edit-task-title"
-          value={title}
-          names={mentionNames}
-          maxLength={200}
-          autoFocus
-          onChange={setTitle}
-        />
-        <div className={styles.mentionField}>
-          <label htmlFor="edit-task-description" className={styles.mentionLabel}>
-            Description <span className={styles.optional}>(optional)</span>
-          </label>
-          <textarea
-            id="edit-task-description"
-            className={styles.textarea}
-            rows={5}
-            maxLength={DESCRIPTION_MAX}
-            placeholder="Add details, steps, links…"
-            value={description}
-            onChange={(event) => setDescription(event.target.value)}
-          />
-        </div>
-        <Dropdown
-          label="Status"
-          options={statusOptions(statusesFor(task.projectId))}
-          value={status}
-          onChange={setStatus}
-        />
-        <div className={styles.row}>
-          <Dropdown
-            label="Priority"
-            disabled={!full}
-            options={PRIORITY_OPTIONS}
-            value={priority}
-            onChange={setPriority}
-          />
-          <Input
-            label="Due date"
-            name="edit-task-due"
-            disabled={!full}
-            type="date"
-            value={dueDate}
-            onChange={(event) => setDueDate(event.target.value)}
-          />
-        </div>
-        <div className={styles.row}>
-          <Dropdown
-            label="Type"
-            disabled={!full}
-            options={TYPE_OPTIONS}
-            value={type}
-            onChange={setType}
-          />
-          <Input
-            label="Estimate"
-            name="edit-task-estimate"
-            disabled={!full}
-            placeholder="e.g. 30m, 2h, 1.5d"
-            value={estimate}
-            onChange={(event) => setEstimate(event.target.value)}
-          />
-        </div>
-        <LabelInput value={labels} disabled={!full} onChange={setLabels} />
-        <Dropdown
-          multiple
-          label="Assignees"
-          placeholder={people === null ? 'Loading people…' : 'Unassigned'}
-          disabled={people === null || access === 'progress'}
-          options={(people ?? [])
-            // Unassigned task: a member may only pick it up themselves.
-            .filter((person) => full || person.id === user?.id)
-            .map((person) => ({ value: person.id, label: person.fullName }))}
-          value={assignees}
-          onChange={setAssignees}
-        />
-        {/* Subtasks save on their own (add / tick right away). */}
-        {!task.locked && <Subtasks task={task} onNavigate={onClose} />}
+        {step === 1 && (
+          <>
+            <Dropdown
+              label="Status"
+              options={statusOptions(statusesFor(task.projectId))}
+              value={status}
+              onChange={setStatus}
+            />
+            <Dropdown
+              multiple
+              label="Assignees"
+              placeholder={people === null ? 'Loading people…' : 'Unassigned'}
+              disabled={people === null || access === 'progress'}
+              options={(people ?? [])
+                // Unassigned task: a member may only pick it up themselves.
+                .filter((person) => full || person.id === user?.id)
+                .map((person) => ({ value: person.id, label: person.fullName }))}
+              value={assignees}
+              onChange={setAssignees}
+            />
+            <div className={styles.row}>
+              <Dropdown
+                label="Priority"
+                disabled={!full}
+                options={PRIORITY_OPTIONS}
+                value={priority}
+                onChange={setPriority}
+              />
+              <Input
+                label="Due date"
+                name="edit-task-due"
+                disabled={!full}
+                type="date"
+                value={dueDate}
+                onChange={(event) => setDueDate(event.target.value)}
+              />
+            </div>
+            <div className={styles.row}>
+              <Dropdown
+                label="Type"
+                disabled={!full}
+                options={TYPE_OPTIONS}
+                value={type}
+                onChange={setType}
+              />
+              <Input
+                label="Estimate"
+                name="edit-task-estimate"
+                disabled={!full}
+                placeholder="e.g. 30m, 2h, 1.5d"
+                value={estimate}
+                onChange={(event) => setEstimate(event.target.value)}
+              />
+            </div>
+            <LabelInput value={labels} disabled={!full} onChange={setLabels} />
+          </>
+        )}
+        {step === 2 && (
+          <>
+            {/* Subtasks save on their own (add / tick right away). */}
+            {!task.locked && <Subtasks task={task} onNavigate={onClose} />}
+          </>
+        )}
         {confirmDelete && task.subtaskTotal > 0 && (
           <div className={styles.subtaskChoice} role="radiogroup" aria-label="Its subtasks">
             <p className={styles.muted}>

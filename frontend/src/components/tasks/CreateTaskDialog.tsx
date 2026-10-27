@@ -5,7 +5,12 @@ import { Modal } from '@/components/ui/Modal';
 import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
 import { Dropdown } from '@/components/ui/Dropdown';
-import { createTaskFromMessage, createTaskInChat, listAssignable } from '@/lib/tasks';
+import {
+  createSubtask,
+  createTaskFromMessage,
+  createTaskInChat,
+  listAssignable,
+} from '@/lib/tasks';
 import { tokensToDisplay } from '@/lib/mentions';
 import { useProjects } from '@/hooks/useProjects';
 import { createProjectTask } from '@/lib/projects';
@@ -14,17 +19,14 @@ import { useChannels } from '@/hooks/useChannels';
 import { useTaskStatuses } from '@/hooks/useTaskStatuses';
 import { MentionInput } from './MentionText';
 import { LabelInput } from './LabelInput';
+import { TaskSteps, type TaskStep } from './TaskSteps';
 import {
   TASK_PRIORITY_COLORS,
   TASK_PRIORITY_LABELS,
   firstOfGroup,
   type TaskPriority,
 } from '@/types/task';
-import {
-  TASK_TYPE_ICONS,
-  TASK_TYPE_LABELS,
-  type TaskType,
-} from '@/types/task';
+import { TASK_TYPE_ICONS, TASK_TYPE_LABELS, type TaskType } from '@/types/task';
 import type { Message } from '@/types/message';
 import type { User } from '@/types/user';
 import styles from './Tasks.module.css';
@@ -61,7 +63,6 @@ const TYPE_OPTIONS = (Object.keys(TASK_TYPE_LABELS) as TaskType[]).map((value) =
   label: `${TASK_TYPE_ICONS[value]}  ${TASK_TYPE_LABELS[value]}`,
 }));
 
-
 /** Turns a message into a task. The card updates live from the socket. */
 export const CreateTaskDialog = ({
   message = null,
@@ -88,10 +89,15 @@ export const CreateTaskDialog = ({
   const [labels, setLabels] = useState<string[]>([]);
   const [priority, setPriority] = useState<TaskPriority>('MEDIUM');
   const [dueDate, setDueDate] = useState('');
-  // "More details": type and estimate (collapsed by default).
-  const [showMore, setShowMore] = useState(false);
   const [type, setType] = useState<TaskType>('TASK');
   const [estimate, setEstimate] = useState('');
+  // Three steps (Basics, Details, Subtasks); creating works from any step.
+  const [step, setStep] = useState<TaskStep>(0);
+  // Subtask titles typed in step 3, created right after the task.
+  const [drafts, setDrafts] = useState<string[]>([]);
+  const [draft, setDraft] = useState('');
+  // The task exists but some subtasks failed: only "Close" is left (no re-create).
+  const [createdWithErrors, setCreatedWithErrors] = useState(false);
   const [assignees, setAssignees] = useState<string[]>([]);
   const [people, setPeople] = useState<User[] | null>(null);
   const [saving, setSaving] = useState(false);
@@ -131,9 +137,12 @@ export const CreateTaskDialog = ({
     setLabels([]);
     setPriority('MEDIUM');
     setDueDate('');
-    setShowMore(false);
     setType('TASK');
     setEstimate('');
+    setStep(0);
+    setDrafts([]);
+    setDraft('');
+    setCreatedWithErrors(false);
     setError('');
     setProjectId('');
     setChannelId('');
@@ -173,13 +182,12 @@ export const CreateTaskDialog = ({
     const load = !chosenKey
       ? listAssignable({ channelId: chat.channelId, conversationId: chat.conversationId })
       : channelId
-        ? Promise.all([
-            projectPeople(),
-            listAssignable({ channelId, conversationId: null }),
-          ]).then(([inProject, inChannel]) => {
-            const there = new Set(inChannel.map((user) => user.id));
-            return inProject.filter((user) => there.has(user.id));
-          })
+        ? Promise.all([projectPeople(), listAssignable({ channelId, conversationId: null })]).then(
+            ([inProject, inChannel]) => {
+              const there = new Set(inChannel.map((user) => user.id));
+              return inProject.filter((user) => there.has(user.id));
+            },
+          )
         : projectPeople();
     load.then(
       (users) => {
@@ -227,23 +235,40 @@ export const CreateTaskDialog = ({
         estimate: estimate.trim(),
       };
       const withProject = chosenProject ? { ...fields, projectId: chosenProject.id } : fields;
+      let created: { task: { id: string } } | null = null;
       if (message) {
-        await createTaskFromMessage(message.id, withProject);
+        created = await createTaskFromMessage(message.id, withProject);
       } else if (target?.projectKey) {
-        await createProjectTask(target.projectKey, {
+        created = await createProjectTask(target.projectKey, {
           ...fields,
           ...(channelId ? { channelId } : {}),
         });
       } else if (target?.pickChannel && chosenProject) {
         // A project picked on the Unassigned board: it goes on that board.
-        await createProjectTask(chosenProject.key, {
+        created = await createProjectTask(chosenProject.key, {
           ...fields,
           ...(channelId ? { channelId } : {}),
         });
       } else if (target?.pickChannel) {
-        await createTaskInChat({ channelId, conversationId: null }, fields);
+        created = await createTaskInChat({ channelId, conversationId: null }, fields);
       } else if (target) {
-        await createTaskInChat(target, withProject);
+        created = await createTaskInChat(target, withProject);
+      }
+      // Subtasks from step 3 (a pending title in the box counts too).
+      const titles = [...drafts, draft.trim()].filter(Boolean);
+      if (created && titles.length) {
+        const parentId = created.task.id;
+        const failed: string[] = [];
+        for (const subtaskTitle of titles) {
+          await createSubtask(parentId, { title: subtaskTitle }).catch(() =>
+            failed.push(subtaskTitle),
+          );
+        }
+        if (failed.length) {
+          setError(`Task created, but these subtasks failed: ${failed.join(', ')}`);
+          setCreatedWithErrors(true);
+          return;
+        }
       }
       onClose();
     } catch (err) {
@@ -253,137 +278,232 @@ export const CreateTaskDialog = ({
     }
   };
 
+  const titleOk = Boolean(title.trim());
+  const addDraft = () => {
+    const text = draft.trim();
+    if (text && drafts.length < 20) {
+      setDrafts((current) => [...current, text.slice(0, 200)]);
+      setDraft('');
+    }
+  };
+  const hints = [
+    chosenProject ? chosenProject.key : target?.projectKey,
+    [
+      statusList.find((item) => item.key === statusValue)?.name,
+      assignees.length ? `${assignees.length} assigned` : undefined,
+    ]
+      .filter(Boolean)
+      .join(' · '),
+    drafts.length ? `${drafts.length} added` : 'Optional',
+  ];
+
   return (
     <Modal open={open} title="Create task" onClose={onClose}>
-      <form className={styles.form} onSubmit={(event) => void submit(event)}>
-        <MentionInput
-          label="Title"
-          name="task-title"
-          value={title}
-          names={message?.mentions.map((user) => user.fullName) ?? []}
-          maxLength={200}
-          autoFocus
-          onChange={setTitle}
-        />
-        <div className={styles.mentionField}>
-          <label htmlFor="task-description" className={styles.mentionLabel}>
-            Description <span className={styles.optional}>(optional)</span>
-          </label>
-          <textarea
-            id="task-description"
-            className={styles.textarea}
-            rows={4}
-            maxLength={DESCRIPTION_MAX}
-            placeholder="Add details, steps, links…"
-            value={description}
-            onChange={(event) => setDescription(event.target.value)}
-          />
-        </div>
-        {/* Project first: the status list below follows it. */}
-        {pickProject && (
-          <Dropdown
-            label="Project"
-            options={[
-              { value: '', label: 'Unassigned' },
-              ...memberProjects.map((p) => ({ value: p.id, label: `${p.key} · ${p.name}` })),
-            ]}
-            value={projectId}
-            onChange={setProjectId}
-          />
-        )}
-        {showChannel && (
-          <Dropdown
-            label={
-              target?.pickChannel && !chosenProject ? 'Channel' : 'Post in channel (optional)'
-            }
-            placeholder={
-              target?.pickChannel && !chosenProject ? 'Pick a channel' : 'Only on the board'
-            }
-            options={[
-              ...(target?.pickChannel && !chosenProject
-                ? []
-                : [{ value: '', label: 'Only on the board' }]),
-              ...channelOptions,
-            ]}
-            value={channelId}
-            onChange={setChannelId}
-          />
-        )}
-        {chosenProject && !target?.pickChannel && (
-          <p className={styles.muted}>
-            Goes on the {chosenProject.key} board. People here who aren&apos;t in{' '}
-            {chosenProject.name} see the card but can&apos;t open it.
-          </p>
-        )}
-        <div className={styles.row}>
-          <Dropdown
-            label="Priority"
-            options={PRIORITY_OPTIONS}
-            value={priority}
-            onChange={setPriority}
-          />
-          <Dropdown
-            label="Status"
-            options={statusList.map((item) => ({
-              value: item.key,
-              label: item.name,
-              color: item.color,
-            }))}
-            value={statusValue}
-            onChange={setStatusKey}
-          />
-          <Input
-            label="Due date"
-            name="task-due"
-            type="date"
-            value={dueDate}
-            onChange={(event) => setDueDate(event.target.value)}
-          />
-        </div>
-        <LabelInput value={labels} onChange={setLabels} />
-        <button
-          type="button"
-          className={styles.moreToggle}
-          aria-expanded={showMore}
-          onClick={() => setShowMore((open) => !open)}
-        >
-          {showMore ? '▾' : '▸'} More details
-          {!showMore && (type !== 'TASK' || estimate) && (
-            <span className={styles.moreSummary}>
-              {TASK_TYPE_LABELS[type]}
-              {estimate ? ` · ${estimate}` : ''}
-            </span>
-          )}
-        </button>
-        {showMore && (
-          <div className={styles.row}>
-            <Dropdown label="Type" options={TYPE_OPTIONS} value={type} onChange={setType} />
-            <Input
-              label="Estimate"
-              name="task-estimate"
-              placeholder="e.g. 30m, 2h, 1.5d"
-              value={estimate}
-              onChange={(event) => setEstimate(event.target.value)}
+      <form
+        className={styles.form}
+        onSubmit={(event) => {
+          event.preventDefault();
+          // Enter moves on; creating is the last step's (or the button's) job.
+          if (step < 2 && titleOk) setStep((step + 1) as TaskStep);
+          else void submit(event);
+        }}
+      >
+        <TaskSteps step={step} onStep={setStep} canJump={titleOk} hints={hints} />
+
+        {step === 0 && (
+          <>
+            <MentionInput
+              label="Title"
+              name="task-title"
+              value={title}
+              names={message?.mentions.map((user) => user.fullName) ?? []}
+              maxLength={200}
+              autoFocus
+              onChange={setTitle}
             />
-          </div>
+            <div className={styles.mentionField}>
+              <label htmlFor="task-description" className={styles.mentionLabel}>
+                Description <span className={styles.optional}>(optional)</span>
+              </label>
+              <textarea
+                id="task-description"
+                className={styles.textarea}
+                rows={4}
+                maxLength={DESCRIPTION_MAX}
+                placeholder="Add details, steps, links…"
+                value={description}
+                onChange={(event) => setDescription(event.target.value)}
+              />
+            </div>
+            {/* Project first: the status list in the next step follows it. */}
+            {pickProject && (
+              <Dropdown
+                label="Project"
+                options={[
+                  { value: '', label: 'Unassigned' },
+                  ...memberProjects.map((p) => ({ value: p.id, label: `${p.key} · ${p.name}` })),
+                ]}
+                value={projectId}
+                onChange={setProjectId}
+              />
+            )}
+            {showChannel && (
+              <Dropdown
+                label={
+                  target?.pickChannel && !chosenProject ? 'Channel' : 'Post in channel (optional)'
+                }
+                placeholder={
+                  target?.pickChannel && !chosenProject ? 'Pick a channel' : 'Only on the board'
+                }
+                options={[
+                  ...(target?.pickChannel && !chosenProject
+                    ? []
+                    : [{ value: '', label: 'Only on the board' }]),
+                  ...channelOptions,
+                ]}
+                value={channelId}
+                onChange={setChannelId}
+              />
+            )}
+            {chosenProject && !target?.pickChannel && (
+              <p className={styles.muted}>
+                Goes on the {chosenProject.key} board. People here who aren&apos;t in{' '}
+                {chosenProject.name} see the card but can&apos;t open it.
+              </p>
+            )}
+          </>
         )}
-        <Dropdown
-          multiple
-          label="Assignees"
-          placeholder={people === null ? 'Loading people…' : 'Unassigned'}
-          disabled={people === null}
-          options={(people ?? []).map((user) => ({ value: user.id, label: user.fullName }))}
-          value={assignees}
-          onChange={setAssignees}
-        />
+
+        {step === 1 && (
+          <>
+            <div className={styles.row}>
+              <Dropdown
+                label="Status"
+                options={statusList.map((item) => ({
+                  value: item.key,
+                  label: item.name,
+                  color: item.color,
+                }))}
+                value={statusValue}
+                onChange={setStatusKey}
+              />
+              <Dropdown
+                label="Priority"
+                options={PRIORITY_OPTIONS}
+                value={priority}
+                onChange={setPriority}
+              />
+            </div>
+            <Dropdown
+              multiple
+              label="Assignees"
+              placeholder={people === null ? 'Loading people…' : 'Unassigned'}
+              disabled={people === null}
+              options={(people ?? []).map((user) => ({ value: user.id, label: user.fullName }))}
+              value={assignees}
+              onChange={setAssignees}
+            />
+            <div className={styles.row}>
+              <Input
+                label="Due date"
+                name="task-due"
+                type="date"
+                value={dueDate}
+                onChange={(event) => setDueDate(event.target.value)}
+              />
+              <Input
+                label="Estimate"
+                name="task-estimate"
+                placeholder="e.g. 30m, 2h, 1.5d"
+                value={estimate}
+                onChange={(event) => setEstimate(event.target.value)}
+              />
+            </div>
+            <Dropdown label="Type" options={TYPE_OPTIONS} value={type} onChange={setType} />
+            <LabelInput value={labels} onChange={setLabels} />
+          </>
+        )}
+
+        {step === 2 && (
+          <>
+            <p className={styles.muted}>
+              Optional. Each subtask becomes its own task (own key, status and assignee), created
+              right after this one. You can also add them later from the task.
+            </p>
+            {drafts.length > 0 && (
+              <ul className={styles.draftList}>
+                {drafts.map((item, index) => (
+                  <li key={`${item}-${index}`} className={styles.draftRow}>
+                    <span>{item}</span>
+                    <button
+                      type="button"
+                      aria-label={`Remove ${item}`}
+                      onClick={() =>
+                        setDrafts((current) => current.filter((_, at) => at !== index))
+                      }
+                    >
+                      ✕
+                    </button>
+                  </li>
+                ))}
+              </ul>
+            )}
+            <input
+              className={styles.subtaskInput}
+              placeholder="Type a subtask and press Enter"
+              value={draft}
+              maxLength={200}
+              autoFocus
+              onChange={(event) => setDraft(event.target.value)}
+              onKeyDown={(event) => {
+                if (event.key === 'Enter') {
+                  event.preventDefault();
+                  addDraft();
+                }
+              }}
+            />
+          </>
+        )}
+
         {error && <p className={styles.error}>{error}</p>}
-        <div className={styles.actions}>
-          <Button variant="secondary" type="button" onClick={onClose}>
-            Cancel
-          </Button>
-          <Button type="submit" disabled={saving}>
-            {saving ? 'Creating…' : 'Create task'}
-          </Button>
+        <div className={styles.stepActions}>
+          {step > 0 ? (
+            <Button
+              variant="secondary"
+              type="button"
+              onClick={() => setStep((step - 1) as TaskStep)}
+            >
+              Back
+            </Button>
+          ) : (
+            <Button variant="secondary" type="button" onClick={onClose}>
+              Cancel
+            </Button>
+          )}
+          <span className={styles.grow} />
+          {step < 2 && (
+            <Button
+              variant="secondary"
+              type="button"
+              disabled={!titleOk}
+              onClick={() => setStep((step + 1) as TaskStep)}
+            >
+              Next
+            </Button>
+          )}
+          {createdWithErrors ? (
+            <Button type="button" onClick={onClose}>
+              Close
+            </Button>
+          ) : (
+            <Button
+              type="button"
+              disabled={saving || !titleOk}
+              onClick={(event) => void submit(event)}
+            >
+              {saving ? 'Creating…' : 'Create task'}
+            </Button>
+          )}
         </div>
       </form>
     </Modal>
