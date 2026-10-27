@@ -1,9 +1,11 @@
 const mongoose = require('mongoose');
 const Project = require('../models/project.model');
 const Task = require('../models/task.model');
+const Message = require('../models/message.model');
 const Channel = require('../models/channel.model');
 const ChannelMember = require('../models/channelMember.model');
 const Organization = require('../models/organization.model');
+const OrganizationMember = require('../models/organizationMember.model');
 const { AppError } = require('../utils/AppError');
 const { assertString, toOptionalString } = require('../utils/validation');
 const {
@@ -15,6 +17,7 @@ const {
   CHANNEL_ROLES,
   CHANNEL_MEMBER_STATUS,
   ORG_ROLES,
+  MEMBER_STATUS,
 } = require('../config/constants');
 const { toPublicUser } = require('./user.service');
 
@@ -31,7 +34,9 @@ const toPublicProject = (project, extra = {}) => ({
   key: project.key,
   name: project.name,
   description: project.description,
-  homeChannelId: idOf(project.homeChannel),
+  homeChannelId: project.homeChannel ? idOf(project.homeChannel) : null,
+  // People added directly (channel members are members too).
+  memberIds: (project.members || []).map(idOf),
   linkedChannelIds: (project.linkedChannels || []).map(idOf),
   lead:
     project.lead && project.lead.fullName ? toPublicUser(project.lead) : { id: idOf(project.lead) },
@@ -92,34 +97,59 @@ const loadChannel = async (organizationId, channelId) => {
 // ---- membership & permissions ---------------------------------------------
 
 const channelIdsOf = (project) =>
-  [project.homeChannel, ...(project.linkedChannels || [])].map(idOf);
+  [project.homeChannel, ...(project.linkedChannels || [])].filter(Boolean).map(idOf);
 
-/** Member = active member of the home channel or a linked channel. */
-const isMember = async (project, userId) =>
-  Boolean(
-    await ChannelMember.exists({
-      channel: { $in: channelIdsOf(project) },
-      user: userId,
-      ...activeMember,
-    }),
-  );
+const directIds = (project) => (project.members || []).map(idOf);
 
-const memberIds = async (project) => {
-  const rows = await ChannelMember.find({
-    channel: { $in: channelIdsOf(project) },
-    ...activeMember,
+// Direct members only count while they are active in the workspace.
+const activeInWorkspace = async (organizationId, userIds) => {
+  if (!userIds.length) {
+    return new Set();
+  }
+  const rows = await OrganizationMember.find({
+    organization: organizationId,
+    user: { $in: userIds },
+    status: MEMBER_STATUS.ACTIVE,
   }).select('user');
   return new Set(rows.map((row) => String(row.user)));
 };
 
+/**
+ * Member = added directly (and still active in the workspace), or an active
+ * member of the home channel / a linked channel. Either way is enough.
+ */
+const isMember = async (project, userId) => {
+  if (directIds(project).includes(String(userId))) {
+    const active = await activeInWorkspace(project.organization, [String(userId)]);
+    if (active.size) {
+      return true;
+    }
+  }
+  const channels = channelIdsOf(project);
+  return Boolean(
+    channels.length &&
+    (await ChannelMember.exists({ channel: { $in: channels }, user: userId, ...activeMember })),
+  );
+};
+
+const memberIds = async (project) => {
+  const channels = channelIdsOf(project);
+  const rows = channels.length
+    ? await ChannelMember.find({ channel: { $in: channels }, ...activeMember }).select('user')
+    : [];
+  const direct = await activeInWorkspace(project.organization, directIds(project));
+  return new Set([...rows.map((row) => String(row.user)), ...direct]);
+};
+
 const isHomeModerator = async (project, userId) =>
   Boolean(
-    await ChannelMember.exists({
+    project.homeChannel &&
+    (await ChannelMember.exists({
       channel: project.homeChannel,
       user: userId,
       role: CHANNEL_ROLES.MODERATOR,
       ...activeMember,
-    }),
+    })),
   );
 
 /** Lead, workspace owners/admins and home-channel moderators manage a project. */
@@ -142,17 +172,24 @@ const isReadOnly = async (project) => {
   if (project.status === PROJECT_STATUS.ARCHIVED) {
     return true;
   }
+  if (!project.homeChannel) {
+    return false;
+  }
   const home = await Channel.findById(project.homeChannel).select('status');
   return !home || home.status === CHANNEL_STATUS.ARCHIVED;
 };
 
 /**
  * Visible = member, or the home channel is public (public channels are
- * readable by every workspace member anyway). Private projects never leak.
+ * readable by every workspace member anyway). A project without a channel is
+ * private to its members. Private projects never leak.
  */
 const canSee = async (project, userId) => {
   if (await isMember(project, userId)) {
     return true;
+  }
+  if (!project.homeChannel) {
+    return false;
   }
   const home = await Channel.findById(project.homeChannel).select('type');
   return Boolean(home && home.type === CHANNEL_TYPES.PUBLIC);
@@ -166,7 +203,12 @@ const assertCanRead = async (project, userId) => {
 
 const assertCanWrite = async (project, userId) => {
   if (!(await isMember(project, userId))) {
-    throw new AppError(403, 'Join the project’s channel to change its tickets');
+    throw new AppError(
+      403,
+      project.homeChannel
+        ? 'Join the project’s channel to change its tickets'
+        : 'Only project members can change its tickets',
+    );
   }
   if (await isReadOnly(project)) {
     throw new AppError(409, 'This project is read-only (archived)');
@@ -272,12 +314,50 @@ const assertLinked = async (organizationId, value, homeChannelId) => {
   return ids;
 };
 
+// People added directly must be active members of the workspace.
+const assertMembers = async (organizationId, value) => {
+  if (value === undefined) {
+    return undefined;
+  }
+  if (!Array.isArray(value)) {
+    throw new AppError(400, 'Members must be a list');
+  }
+  const ids = [...new Set(value.map(String))];
+  if (ids.some((id) => !mongoose.isValidObjectId(id))) {
+    throw new AppError(400, 'Invalid member');
+  }
+  const active = await activeInWorkspace(organizationId, ids);
+  if (ids.some((id) => !active.has(id))) {
+    throw new AppError(400, 'Members must be active people in this workspace');
+  }
+  return ids;
+};
+
+// Who may make a channel the home: workspace admins, or its moderators.
+const assertCanUseAsHome = async (channel, userId, orgRole) => {
+  if (isAdmin(orgRole)) {
+    return;
+  }
+  const moderator = await ChannelMember.exists({
+    channel: channel._id,
+    user: userId,
+    role: CHANNEL_ROLES.MODERATOR,
+    ...activeMember,
+  });
+  if (!moderator) {
+    throw new AppError(
+      403,
+      'Only workspace admins or the channel’s moderators can make it a project’s home',
+    );
+  }
+};
+
 const assertLead = async (project, leadId) => {
   if (!mongoose.isValidObjectId(leadId)) {
     throw new AppError(400, 'Invalid project lead');
   }
   if (!(await isMember(project, leadId))) {
-    throw new AppError(400, 'The project lead must be a member of the project’s channels');
+    throw new AppError(400, 'The project lead must be a member of the project');
   }
   return leadId;
 };
@@ -288,6 +368,9 @@ const assertLead = async (project, leadId) => {
  * tasks move: DM tasks and other channels' tasks are never touched.
  */
 const adoptChannelTasks = async (project) => {
+  if (!project.homeChannel) {
+    return 0;
+  }
   const tasks = await Task.find({
     organization: project.organization,
     channel: project.homeChannel,
@@ -311,35 +394,40 @@ const adoptChannelTasks = async (project) => {
 };
 
 /**
- * Workspace owners/admins, or moderators of the home channel, create projects.
+ * Members come from a home channel, people added directly, or both.
+ *   With a channel: workspace admins or that channel's moderators create it.
+ *   Without one (private to its members): workspace owners, admins and
+ *   moderators. The creator is always a member.
  * Returns { project, adopted } (number of the channel's tasks moved in).
  */
 const createProject = async (organizationId, actor, orgRole, payload = {}) => {
   const name = assertName(payload.name);
   const key = assertKey(payload.key);
-  const home = await loadChannel(organizationId, payload.homeChannelId);
+  const home = payload.homeChannelId
+    ? await loadChannel(organizationId, payload.homeChannelId)
+    : null;
 
-  const moderator = await ChannelMember.exists({
-    channel: home._id,
-    user: actor._id,
-    role: CHANNEL_ROLES.MODERATOR,
-    ...activeMember,
-  });
-  if (!isAdmin(orgRole) && !moderator) {
+  if (home) {
+    await assertCanUseAsHome(home, actor._id, orgRole);
+    await assertHomeAvailable(organizationId, home);
+  } else if (!isAdmin(orgRole) && orgRole !== ORG_ROLES.MODERATOR) {
     throw new AppError(
       403,
-      'Only workspace admins or the channel’s moderators can create a project',
+      'Only workspace owners, admins or moderators can create a project without a channel',
     );
   }
-  await assertHomeAvailable(organizationId, home);
   await assertKeyFree(organizationId, key);
   const linkedChannels =
-    (await assertLinked(organizationId, payload.linkedChannelIds, home._id)) || [];
+    (await assertLinked(organizationId, payload.linkedChannelIds, home?._id)) || [];
+  const listed = (await assertMembers(organizationId, payload.memberIds)) || [];
+  // Without a channel the creator must be on the list, or nobody could open it.
+  const members = home ? listed : [...new Set([String(actor._id), ...listed])];
 
   const draft = {
     organization: organizationId,
-    homeChannel: home._id,
+    homeChannel: home ? home._id : null,
     linkedChannels,
+    members,
   };
   const lead = await assertLead(draft, payload.leadId || actor._id);
 
@@ -365,12 +453,26 @@ const createProject = async (organizationId, actor, orgRole, payload = {}) => {
   return { project, adopted };
 };
 
-const updateProject = async (project, actorId, orgRole, payload = {}) => {
+/**
+ * Settings. Membership can change through the people list, linked channels
+ * and the home channel (set, change or remove). Returns lostMemberIds: people
+ * who are no longer members at all, so the caller unassigns them.
+ * Guards: the lead must stay a member (hand the lead over first), and a
+ * project can't be left with nobody in it.
+ */
+const updateProject = async (current, actorId, orgRole, payload = {}) => {
+  // Work on a fresh copy: a refused change must never leave a half-edited
+  // document behind for a later attempt to build on.
+  const project = await Project.findById(current._id);
+  if (!project) {
+    throw new AppError(404, 'Project not found');
+  }
   await assertCanManage(project, actorId, orgRole);
   if (project.status === PROJECT_STATUS.ARCHIVED) {
     throw new AppError(409, 'Restore the project before changing it');
   }
   const changes = [];
+  const before = await memberIds(project);
 
   if (payload.name !== undefined) {
     project.name = assertName(payload.name);
@@ -385,6 +487,20 @@ const updateProject = async (project, actorId, orgRole, payload = {}) => {
     }
     project.updates = payload.updates;
   }
+  if (payload.homeChannelId !== undefined) {
+    const nextHome = payload.homeChannelId || null;
+    if (String(nextHome || '') !== String(project.homeChannel || '')) {
+      if (nextHome) {
+        const channel = await loadChannel(project.organization, nextHome);
+        await assertCanUseAsHome(channel, actorId, orgRole);
+        await assertHomeAvailable(project.organization, channel, project._id);
+        project.homeChannel = channel._id;
+      } else {
+        project.homeChannel = null;
+      }
+      changes.push('home');
+    }
+  }
   if (payload.linkedChannelIds !== undefined) {
     project.linkedChannels = await assertLinked(
       project.organization,
@@ -392,8 +508,25 @@ const updateProject = async (project, actorId, orgRole, payload = {}) => {
       project.homeChannel,
     );
   }
+  if (payload.memberIds !== undefined) {
+    project.members = await assertMembers(project.organization, payload.memberIds);
+  }
+  // A linked channel can't also be the home.
+  project.linkedChannels = (project.linkedChannels || []).filter(
+    (id) => String(id) !== String(project.homeChannel || ''),
+  );
+
+  const after = await memberIds(project);
+  if (after.size === 0) {
+    throw new AppError(400, 'A project needs at least one member');
+  }
   if (payload.leadId !== undefined) {
     project.lead = await assertLead(project, payload.leadId);
+  } else if (!after.has(idOf(project.lead))) {
+    throw new AppError(
+      400,
+      'This change removes the project lead. Hand the lead to someone else first',
+    );
   }
 
   let renamedFrom = null;
@@ -410,12 +543,20 @@ const updateProject = async (project, actorId, orgRole, payload = {}) => {
     }
   }
 
-  await project.save();
+  try {
+    await project.save();
+  } catch (error) {
+    if (error.code === 11000) {
+      throw new AppError(409, 'That channel is already the home of another project');
+    }
+    throw error;
+  }
   if (renamedFrom) {
     await Task.updateMany({ project: project._id }, { $set: { projectKey: project.key } });
   }
   await project.populate('lead');
-  return { project, renamedFrom, changes };
+  const lostMemberIds = [...before].filter((id) => !after.has(id));
+  return { project, renamedFrom, changes, lostMemberIds };
 };
 
 const archiveProject = async (project, actorId, orgRole) => {
@@ -428,11 +569,16 @@ const archiveProject = async (project, actorId, orgRole) => {
 
 const restoreProject = async (project, actorId, orgRole) => {
   await assertCanManage(project, actorId, orgRole);
-  const home = await Channel.findById(project.homeChannel);
-  if (!home) {
-    throw new AppError(409, 'The home channel no longer exists');
+  if (project.homeChannel) {
+    const home = await Channel.findById(project.homeChannel);
+    if (!home) {
+      throw new AppError(409, 'The home channel no longer exists. Remove or change it first');
+    }
+    await assertHomeAvailable(project.organization, home, project._id);
   }
-  await assertHomeAvailable(project.organization, home, project._id);
+  if ((await memberIds(project)).size === 0) {
+    throw new AppError(409, 'The project has no members left. Add people first');
+  }
   project.status = PROJECT_STATUS.ACTIVE;
   project.archivedAt = null;
   await project.save();
@@ -440,9 +586,12 @@ const restoreProject = async (project, actorId, orgRole) => {
 };
 
 /**
- * Admins only; the key must be typed to confirm. Tickets are kept: they go
- * back to being chat tasks (TASK-n) in their channel, with the project key
- * kept as an alias.
+ * Admins only; the key must be typed to confirm.
+ *   Tickets that live in a channel go back to it as chat tasks (TASK-n), the
+ *   project key kept as an alias.
+ *   Tickets of a project without a channel have nowhere to go: they are
+ *   deleted with it (the UI says how many).
+ * Returns { released, deleted }.
  */
 const deleteProject = async (project, orgRole, confirmKey) => {
   if (!isAdmin(orgRole)) {
@@ -452,7 +601,21 @@ const deleteProject = async (project, orgRole, confirmKey) => {
     throw new AppError(400, `Type ${project.key} to confirm`);
   }
   const tasks = await Task.find({ project: project._id }).sort({ number: 1 });
+  let released = 0;
+  let deleted = 0;
   for (const task of tasks) {
+    if (!task.channel && !task.conversation) {
+      await Message.updateMany(
+        { $or: [{ _id: task.message }, { parentMessageId: task.message }] },
+        { $set: { deletedAt: new Date() } },
+      );
+      if (task.sourceMessage) {
+        await Message.updateOne({ _id: task.sourceMessage }, { $set: { taskRef: null } });
+      }
+      await task.deleteOne();
+      deleted += 1;
+      continue;
+    }
     const organization = await Organization.findByIdAndUpdate(
       project.organization,
       { $inc: { taskSeq: 1 } },
@@ -465,9 +628,51 @@ const deleteProject = async (project, orgRole, confirmKey) => {
         $addToSet: { formerKeys: `${task.projectKey}-${task.number}` },
       },
     );
+    released += 1;
   }
   await project.deleteOne();
-  return tasks.length;
+  return { released, deleted };
+};
+
+const countChannelFreeTickets = (project) =>
+  Task.countDocuments({ project: project._id, channel: null, conversation: null });
+
+/**
+ * Someone left / was removed from the workspace: drop them from every
+ * project's people list. Projects they led get another member as lead, or
+ * are archived when nobody is left (never left without an owner).
+ */
+const handleUserLeftWorkspace = async (organizationId, userId) => {
+  await Project.updateMany(
+    { organization: organizationId, members: userId },
+    { $pull: { members: userId } },
+  );
+  const led = await Project.find({ organization: organizationId, lead: userId });
+  for (const project of led) {
+    const others = [...(await memberIds(project))].filter((id) => id !== String(userId));
+    if (others.length) {
+      project.lead = others[0];
+    } else {
+      project.status = PROJECT_STATUS.ARCHIVED;
+      project.archivedAt = new Date();
+    }
+    await project.save();
+  }
+};
+
+/** Projects the user is a member of (for search and similar lookups). */
+const projectIdsForUser = async (organizationId, userId) => {
+  const memberships = await ChannelMember.find({ user: userId, ...activeMember }).select('channel');
+  const channelIds = memberships.map((row) => row.channel);
+  const projects = await Project.find({
+    organization: organizationId,
+    $or: [
+      { members: userId },
+      { homeChannel: { $in: channelIds } },
+      { linkedChannels: { $in: channelIds } },
+    ],
+  }).select('_id');
+  return projects.map((project) => project._id);
 };
 
 // ---- ticket keys ----------------------------------------------------------
@@ -527,4 +732,7 @@ module.exports = {
   deleteProject,
   adoptChannelTasks,
   resolveTaskKey,
+  handleUserLeftWorkspace,
+  projectIdsForUser,
+  countChannelFreeTickets,
 };

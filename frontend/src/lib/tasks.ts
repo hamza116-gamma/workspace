@@ -20,16 +20,19 @@ export const listMyTasks = () => apiData<{ tasks: Task[] }>('/tasks');
 // or DM participants. Pass a task (has `id`) to get its ticket's list.
 export const listAssignable = async (target: {
   id?: string;
+  projectKey?: string;
   channelId: string | null;
   conversationId: string | null;
 }): Promise<User[]> => {
-  const query = target.id
-    ? `taskId=${target.id}`
-    : target.channelId
-      ? `channelId=${target.channelId}`
-      : target.conversationId
-        ? `conversationId=${target.conversationId}`
-        : '';
+  const query = target.projectKey
+    ? `projectKey=${encodeURIComponent(target.projectKey)}`
+    : target.id
+      ? `taskId=${target.id}`
+      : target.channelId
+        ? `channelId=${target.channelId}`
+        : target.conversationId
+          ? `conversationId=${target.conversationId}`
+          : '';
   if (!query) {
     return [];
   }

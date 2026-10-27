@@ -44,6 +44,17 @@ const main = async () => {
     console.log('  dropped');
   }
 
+  // Home channel became optional: its unique index now ignores projects
+  // without one. An old version of the index must be dropped to be rebuilt.
+  const projectIndexes = await Project.collection.indexes().catch(() => []);
+  const home = projectIndexes.find((index) => index.name === 'homeChannel_1');
+  const outdated = home && !home.partialFilterExpression?.homeChannel;
+  console.log(`- project home index: ${!home ? 'missing' : outdated ? 'outdated' : 'current'}`);
+  if (APPLY && outdated) {
+    await Project.collection.dropIndex('homeChannel_1');
+    console.log('  dropped (rebuilt below)');
+  }
+
   if (APPLY) {
     await Task.syncIndexes();
     await Project.syncIndexes();

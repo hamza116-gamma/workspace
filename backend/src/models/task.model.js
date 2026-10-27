@@ -51,6 +51,11 @@ const taskSchema = new mongoose.Schema(
 );
 
 taskSchema.pre('validate', function ensureSingleTarget(next) {
+  // Tickets of a project without a channel belong to the project only.
+  if (!this.channel && !this.conversation && this.project) {
+    next();
+    return;
+  }
   if (Boolean(this.channel) === Boolean(this.conversation)) {
     next(new Error('A task must reference exactly one channel or conversation'));
     return;

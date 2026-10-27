@@ -1,6 +1,7 @@
 const Attachment = require('../models/attachment.model');
 const Task = require('../models/task.model');
 const Project = require('../models/project.model');
+const projectService = require('./project.service');
 const OrganizationMember = require('../models/organizationMember.model');
 const { MEMBER_STATUS } = require('../config/constants');
 const { AppError } = require('../utils/AppError');
@@ -110,10 +111,17 @@ const keyConditions = async (organizationId, term) => {
 
 // Tasks in chats the user can read. Words match the title, description or a
 // label; a key ("WEB-12", "TASK-3", "12") matches that ticket.
-const searchTasks = async ({ organizationId, scope, parsed, page, limit }) => {
+const searchTasks = async ({ organizationId, userId, scope, parsed, page, limit }) => {
+  // Readable chats, plus every project the user is a member of (direct,
+  // home or linked channel) - covers channel-free projects too.
+  const projectIds = await projectService.projectIdsForUser(organizationId, userId);
   const query = {
     organization: organizationId,
-    $or: [{ channel: { $in: scope.channelIds } }, { conversation: { $in: scope.conversationIds } }],
+    $or: [
+      { channel: { $in: scope.channelIds } },
+      { conversation: { $in: scope.conversationIds } },
+      { project: { $in: projectIds } },
+    ],
   };
   const and = await Promise.all(
     parsed.terms.map(async (term) => {

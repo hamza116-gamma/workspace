@@ -98,8 +98,10 @@ export const ProjectsView = () => {
                   <b className={styles.name}>{project.name}</b>
                 </div>
                 <p className={styles.meta}>
-                  # {channelName(project.homeChannelId)} · {total}{' '}
-                  {total === 1 ? 'ticket' : 'tickets'} · lead {project.lead.fullName}
+                  {project.homeChannelId
+                    ? `# ${channelName(project.homeChannelId)}`
+                    : `🔒 Private · ${project.memberIds.length} people`}{' '}
+                  · {total} {total === 1 ? 'ticket' : 'tickets'} · lead {project.lead.fullName}
                 </p>
                 <div className={styles.bar}>
                   <i style={{ width: `${pct}%` }} />

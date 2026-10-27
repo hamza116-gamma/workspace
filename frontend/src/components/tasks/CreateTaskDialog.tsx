@@ -8,6 +8,7 @@ import { Dropdown } from '@/components/ui/Dropdown';
 import { createTaskFromMessage, createTaskInChat, listAssignable } from '@/lib/tasks';
 import { tokensToDisplay } from '@/lib/mentions';
 import { useProjects } from '@/hooks/useProjects';
+import { createProjectTask } from '@/lib/projects';
 import { useProjectsEnabled } from '@/hooks/useProjectsEnabled';
 import { MentionInput } from './MentionText';
 import { LabelInput } from './LabelInput';
@@ -52,7 +53,13 @@ export const CreateTaskDialog = ({
   // Turn this message into a task...
   message?: Message | null;
   // ...or post a brand-new task card in this chat (Tasks tab, /task).
-  target?: { channelId: string | null; conversationId: string | null; title?: string } | null;
+  // projectKey: create on that project's board (no chat post, any members).
+  target?: {
+    channelId: string | null;
+    conversationId: string | null;
+    projectKey?: string;
+    title?: string;
+  } | null;
   onClose: () => void;
 }) => {
   const open = Boolean(message || target);
@@ -172,6 +179,8 @@ export const CreateTaskDialog = ({
           ...fields,
           ...(projectsEnabled ? { projectId: effectiveProjectId } : {}),
         });
+      } else if (target?.projectKey) {
+        await createProjectTask(target.projectKey, fields);
       } else if (target) {
         await createTaskInChat(target, fields);
       }

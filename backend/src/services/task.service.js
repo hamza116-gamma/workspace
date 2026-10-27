@@ -60,8 +60,7 @@ const toPublicTask = (task) => ({
   updatedAt: task.updatedAt,
 });
 
-const populate = (query) =>
-  query.populate('assignees').populate('createdBy').populate('reporter');
+const populate = (query) => query.populate('assignees').populate('createdBy').populate('reporter');
 
 // ---- validation -----------------------------------------------------------
 
@@ -145,8 +144,13 @@ const titleFromContent = (content) => {
 
 // ---- access ---------------------------------------------------------------
 
+// Channel or conversation; empty for tickets of a project without a channel.
 const targetOf = (doc) =>
-  doc.channel ? { channel: idOf(doc.channel) } : { conversation: idOf(doc.conversation) };
+  doc.channel
+    ? { channel: idOf(doc.channel) }
+    : doc.conversation
+      ? { conversation: idOf(doc.conversation) }
+      : {};
 
 // Same rule as writing a message there: active channel membership in a
 // non-archived channel, or being a participant of the conversation.
@@ -350,7 +354,8 @@ const createTicket = async ({ organizationId, actor, fields, project, sourceMess
   try {
     anchor = await Message.create({
       organization: organizationId,
-      channel: project.homeChannel,
+      channel: project.homeChannel || null,
+      project: project._id,
       sender: actor._id,
       content: fields.title,
       ticketThread: true,
@@ -359,7 +364,7 @@ const createTicket = async ({ organizationId, actor, fields, project, sourceMess
     await Task.create({
       _id: taskId,
       organization: organizationId,
-      channel: project.homeChannel,
+      channel: project.homeChannel || null,
       message: anchor._id,
       sourceMessage: sourceMessage ? sourceMessage._id : null,
       reporter: sourceMessage ? idOf(sourceMessage.sender) : null,
@@ -373,7 +378,10 @@ const createTicket = async ({ organizationId, actor, fields, project, sourceMess
     });
   } catch (error) {
     if (sourceMessage) {
-      await Message.updateOne({ _id: sourceMessage._id, taskRef: taskId }, { $set: { taskRef: null } });
+      await Message.updateOne(
+        { _id: sourceMessage._id, taskRef: taskId },
+        { $set: { taskRef: null } },
+      );
     }
     if (anchor) {
       await Message.deleteOne({ _id: anchor._id });
@@ -432,6 +440,7 @@ const postActivity = async (task, actorId, content) => {
     parentMessageId: rootId,
     // Notes in a ticket's own thread stay hidden from the chat too.
     ticketThread: Boolean(root?.ticketThread),
+    project: task.project || null,
   });
   await Message.updateOne(
     { _id: rootId },
@@ -707,6 +716,17 @@ const unassignFromChannel = async (channelId, userId) => {
   return tasks;
 };
 
+// Someone is no longer a member of a project at all (removed from its people
+// list, its channel unlinked / changed): drop them from its tickets.
+const unassignFromProject = async (projectId, userId) => {
+  const filter = { project: projectId, assignees: userId };
+  const tasks = await Task.find(filter);
+  if (tasks.length) {
+    await Task.updateMany(filter, { $pull: { assignees: userId } });
+  }
+  return tasks;
+};
+
 // Reminder sweep: claims (atomically) open tasks due within `windowMs` that
 // have assignees and were not reminded yet. Returns the claimed tasks.
 const claimDueReminders = async (windowMs, limit = 50) => {
@@ -731,6 +751,7 @@ const claimDueReminders = async (windowMs, limit = 50) => {
 };
 
 module.exports = {
+  unassignFromProject,
   createTicket,
   listAssignableUsers,
   listForProject,

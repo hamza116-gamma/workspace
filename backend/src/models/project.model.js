@@ -18,7 +18,11 @@ const projectSchema = new mongoose.Schema(
     name: { type: String, required: true, trim: true, maxlength: 80 },
     description: { type: String, trim: true, maxlength: 2000, default: '' },
     // Owns membership and permissions. One active project per home channel.
-    homeChannel: { type: ObjectId, ref: 'Channel', required: true },
+    // Optional. With one, its members are project members and it gets the
+    // board. Without one the project is private to its listed members.
+    homeChannel: { type: ObjectId, ref: 'Channel', default: null },
+    // People added directly (with or without a channel).
+    members: [{ type: ObjectId, ref: 'User' }],
     // Extra channels that also see the board (and whose members are members).
     linkedChannels: [{ type: ObjectId, ref: 'Channel' }],
     // Full rights on every ticket, next to the ticket creator and moderators.
@@ -43,8 +47,15 @@ projectSchema.index({ organization: 1, formerKeys: 1 });
 // One active project per home channel (archived ones can be re-homed).
 projectSchema.index(
   { homeChannel: 1 },
-  { unique: true, partialFilterExpression: { status: PROJECT_STATUS.ACTIVE } },
+  {
+    unique: true,
+    partialFilterExpression: {
+      status: PROJECT_STATUS.ACTIVE,
+      homeChannel: { $type: 'objectId' },
+    },
+  },
 );
+projectSchema.index({ organization: 1, members: 1 });
 projectSchema.index({ linkedChannels: 1 });
 
 module.exports = mongoose.model('Project', projectSchema);

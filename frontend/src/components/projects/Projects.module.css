@@ -271,3 +271,32 @@
   font-size: 13px;
   color: var(--brand-ink, var(--brand));
 }
+
+.modePick {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.modeLabel {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--ink-2);
+}
+
+.modePick .segment {
+  margin: 0;
+  width: fit-content;
+}
+
+.segment button:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+.subhead {
+  margin: 8px 0 0;
+  padding-top: 12px;
+  border-top: 1px solid var(--line);
+  font-size: 14px;
+}

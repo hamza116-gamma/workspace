@@ -8,7 +8,10 @@ export type Project = {
   key: string;
   name: string;
   description: string;
-  homeChannelId: string;
+  // null = no channel: private to the people in memberIds.
+  homeChannelId: string | null;
+  // People added directly (channel members are members too).
+  memberIds: string[];
   linkedChannelIds: string[];
   lead: User;
   updates: ProjectUpdates;
@@ -20,13 +23,17 @@ export type Project = {
   canManage?: boolean;
   readOnly?: boolean;
   counts?: { total: number; done: number };
+  // Tickets that would be deleted with the project (no channel to return to).
+  channelFreeTickets?: number;
 };
 
 export type ProjectInput = {
   name?: string;
   key?: string;
   description?: string;
+  // '' removes the home channel.
   homeChannelId?: string;
+  memberIds?: string[];
   linkedChannelIds?: string[];
   leadId?: string;
   updates?: ProjectUpdates;

@@ -170,15 +170,41 @@ const listMine = asyncHandler(async (req, res) => {
   success(res, { tasks: tasks.map(taskService.toPublicTask) });
 });
 
+// POST /projects/:key/tasks: a ticket created on the project board (works
+// with or without a home channel); nothing is posted to any chat.
+const createInProject = asyncHandler(async (req, res) => {
+  const project = await projectService.findByKey(req.organization._id, req.params.key);
+  if (!project) {
+    throw new AppError(404, 'Project not found');
+  }
+  await projectService.assertCanRead(project, req.user._id);
+  await projectService.assertCanWrite(project, req.user._id);
+  const fields = await taskService.prepareFields(req.organization._id, {}, req.body, '', project);
+  const ticket = await taskService.createTicket({
+    organizationId: req.organization._id,
+    actor: req.user,
+    fields,
+    project,
+  });
+  await followTicket(req, ticket, [req.user._id, ...ticket.assignees.map(idOf)]);
+  await announceCreated(req, ticket);
+  respond(res, ticket, 201);
+});
+
 // POST /tasks/:taskId/comments: a comment in the ticket's own thread. Works
 // for every project member (incl. linked channels); posts nothing to chat.
 const addComment = asyncHandler(async (req, res) => {
-  const task = await taskService.loadForWrite(req.params.taskId, req.organization._id, req.user._id);
+  const task = await taskService.loadForWrite(
+    req.params.taskId,
+    req.organization._id,
+    req.user._id,
+  );
   const message = await postMessage({
     io: getIo(req),
     organizationId: req.organization._id,
     user: req.user,
-    target: { channel: { _id: task.channel } },
+    // Channel-free project tickets: the comment belongs to the project.
+    target: task.channel ? { channel: { _id: task.channel } } : {},
     body: {
       content: req.body?.content,
       attachments: req.body?.attachments,
@@ -188,15 +214,22 @@ const addComment = asyncHandler(async (req, res) => {
   success(res, { message: await serializeMessage(message, req.user._id) }, 201);
 });
 
-// GET /tasks/assignable?channelId= | conversationId= | taskId=
+// GET /tasks/assignable?channelId= | conversationId= | taskId= | projectKey=
 // Exactly the people the server accepts as assignees there: project members
 // for a project channel / ticket, else channel members / DM participants.
 const listAssignable = asyncHandler(async (req, res) => {
-  const { channelId, conversationId, taskId } = req.query;
+  const { channelId, conversationId, taskId, projectKey } = req.query;
   const orgId = req.organization._id;
   let project = null;
   let target = null;
-  if (taskId) {
+  if (projectKey) {
+    project = await projectService.findByKey(orgId, projectKey);
+    if (!project) {
+      throw new AppError(404, 'Project not found');
+    }
+    await projectService.assertCanRead(project, req.user._id);
+    target = {};
+  } else if (taskId) {
     const task = await taskService.loadForRead(taskId, orgId, req.user._id);
     project = await taskService.projectOf(task);
     target = taskService.targetOf(task);
@@ -352,6 +385,7 @@ const remove = asyncHandler(async (req, res) => {
 });
 
 module.exports = {
+  createInProject,
   addComment,
   listAssignable,
   getByKey,

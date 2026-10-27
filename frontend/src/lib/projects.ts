@@ -1,6 +1,6 @@
 import { apiData } from './api';
 import type { Project, ProjectInput } from '@/types/project';
-import type { Task } from '@/types/task';
+import type { Task, TaskInput } from '@/types/task';
 
 export const listProjects = (archived = false) =>
   apiData<{ projects: Project[] }>(`/projects${archived ? '?archived=true' : ''}`);
@@ -29,7 +29,7 @@ export const restoreProject = (key: string) =>
   });
 
 export const deleteProject = (key: string, confirmKey: string) =>
-  apiData<{ id: string; released: number }>(`/projects/${encodeURIComponent(key)}`, {
+  apiData<{ id: string; released: number; deleted: number }>(`/projects/${encodeURIComponent(key)}`, {
     method: 'DELETE',
     body: { confirmKey },
   });
@@ -40,3 +40,7 @@ export const listProjectTasks = (key: string) =>
 // WEB-12, an old TASK-n, or a pre-rename key.
 export const getTaskByKey = (key: string) =>
   apiData<{ task: Task }>(`/tasks/by-key/${encodeURIComponent(key)}`);
+
+// A ticket created on the project board (works with or without a channel).
+export const createProjectTask = (key: string, body: TaskInput) =>
+  apiData<{ task: Task }>(`/projects/${encodeURIComponent(key)}/tasks`, { method: 'POST', body });

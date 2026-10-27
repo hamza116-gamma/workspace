@@ -34,9 +34,11 @@ export const ProjectView = ({ projectKey }: { projectKey: string }) => {
   const [error, setError] = useState('');
   const [tab, setTab] = useState<'board' | 'settings'>('board');
   // Stable object: the dialog reloads its people list when this changes.
+  // New tickets are created on the project (any members; nothing in chat).
   const [createTarget, setCreateTarget] = useState<{
-    channelId: string;
+    channelId: null;
     conversationId: null;
+    projectKey: string;
   } | null>(null);
 
   const load = useCallback(async () => {
@@ -127,8 +129,17 @@ export const ProjectView = ({ projectKey }: { projectKey: string }) => {
             <span className={styles.key}>{project.key}</span> {project.name}
           </h1>
           <p className={styles.meta}>
-            Home {home ? <Link href={`/channels/${home.id}`}># {home.name}</Link> : 'channel'} ·
-            lead {project.lead.fullName} · {tasks.length}{' '}
+            {project.homeChannelId ? (
+              <>
+                Home {home ? <Link href={`/channels/${home.id}`}># {home.name}</Link> : 'channel'}
+              </>
+            ) : (
+              <>
+                🔒 Private · {project.memberIds.length}{' '}
+                {project.memberIds.length === 1 ? 'person' : 'people'}
+              </>
+            )}{' '}
+            · lead {project.lead.fullName} · {tasks.length}{' '}
             {tasks.length === 1 ? 'ticket' : 'tickets'}
           </p>
         </div>
@@ -136,7 +147,7 @@ export const ProjectView = ({ projectKey }: { projectKey: string }) => {
           <Button
             size="sm"
             onClick={() =>
-              setCreateTarget({ channelId: project.homeChannelId, conversationId: null })
+              setCreateTarget({ channelId: null, conversationId: null, projectKey: project.key })
             }
           >
             + New ticket

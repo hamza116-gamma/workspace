@@ -331,7 +331,10 @@ test('only admins can delete, with the key typed; tickets go back to TASK-n', as
   const task = await makeTask(organization, home, users[0], 'kept', project);
   await assert.rejects(projectService.deleteProject(project, MEMBER, 'WEB'), /owners and admins/);
   await assert.rejects(projectService.deleteProject(project, OWNER, 'WRONG'), /Type WEB/);
-  assert.equal(await projectService.deleteProject(project, OWNER, 'web'), 1);
+  assert.deepEqual(await projectService.deleteProject(project, OWNER, 'web'), {
+    released: 1,
+    deleted: 0,
+  });
 
   const after = await Task.findById(task._id);
   assert.equal(after.project, null);

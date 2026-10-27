@@ -17,7 +17,10 @@ const emitTask = (io, task, event, extraUserIds = []) => {
     organizationId: idOf(task.organization),
     task: taskService.toPublicTask(task),
   };
-  const rooms = [chatRoomFor(task), `thread:${idOf(task.message)}`];
+  const rooms = [`thread:${idOf(task.message)}`];
+  if (task.channel || task.conversation) {
+    rooms.push(chatRoomFor(task));
+  }
   // Project boards (see project:join) and the project's previous board when
   // a ticket leaves a project are kept in sync too.
   if (task.project) {
@@ -116,7 +119,23 @@ const notifyDue = async (io, task) => {
   );
 };
 
+// Lost project membership: unassign from its tickets with a note on each.
+const releaseProjectAssignee = async (io, projectId, userId, note) => {
+  const tasks = await taskService.unassignFromProject(projectId, userId);
+  for (const stale of tasks) {
+    const task = await taskService.findByIdForOrg(stale._id, stale.organization);
+    if (!task) {
+      continue;
+    }
+    const reply = await taskService.postActivity(task, userId, note);
+    await emitActivity(io, reply);
+    await emitCard(io, task);
+    emitTask(io, task, 'task.updated', [userId]);
+  }
+};
+
 module.exports = {
+  releaseProjectAssignee,
   emitTask,
   emitCard,
   emitActivity,

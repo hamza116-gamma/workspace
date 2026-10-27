@@ -282,6 +282,7 @@ const createMessage = async (target, actor, payload) => {
       parentMessageId,
       alsoSentToChannel,
       ticketThread: Boolean(ticket),
+      project: ticket && !target.channel && !target.conversation ? ticket.project : null,
       links: extractLinks(content),
       ...mentions,
     });
@@ -326,8 +327,7 @@ const findByIdForOrg = (id, organizationId) =>
     .populate('mentionedUserIds');
 
 // The ticket a ticket-thread message belongs to (its anchor's task).
-const ticketOf = (message) =>
-  Task.findOne({ message: message.parentMessageId || message._id });
+const ticketOf = (message) => Task.findOne({ message: message.parentMessageId || message._id });
 
 // Lazy: task.service is loaded on first use (keeps require order simple).
 const ticketAccess = () => require('./task.service');

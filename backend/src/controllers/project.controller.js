@@ -1,4 +1,5 @@
 const { asyncHandler } = require('../utils/asyncHandler');
+const { releaseProjectAssignee } = require('../sockets/taskEvents');
 const { success } = require('../utils/response');
 const { AppError } = require('../utils/AppError');
 const projectService = require('../services/project.service');
@@ -44,6 +45,8 @@ const emitChanged = (req, project) => {
 // What the viewer may do: drives buttons in the UI (the server re-checks).
 const withViewer = async (req, project) => ({
   isMember: await projectService.isMember(project, req.user._id),
+  // Tickets that would be deleted with the project (no channel to return to).
+  channelFreeTickets: await projectService.countChannelFreeTickets(project),
   canManage: await projectService.canManage(project, req.user._id, orgRole(req)),
   readOnly: await projectService.isReadOnly(project),
 });
@@ -104,7 +107,7 @@ const create = asyncHandler(async (req, res) => {
 
 const update = asyncHandler(async (req, res) => {
   const found = await loadVisible(req);
-  const { project, renamedFrom } = await projectService.updateProject(
+  const { project, renamedFrom, lostMemberIds } = await projectService.updateProject(
     found,
     req.user._id,
     orgRole(req),
@@ -112,6 +115,15 @@ const update = asyncHandler(async (req, res) => {
   );
   if (renamedFrom) {
     await audit(req, AUDIT_ACTIONS.PROJECT_KEY_CHANGED, project, { from: renamedFrom });
+  }
+  // People who are no longer members at all lose their tickets here.
+  for (const userId of lostMemberIds) {
+    await releaseProjectAssignee(
+      getIo(req),
+      project._id,
+      userId,
+      'was unassigned (no longer a project member)',
+    );
   }
   emitChanged(req, project);
   success(res, {
@@ -147,10 +159,15 @@ const restore = asyncHandler(async (req, res) => {
 
 const remove = asyncHandler(async (req, res) => {
   const project = await loadVisible(req);
-  const released = await projectService.deleteProject(project, orgRole(req), req.body?.confirmKey);
-  await audit(req, AUDIT_ACTIONS.PROJECT_DELETED, project, { tickets: released });
+  // Who to tell must be worked out before the project is gone.
   emitChanged(req, project);
-  success(res, { id: String(project._id), released });
+  const { released, deleted } = await projectService.deleteProject(
+    project,
+    orgRole(req),
+    req.body?.confirmKey,
+  );
+  await audit(req, AUDIT_ACTIONS.PROJECT_DELETED, project, { released, deleted });
+  success(res, { id: String(project._id), released, deleted });
 });
 
 const listTasks = asyncHandler(async (req, res) => {
