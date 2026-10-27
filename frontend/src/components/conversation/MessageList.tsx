@@ -12,7 +12,8 @@ import { Icon } from '@/components/ui/Icon';
 import { Spinner } from '@/components/ui/Spinner';
 import { MessageActions } from './MessageActions';
 import { CreateTaskDialog } from '@/components/tasks/CreateTaskDialog';
-import { TaskChip } from '@/components/tasks/TaskChip';
+import { TaskCard } from '@/components/tasks/TaskCard';
+import { tokensToDisplay } from '@/lib/mentions';
 import { TicketPreview, ticketKeysIn } from '@/components/tasks/TicketPreview';
 import { useThreadPanel } from '@/hooks/useThreadPanel';
 import { MessageContent } from './MessageContent';
@@ -25,6 +26,10 @@ import { ReactionPill } from './ReactionPill';
 import type { Message } from '@/types/message';
 import type { ScrollAnchor } from '@/lib/chatCache';
 import styles from './MessageList.module.css';
+
+// Whitespace-insensitive compare (task title + description vs. the message).
+const sameText = (a: string, b: string) =>
+  a.replace(/\s+/g, ' ').trim() === b.replace(/\s+/g, ' ').trim();
 
 const GROUP_WINDOW_MS = 5 * 60 * 1000;
 // Older pages auto-loaded to reach a focused (searched / linked) message.
@@ -646,16 +651,27 @@ export const MessageList = ({
                                 <HuddleSummary message={message} />
                               ) : (
                                 <>
-                                  <MessageContent
-                                    content={message.content}
-                                    mentions={message.mentions}
-                                    senderId={message.sender.id}
-                                  />
-                                  {/* Quiet chat: a one-line chip, details open in the panel. */}
                                   {message.task && (
-                                    <TaskChip
+                                    <TaskCard
                                       task={message.task}
+                                      canModerate={canModerate}
+                                      mentionNames={message.mentions.map((user) => user.fullName)}
+                                      // Comments / history live in the ticket panel.
                                       onOpen={() => openThread(message.task!.messageId)}
+                                    />
+                                  )}
+                                  {/* The card already shows the text when it is the task title. */}
+                                  {!(
+                                    message.task &&
+                                    sameText(
+                                      tokensToDisplay(message.content, message.mentions),
+                                      `${message.task.title} ${message.task.description}`,
+                                    )
+                                  ) && (
+                                    <MessageContent
+                                      content={message.content}
+                                      mentions={message.mentions}
+                                      senderId={message.sender.id}
                                     />
                                   )}
                                   {ticketKeysIn(message.content, message.task?.key)

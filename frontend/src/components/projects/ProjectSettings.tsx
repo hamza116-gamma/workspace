@@ -90,8 +90,13 @@ export const ProjectSettings = ({
   return (
     <div className={styles.settings}>
       {!project.canManage && (
-        <p className={styles.banner}>
+        <p className={`${styles.banner} ${styles.span}`}>
           Only the project lead, a moderator or an admin can change these.
+        </p>
+      )}
+      {(error || notice) && (
+        <p className={`${error ? styles.error : styles.notice} ${styles.span}`}>
+          {error || notice}
         </p>
       )}
       <section className={styles.section}>
@@ -146,78 +151,78 @@ export const ProjectSettings = ({
         )}
       </section>
 
-      {project.canManage && (
-        <section className={styles.section}>
-          <h3>{project.status === 'ARCHIVED' ? 'Restore' : 'Archive'}</h3>
-          <p className={styles.hint}>
-            {project.status === 'ARCHIVED'
-              ? 'Make the project active again (its home channel must be free).'
-              : 'Archived projects are read-only and hidden from the list. You can restore them.'}
-          </p>
-          <div className={styles.actions}>
-            {project.status === 'ARCHIVED' ? (
+      {/* Right column on wide screens: lifecycle actions. */}
+      <div className={styles.side}>
+        {project.canManage && (
+          <section className={styles.section}>
+            <h3>{project.status === 'ARCHIVED' ? 'Restore' : 'Archive'}</h3>
+            <p className={styles.hint}>
+              {project.status === 'ARCHIVED'
+                ? 'Make the project active again (its home channel must be free).'
+                : 'Archived projects are read-only and hidden from the list. You can restore them.'}
+            </p>
+            <div className={styles.actions}>
+              {project.status === 'ARCHIVED' ? (
+                <Button
+                  variant="secondary"
+                  disabled={busy}
+                  onClick={() =>
+                    void run(
+                      async () => onSaved((await restoreProject(project.key)).project),
+                      'Restored.',
+                    )
+                  }
+                >
+                  Restore project
+                </Button>
+              ) : (
+                <Button
+                  variant="secondary"
+                  disabled={busy}
+                  onClick={() =>
+                    void run(
+                      async () => onSaved((await archiveProject(project.key)).project),
+                      'Archived.',
+                    )
+                  }
+                >
+                  Archive project
+                </Button>
+              )}
+            </div>
+          </section>
+        )}
+
+        {isAdmin && (
+          <section className={`${styles.section} ${styles.danger}`}>
+            <h3>Delete project</h3>
+            <p className={styles.hint}>
+              Tickets are kept: they go back to their channels as tasks (TASK-n), and {project.key}
+              -n links keep working. Type <b>{project.key}</b> to confirm.
+            </p>
+            <Input
+              label="Project key"
+              name="confirm-key"
+              value={confirmKey}
+              onChange={(event) => setConfirmKey(event.target.value.toUpperCase())}
+            />
+            <div className={styles.actions}>
               <Button
-                variant="secondary"
-                disabled={busy}
+                variant="danger"
+                disabled={busy || confirmKey !== project.key}
                 onClick={() =>
-                  void run(
-                    async () => onSaved((await restoreProject(project.key)).project),
-                    'Restored.',
-                  )
+                  void run(async () => {
+                    await deleteProject(project.key, confirmKey);
+                    router.push('/projects');
+                  }, 'Deleted.')
                 }
               >
-                Restore project
+                Delete project
               </Button>
-            ) : (
-              <Button
-                variant="secondary"
-                disabled={busy}
-                onClick={() =>
-                  void run(
-                    async () => onSaved((await archiveProject(project.key)).project),
-                    'Archived.',
-                  )
-                }
-              >
-                Archive project
-              </Button>
-            )}
-          </div>
-        </section>
-      )}
-
-      {isAdmin && (
-        <section className={`${styles.section} ${styles.danger}`}>
-          <h3>Delete project</h3>
-          <p className={styles.hint}>
-            Tickets are kept: they go back to their channels as tasks (TASK-n), and {project.key}-n
-            links keep working. Type <b>{project.key}</b> to confirm.
-          </p>
-          <Input
-            label="Project key"
-            name="confirm-key"
-            value={confirmKey}
-            onChange={(event) => setConfirmKey(event.target.value.toUpperCase())}
-          />
-          <div className={styles.actions}>
-            <Button
-              variant="danger"
-              disabled={busy || confirmKey !== project.key}
-              onClick={() =>
-                void run(async () => {
-                  await deleteProject(project.key, confirmKey);
-                  router.push('/projects');
-                }, 'Deleted.')
-              }
-            >
-              Delete project
-            </Button>
-          </div>
-        </section>
-      )}
-
-      {error && <p className={styles.error}>{error}</p>}
-      {notice && <p className={styles.notice}>{notice}</p>}
+            </div>
+          </section>
+        )}
+      </div>
     </div>
   );
 };

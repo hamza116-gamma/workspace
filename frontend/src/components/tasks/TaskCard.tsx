@@ -43,6 +43,7 @@ export const TaskCard = ({
   canModerate = false,
   mentionNames = [],
   readOnly = false,
+  onOpen,
 }: {
   task: Task;
   canModerate?: boolean;
@@ -50,6 +51,8 @@ export const TaskCard = ({
   mentionNames?: string[];
   // Static preview (e.g. the delete dialog): no status change, no edit.
   readOnly?: boolean;
+  // Opens the ticket (comments, history) in the side panel.
+  onOpen?: () => void;
 }) => {
   const [task, setTask] = useState(incoming);
   const [syncedAt, setSyncedAt] = useState(incoming.updatedAt);
@@ -101,7 +104,18 @@ export const TaskCard = ({
   return (
     <div className={`${styles.card} ${status === 'DONE' ? styles.done : ''}`}>
       <div className={styles.cardHead}>
-        <span className={styles.key}>{task.key}</span>
+        {onOpen ? (
+          <button
+            type="button"
+            className={`${styles.key} ${styles.keyLink}`}
+            onClick={onOpen}
+            title={`Open ${task.key}: comments and history`}
+          >
+            {task.key}
+          </button>
+        ) : (
+          <span className={styles.key}>{task.key}</span>
+        )}
         <span className={`${styles.priority} ${styles[`p${task.priority}`] ?? ''}`}>
           {TASK_PRIORITY_LABELS[task.priority]}
         </span>

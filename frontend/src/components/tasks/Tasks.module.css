@@ -867,3 +867,19 @@ button.open {
   font-size: 12px;
   color: var(--ink-3);
 }
+
+/* Card key that opens the ticket panel. */
+.keyLink {
+  padding: 0;
+  border: 0;
+  background: none;
+  font: inherit;
+  font-size: 12px;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.keyLink:hover {
+  color: var(--brand-ink, var(--brand));
+  text-decoration: underline;
+}

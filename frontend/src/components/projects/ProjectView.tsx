@@ -14,7 +14,6 @@ import { CreateTaskDialog } from '@/components/tasks/CreateTaskDialog';
 import { ProjectSettings } from './ProjectSettings';
 import type { Project } from '@/types/project';
 import type { Task } from '@/types/task';
-import taskStyles from '@/components/tasks/Tasks.module.css';
 import styles from './Projects.module.css';
 
 const upsert = (tasks: Task[], task: Task) => {
@@ -178,7 +177,7 @@ export const ProjectView = ({ projectKey }: { projectKey: string }) => {
       </nav>
 
       {tab === 'board' ? (
-        <div className={taskStyles.board}>
+        <div className={styles.boardArea}>
           <KanbanBoard
             tasks={tasks}
             onChange={(task) => setTasks((current) => upsert(current, task))}
