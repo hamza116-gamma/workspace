@@ -34,7 +34,8 @@ export const TaskSteps = ({
             <span className={styles.stepNum}>{state === 'done' ? '✓' : index + 1}</span>
             <span className={styles.stepText}>
               <span className={styles.stepLabel}>{label}</span>
-              {hints[index] && <span className={styles.stepHint}>{hints[index]}</span>}
+              {/* Always there (blank when empty) so every pill has the same height. */}
+              <span className={styles.stepHint}>{hints[index] || '\u00a0'}</span>
             </span>
           </button>
         </li>

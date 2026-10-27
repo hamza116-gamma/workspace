@@ -481,9 +481,8 @@ export const CreateTaskDialog = ({
             </Button>
           )}
           <span className={styles.grow} />
-          {step < 2 && (
+          {step < 2 && !createdWithErrors && (
             <Button
-              variant="secondary"
               type="button"
               disabled={!titleOk}
               onClick={() => setStep((step + 1) as TaskStep)}
@@ -495,7 +494,7 @@ export const CreateTaskDialog = ({
             <Button type="button" onClick={onClose}>
               Close
             </Button>
-          ) : (
+          ) : step < 2 ? null : (
             <Button
               type="button"
               disabled={saving || !titleOk}
