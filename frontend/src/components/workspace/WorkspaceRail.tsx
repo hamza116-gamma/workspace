@@ -1,21 +1,18 @@
 'use client';
 
 import Image from 'next/image';
-import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useState } from 'react';
 import { useAuth } from '@/hooks/useAuth';
 import { useOrg } from '@/hooks/useOrg';
 import { useUnread } from '@/hooks/useUnread';
 import { useDnd } from '@/hooks/useDnd';
-import { NotificationsMenu } from '@/components/notifications/NotificationsMenu';
 import { getInitials } from '@/lib/initials';
 import { Icon } from '@/components/ui/Icon';
 import { WorkspaceStack } from './WorkspaceStack';
 import { RailNav } from './RailNav';
-import { RailThemeToggle } from './RailThemeToggle';
+import { ProfileMenu } from './ProfileMenu';
 import { CreateWorkspaceDialog } from './CreateWorkspaceDialog';
-import railBtn from './RailButton.module.css';
 import styles from './WorkspaceRail.module.css';
 
 export const WorkspaceRail = () => {
@@ -62,29 +59,28 @@ export const WorkspaceRail = () => {
       </div>
 
       <div className={styles.bottom}>
-        <NotificationsMenu />
-        <RailThemeToggle />
-        <button
-          type="button"
-          className={railBtn.btn}
-          onClick={onLogout}
-          aria-label="Log out"
-          title="Log out"
-        >
-          <Icon name="logout" size={18} />
-        </button>
-        <Link
-          href="/profile"
-          className={`${styles.user} ${dnd.active ? styles.userDnd : ''}`}
-          aria-label={dnd.active ? 'Your profile (notifications paused)' : 'Your profile'}
-          title={dnd.active ? 'Your profile - notifications paused' : 'Your profile'}
-        >
-          {user?.avatarUrl ? (
-            <Image src={user.avatarUrl} alt="" width={38} height={38} className={styles.avatar} />
-          ) : (
-            <span className={styles.monogram}>{getInitials(user?.fullName ?? '?')}</span>
-          )}
-        </Link>
+        {/* Notifications, theme, intro and log out live in the avatar menu. */}
+        <ProfileMenu
+          onLogout={() => void onLogout()}
+          trigger={
+            <span
+              className={`${styles.user} ${dnd.active ? styles.userDnd : ''}`}
+              title={dnd.active ? 'Your profile - notifications paused' : 'Your profile'}
+            >
+              {user?.avatarUrl ? (
+                <Image
+                  src={user.avatarUrl}
+                  alt=""
+                  width={38}
+                  height={38}
+                  className={styles.avatar}
+                />
+              ) : (
+                <span className={styles.monogram}>{getInitials(user?.fullName ?? '?')}</span>
+              )}
+            </span>
+          }
+        />
       </div>
 
       <CreateWorkspaceDialog open={dialogOpen} onClose={() => setDialogOpen(false)} />

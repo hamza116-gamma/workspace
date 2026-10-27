@@ -10,8 +10,8 @@ import styles from './RailButton.module.css';
 const isDarkNow = () =>
   typeof document !== 'undefined' && document.documentElement.classList.contains('dark');
 
-/** Moon/sun toggle; persists via the same user.theme preference as Profile > Appearance. */
-export const RailThemeToggle = () => {
+/** Dark-mode state + toggle; persists via user.theme (same as Profile > Appearance). */
+export const useThemeToggle = () => {
   const { user, setUser } = useAuth();
   const [dark, setDark] = useState(false);
   const [busy, setBusy] = useState(false);
@@ -39,6 +39,12 @@ export const RailThemeToggle = () => {
     }
   };
 
+  return { dark, busy, toggle: onToggle };
+};
+
+/** Moon/sun toggle button. */
+export const RailThemeToggle = () => {
+  const { dark, busy, toggle: onToggle } = useThemeToggle();
   const label = dark ? 'Switch to light mode' : 'Switch to dark mode';
   return (
     <button

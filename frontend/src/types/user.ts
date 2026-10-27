@@ -15,6 +15,8 @@ export type User = {
   role: string;
   isDisabled: boolean;
   lastLoginAt: string | null;
+  // null until the welcome intro was finished or skipped.
+  introSeenAt?: string | null;
   createdAt: string;
   updatedAt: string;
 };

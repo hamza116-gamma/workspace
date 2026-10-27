@@ -19,6 +19,8 @@ export type ProfileUpdate = {
   statusClearAt?: string | null;
   presence?: PresenceState;
   theme?: ThemeName;
+  // true after the welcome intro, false to replay it.
+  introSeen?: boolean;
 };
 
 export type DndUpdate = { minutes: number } | { until: string } | { off: true };

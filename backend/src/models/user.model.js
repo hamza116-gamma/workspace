@@ -25,6 +25,8 @@ const userSchema = new mongoose.Schema(
     isDisabled: { type: Boolean, default: false },
     disabledAt: { type: Date, default: null },
     lastLoginAt: { type: Date, default: null },
+    // Set once the welcome intro was finished or skipped (null = show it).
+    introSeenAt: { type: Date, default: null },
     passwordChangedAt: { type: Date, default: null },
     passwordResetTokenHash: { type: String, default: null, select: false },
     passwordResetExpiresAt: { type: Date, default: null, select: false },
