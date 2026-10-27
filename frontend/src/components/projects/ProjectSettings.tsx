@@ -11,6 +11,7 @@ import { listAssignable } from '@/lib/tasks';
 import { archiveProject, deleteProject, restoreProject, updateProject } from '@/lib/projects';
 import { PROJECT_KEY_PATTERN, type Project } from '@/types/project';
 import type { User } from '@/types/user';
+import { VisibilityPick } from './NewProjectDialog';
 import styles from './Projects.module.css';
 
 /** Name, key, lead, people; archive / restore; delete (admins). */
@@ -28,6 +29,7 @@ export const ProjectSettings = ({
   const [key, setKey] = useState(project.key);
   const [leadId, setLeadId] = useState(project.lead.id);
   const [people, setPeople] = useState(project.memberIds);
+  const [visibility, setVisibility] = useState(project.visibility);
   const orgPeople = useOrgMembers()
     .filter((member) => member.status === 'ACTIVE')
     .map((member) => ({ value: member.user.id, label: member.user.fullName }));
@@ -43,6 +45,7 @@ export const ProjectSettings = ({
     setKey(project.key);
     setLeadId(project.lead.id);
     setPeople(project.memberIds);
+    setVisibility(project.visibility);
   }, [project]);
 
   // Lead candidates = current project members.
@@ -77,7 +80,8 @@ export const ProjectSettings = ({
           name: name.trim(),
           ...(keyChanged ? { key } : {}),
           leadId,
-          memberIds: people,
+          visibility,
+          ...(visibility === 'PRIVATE' ? { memberIds: people } : {}),
         });
         onSaved(next);
         if (keyChanged) router.replace(`/projects/${next.key}`);
@@ -129,19 +133,36 @@ export const ProjectSettings = ({
           disabled={!editable || members.length === 0}
         />
         <h3 className={styles.subhead}>Members</h3>
-        <p className={styles.hint}>
-          Only these people can see the project and its tickets. Anyone removed is unassigned from
-          its tickets.
-        </p>
-        <Dropdown
-          multiple
-          label="People"
-          placeholder="Nobody added directly"
-          options={orgPeople}
-          value={people}
-          onChange={setPeople}
+        <VisibilityPick
+          value={visibility}
           disabled={!editable}
+          onChange={(next) => {
+            setVisibility(next);
+            // Going private: start from the lead; pick who else stays.
+            if (next === 'PRIVATE' && people.length === 0) setPeople([leadId]);
+          }}
         />
+        {visibility === 'PRIVATE' ? (
+          <>
+            <p className={styles.hint}>
+              Only these people can see the project and its tickets. Anyone removed is unassigned
+              from its tickets.
+            </p>
+            <Dropdown
+              multiple
+              label="People"
+              placeholder="Pick the people"
+              options={orgPeople}
+              value={people}
+              onChange={setPeople}
+              disabled={!editable}
+            />
+          </>
+        ) : (
+          <p className={styles.hint}>
+            Everyone in the workspace is a member, including people who join later.
+          </p>
+        )}
         {editable && (
           <div className={styles.actions}>
             <Button disabled={busy || !name.trim() || !keyValid} onClick={() => void save()}>

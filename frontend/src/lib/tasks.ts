@@ -89,3 +89,10 @@ export const addTaskComment = (
     method: 'POST',
     body: { content, ...(attachments.length ? { attachments } : {}) },
   });
+
+// The "Unassigned" board: tasks in no project, from chats the user can read.
+export const listUnassignedTasks = () => apiData<{ tasks: Task[] }>('/tasks/unassigned');
+
+// Moves an unassigned task into a project (it gets the project's next key).
+export const moveTaskToProject = (taskId: string, projectId: string) =>
+  apiData<{ task: Task }>(`/tasks/${taskId}/project`, { method: 'POST', body: { projectId } });

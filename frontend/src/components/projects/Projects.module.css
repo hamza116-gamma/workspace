@@ -11,7 +11,11 @@
   overflow: hidden;
 }
 
+/* Self-contained (not layered on the shared page header), so it never
+   depends on which stylesheet loads last. */
 .head {
+  display: flex;
+  margin-bottom: 24px;
   flex-direction: row;
   align-items: flex-end;
   justify-content: space-between;
@@ -299,4 +303,44 @@
   padding-top: 12px;
   border-top: 1px solid var(--line);
   font-size: 14px;
+}
+
+/* Loading / not-found: centred in the page. */
+.centerState {
+  display: grid;
+  place-items: center;
+}
+
+.stateCard {
+  display: grid;
+  justify-items: center;
+  gap: 8px;
+  max-width: 380px;
+  text-align: center;
+}
+
+.stateIcon {
+  display: grid;
+  place-items: center;
+  width: 52px;
+  height: 52px;
+  margin-bottom: 4px;
+  border-radius: 16px;
+  background: var(--brand-soft);
+  color: var(--brand-ink);
+}
+
+.stateTitle {
+  margin: 0;
+  font-size: 17px;
+  font-weight: 650;
+  letter-spacing: var(--track-tight);
+  color: var(--ink);
+}
+
+.stateText {
+  margin: 0 0 8px;
+  font-size: 13px;
+  line-height: 1.5;
+  color: var(--ink-3);
 }

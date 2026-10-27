@@ -4,6 +4,7 @@ import { useCallback, useEffect, useState } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { Button } from '@/components/ui/Button';
+import { Icon } from '@/components/ui/Icon';
 import { Spinner } from '@/components/ui/Spinner';
 import { useTaskEvents } from '@/hooks/useTaskEvents';
 import { useSocket } from '@/hooks/useSocket';
@@ -11,7 +12,7 @@ import { getProject, listProjectTasks } from '@/lib/projects';
 import { KanbanBoard } from '@/components/tasks/KanbanBoard';
 import { CreateTaskDialog } from '@/components/tasks/CreateTaskDialog';
 import { ProjectSettings } from './ProjectSettings';
-import type { Project } from '@/types/project';
+import { peopleLabel, UNASSIGNED_KEY, type Project } from '@/types/project';
 import type { Task } from '@/types/task';
 import styles from './Projects.module.css';
 
@@ -98,16 +99,29 @@ export const ProjectView = ({ projectKey }: { projectKey: string }) => {
   });
 
   if (error) {
+    const missing = /not found/i.test(error);
     return (
-      <div className={styles.page}>
-        <p className={styles.error}>{error}</p>
-        <Link href="/projects">← All projects</Link>
+      <div className={`${styles.page} ${styles.centerState}`}>
+        <div className={styles.stateCard}>
+          <span className={styles.stateIcon} aria-hidden>
+            <Icon name="task" size={22} />
+          </span>
+          <h2 className={styles.stateTitle}>
+            {missing ? 'Project not found' : 'Couldn’t load this project'}
+          </h2>
+          <p className={styles.stateText}>
+            {missing
+              ? 'It may have been deleted, or you’re not one of its people. Ask the project lead to add you.'
+              : error}
+          </p>
+          <Button onClick={() => router.push('/projects')}>Back to projects</Button>
+        </div>
       </div>
     );
   }
   if (!project) {
     return (
-      <div className={styles.page}>
+      <div className={`${styles.page} ${styles.centerState}`}>
         <Spinner />
       </div>
     );
@@ -126,8 +140,7 @@ export const ProjectView = ({ projectKey }: { projectKey: string }) => {
             <span className={styles.key}>{project.key}</span> {project.name}
           </h1>
           <p className={styles.meta}>
-            {project.memberIds.length}{' '}
-            {project.memberIds.length === 1 ? 'person' : 'people'} · lead {project.lead.fullName} · {tasks.length}{' '}
+            {peopleLabel(project)} · lead {project.lead.fullName} · {tasks.length}{' '}
             {tasks.length === 1 ? 'ticket' : 'tickets'}
           </p>
         </div>

@@ -9,6 +9,7 @@ import { useProjects } from '@/hooks/useProjects';
 import { useProjectsEnabled } from '@/hooks/useProjectsEnabled';
 import { useOrg } from '@/hooks/useOrg';
 import { NewProjectDialog } from './NewProjectDialog';
+import { peopleLabel, UNASSIGNED_KEY } from '@/types/project';
 import page from '@/components/saved/SavedView.module.css';
 import styles from './Projects.module.css';
 
@@ -36,7 +37,7 @@ export const ProjectsView = () => {
 
   return (
     <div className={page.page}>
-      <header className={`${page.header} ${styles.head}`}>
+      <header className={styles.head}>
         <div>
           <span className={page.eyebrow}>Work</span>
           <h1 className={page.title}>Projects</h1>
@@ -68,18 +69,25 @@ export const ProjectsView = () => {
         <div className={page.center}>
           <Spinner />
         </div>
-      ) : projects.length === 0 ? (
+      ) : archived && projects.length === 0 ? (
         <div className={page.emptyCard}>
           <span className={page.emptyIcon} aria-hidden>
             <Icon name="task" size={20} />
           </span>
-          <p className={page.emptyTitle}>{archived ? 'No archived projects' : 'No projects yet'}</p>
-          <p className={page.empty}>
-            Create one to track tickets for a team.
-          </p>
+          <p className={page.emptyTitle}>No archived projects</p>
         </div>
       ) : (
         <div className={styles.grid}>
+          {/* Built-in board: tasks that are in no project. */}
+          {!archived && (
+            <Link href={`/projects/${UNASSIGNED_KEY}`} className={styles.card}>
+              <div className={styles.cardTop}>
+                <span className={styles.key}>{UNASSIGNED_KEY}</span>
+                <b className={styles.name}>Unassigned</b>
+              </div>
+              <p className={styles.meta}>Tasks from your chats that are in no project</p>
+            </Link>
+          )}
           {projects.map((project) => {
             const total = project.counts?.total ?? 0;
             const done = project.counts?.done ?? 0;
@@ -91,7 +99,7 @@ export const ProjectsView = () => {
                   <b className={styles.name}>{project.name}</b>
                 </div>
                 <p className={styles.meta}>
-                  {project.memberIds.length} {project.memberIds.length === 1 ? 'person' : 'people'}{' '}
+                  {peopleLabel(project)}{' '}
                   · {total} {total === 1 ? 'ticket' : 'tickets'} · lead {project.lead.fullName}
                 </p>
                 <div className={styles.bar}>

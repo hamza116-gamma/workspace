@@ -2,6 +2,11 @@ import type { User } from './user';
 
 export type ProjectUpdates = 'OFF' | 'KEY' | 'SUMMARY';
 export type ProjectStatus = 'ACTIVE' | 'ARCHIVED';
+// PUBLIC: everyone in the workspace. PRIVATE: only the people in memberIds.
+export type ProjectVisibility = 'PUBLIC' | 'PRIVATE';
+
+// The built-in board of tasks that are in no project (TASK-n).
+export const UNASSIGNED_KEY = 'TASK';
 
 export type Project = {
   id: string;
@@ -10,8 +15,11 @@ export type Project = {
   description: string;
   // null = no channel: private to the people in memberIds.
   homeChannelId: string | null;
-  // People added directly (channel members are members too).
+  visibility: ProjectVisibility;
+  // People added directly (private projects; empty when public).
   memberIds: string[];
+  // Everyone who is a member (the whole workspace when public).
+  memberCount?: number;
   linkedChannelIds: string[];
   lead: User;
   updates: ProjectUpdates;
@@ -33,6 +41,7 @@ export type ProjectInput = {
   description?: string;
   // '' removes the home channel.
   homeChannelId?: string;
+  visibility?: ProjectVisibility;
   memberIds?: string[];
   linkedChannelIds?: string[];
   leadId?: string;
@@ -50,4 +59,11 @@ export const suggestProjectKey = (name: string) => {
     words.length > 1 ? words.map((word) => word[0]).join('') : (words[0] || '').slice(0, 3);
   const clean = key.replace(/^[^A-Z]+/, '').slice(0, 6);
   return clean.length >= 2 && clean !== 'TASK' ? clean : '';
+};
+
+/** "Public · 12 people" / "🔒 Private · 3 people". */
+export const peopleLabel = (project: Project) => {
+  const count = project.memberCount ?? project.memberIds.length;
+  const people = `${count} ${count === 1 ? 'person' : 'people'}`;
+  return project.visibility === 'PUBLIC' ? `Public · ${people}` : `🔒 Private · ${people}`;
 };

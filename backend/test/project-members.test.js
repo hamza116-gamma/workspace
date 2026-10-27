@@ -306,3 +306,78 @@ test('deleting a channel-free project deletes its tickets; with a channel they a
     deleted: 0,
   });
 });
+
+// ---- visibility ------------------------------------------------------------
+
+test('a public project includes everyone in the workspace, now and later', async () => {
+  const { organization, users } = await setup(3);
+  const { project } = await projectService.createProject(organization._id, users[1], MEMBER, {
+    name: 'Everyone',
+    key: 'ALL',
+    visibility: 'PUBLIC',
+    memberIds: ids([users[2]]),
+  });
+  assert.equal(project.visibility, 'PUBLIC');
+  assert.deepEqual(project.members, [], 'no list for a public project');
+  for (const user of users) {
+    assert.equal(await projectService.isMember(project, user._id), true);
+  }
+  assert.equal((await projectService.memberIds(project)).size, users.length);
+});
+
+test('making a public project private needs the people and reports who left', async () => {
+  const { organization, users } = await setup(3);
+  const { project } = await projectService.createProject(organization._id, users[0], OWNER, {
+    name: 'Open',
+    key: 'OPN',
+    visibility: 'PUBLIC',
+  });
+  await assert.rejects(
+    projectService.updateProject(project, users[0]._id, OWNER, { visibility: 'PRIVATE' }),
+    /Pick the people/,
+  );
+  const { project: next, lostMemberIds } = await projectService.updateProject(
+    project,
+    users[0]._id,
+    OWNER,
+    { visibility: 'PRIVATE', memberIds: ids([users[0], users[1]]) },
+  );
+  assert.equal(next.visibility, 'PRIVATE');
+  assert.deepEqual(lostMemberIds.sort(), ids(users.slice(2)).sort());
+  assert.equal(await projectService.isMember(next, users[2]._id), false);
+});
+
+// ---- unassigned tasks --------------------------------------------------------
+
+test('Unassigned lists chat tasks the user can read; moving one gives it a project key', async () => {
+  const { organization, users } = await setup(3);
+  const chat = await createChannel(organization, users[0], [users[0], users[1]], {
+    type: 'PRIVATE',
+  });
+  const source = await messageService.createMessage(
+    { organization: organization._id, channel: chat._id },
+    users[0],
+    { content: 'Order chairs' },
+  );
+  const fields = await taskService.prepareFields(
+    organization._id,
+    { channel: String(chat._id) },
+    { assignees: ids([users[1]]) },
+    'Order chairs',
+  );
+  const task = await taskService.createForMessage(organization._id, source, users[0], fields);
+  const list = (user) =>
+    taskService
+      .listUnassigned(organization._id, user._id)
+      .then((rows) => rows.map((t) => String(t._id)));
+  assert.deepEqual(await list(users[1]), [String(task._id)]);
+  assert.deepEqual(await list(users[2]), [], 'not in the private channel');
+
+  const project = await channelFree(organization, users[0], []);
+  const { task: moved, dropped } = await taskService.moveToProject(task, project);
+  assert.equal(`${moved.projectKey}-${moved.number}`, 'SEC-1');
+  assert.ok(moved.formerKeys.includes(`${task.projectKey}-${task.number}`));
+  assert.deepEqual(dropped, [String(users[1]._id)], 'non-members are unassigned');
+  assert.deepEqual(await list(users[1]), []);
+  await assert.rejects(taskService.moveToProject(moved, project), /already in a project/);
+});

@@ -13,6 +13,7 @@ import { MessageList } from './MessageList';
 import { MessageComposer } from './MessageComposer';
 import { TypingIndicator } from './TypingIndicator';
 import { TaskCard } from '@/components/tasks/TaskCard';
+import { MoveToProject } from '@/components/tasks/MoveToProject';
 import { listAssignable } from '@/lib/tasks';
 import type { User } from '@/types/user';
 import styles from './ThreadPanel.module.css';
@@ -110,6 +111,11 @@ export const ThreadPanel = () => {
               <p className={styles.ticketHint}>
                 Comments and activity stay on this ticket; they are not posted to the channel.
               </p>
+            </div>
+          )}
+          {!ticket && root.task && (
+            <div className={styles.ticketHead}>
+              <MoveToProject task={root.task} />
             </div>
           )}
           <MessageList

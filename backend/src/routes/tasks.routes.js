@@ -11,10 +11,12 @@ router.use(requireAuth, requireOrganization);
 
 router.get('/', taskController.listMine);
 router.get('/assignable', taskController.listAssignable);
+router.get('/unassigned', taskController.listUnassigned);
 router.get('/by-key/:key', taskController.getByKey);
 router.get('/:taskId', taskController.get);
 router.patch('/:taskId', taskController.update);
 router.post('/:taskId/comments', taskController.addComment);
+router.post('/:taskId/project', taskController.moveToProject);
 router.delete('/:taskId', taskController.remove);
 
 module.exports = router;

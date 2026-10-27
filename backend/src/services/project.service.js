@@ -18,6 +18,7 @@ const {
   CHANNEL_MEMBER_STATUS,
   ORG_ROLES,
   MEMBER_STATUS,
+  PROJECT_VISIBILITY,
 } = require('../config/constants');
 const { toPublicUser } = require('./user.service');
 
@@ -35,7 +36,8 @@ const toPublicProject = (project, extra = {}) => ({
   name: project.name,
   description: project.description,
   homeChannelId: project.homeChannel ? idOf(project.homeChannel) : null,
-  // People added directly (channel members are members too).
+  visibility: project.visibility || PROJECT_VISIBILITY.PRIVATE,
+  // People added directly (private projects; empty for public ones).
   memberIds: (project.members || []).map(idOf),
   linkedChannelIds: (project.linkedChannels || []).map(idOf),
   lead:
@@ -118,7 +120,12 @@ const activeInWorkspace = async (organizationId, userIds) => {
  * Member = added directly (and still active in the workspace), or an active
  * member of the home channel / a linked channel. Either way is enough.
  */
+const isPublic = (project) => project.visibility === PROJECT_VISIBILITY.PUBLIC;
+
 const isMember = async (project, userId) => {
+  if (isPublic(project)) {
+    return (await activeInWorkspace(project.organization, [String(userId)])).size > 0;
+  }
   if (directIds(project).includes(String(userId))) {
     const active = await activeInWorkspace(project.organization, [String(userId)]);
     if (active.size) {
@@ -133,6 +140,13 @@ const isMember = async (project, userId) => {
 };
 
 const memberIds = async (project) => {
+  if (isPublic(project)) {
+    const rows = await OrganizationMember.find({
+      organization: project.organization,
+      status: MEMBER_STATUS.ACTIVE,
+    }).select('user');
+    return new Set(rows.map((row) => String(row.user)));
+  }
   const channels = channelIdsOf(project);
   const rows = channels.length
     ? await ChannelMember.find({ channel: { $in: channels }, ...activeMember }).select('user')
@@ -314,6 +328,16 @@ const assertLinked = async (organizationId, value, homeChannelId) => {
   return ids;
 };
 
+const assertVisibility = (value) => {
+  if (value === undefined) {
+    return undefined;
+  }
+  if (!Object.values(PROJECT_VISIBILITY).includes(value)) {
+    throw new AppError(400, 'Visibility must be PUBLIC or PRIVATE');
+  }
+  return value;
+};
+
 // People added directly must be active members of the workspace.
 const assertMembers = async (organizationId, value) => {
   if (value === undefined) {
@@ -414,14 +438,22 @@ const createProject = async (organizationId, actor, orgRole, payload = {}) => {
   await assertKeyFree(organizationId, key);
   const linkedChannels =
     (await assertLinked(organizationId, payload.linkedChannelIds, home?._id)) || [];
+  const visibility = assertVisibility(payload.visibility) || PROJECT_VISIBILITY.PRIVATE;
   const listed = (await assertMembers(organizationId, payload.memberIds)) || [];
-  // Without a channel the creator must be on the list, or nobody could open it.
-  const members = home ? listed : [...new Set([String(actor._id), ...listed])];
+  // Public: the whole workspace, no list. Private without a channel: the
+  // creator must be on the list, or nobody could open it.
+  const members =
+    visibility === PROJECT_VISIBILITY.PUBLIC
+      ? []
+      : home
+        ? listed
+        : [...new Set([String(actor._id), ...listed])];
 
   const draft = {
     organization: organizationId,
     homeChannel: home ? home._id : null,
     linkedChannels,
+    visibility,
     members,
   };
   const lead = await assertLead(draft, payload.leadId || actor._id);
@@ -503,7 +535,18 @@ const updateProject = async (current, actorId, orgRole, payload = {}) => {
       project.homeChannel,
     );
   }
-  if (payload.memberIds !== undefined) {
+  const visibility = assertVisibility(payload.visibility);
+  if (visibility && visibility !== (project.visibility || PROJECT_VISIBILITY.PRIVATE)) {
+    // Going private needs the people to keep; going public drops the list.
+    if (visibility === PROJECT_VISIBILITY.PRIVATE && payload.memberIds === undefined) {
+      throw new AppError(400, 'Pick the people who stay in the private project');
+    }
+    project.visibility = visibility;
+    changes.push('visibility');
+  }
+  if (isPublic(project)) {
+    project.members = [];
+  } else if (payload.memberIds !== undefined) {
     project.members = await assertMembers(project.organization, payload.memberIds);
   }
   // A linked channel can't also be the home.
@@ -662,6 +705,7 @@ const projectIdsForUser = async (organizationId, userId) => {
   const projects = await Project.find({
     organization: organizationId,
     $or: [
+      { visibility: PROJECT_VISIBILITY.PUBLIC },
       { members: userId },
       { homeChannel: { $in: channelIds } },
       { linkedChannels: { $in: channelIds } },
@@ -709,6 +753,7 @@ module.exports = {
   assertKey,
   isMember,
   memberIds,
+  isPublic,
   canManage,
   canSee,
   isReadOnly,

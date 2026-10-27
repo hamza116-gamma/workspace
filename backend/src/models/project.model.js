@@ -1,5 +1,5 @@
 const mongoose = require('mongoose');
-const { PROJECT_STATUS, PROJECT_UPDATES } = require('../config/constants');
+const { PROJECT_STATUS, PROJECT_UPDATES, PROJECT_VISIBILITY } = require('../config/constants');
 
 const { ObjectId } = mongoose.Schema.Types;
 
@@ -21,7 +21,13 @@ const projectSchema = new mongoose.Schema(
     // Optional. With one, its members are project members and it gets the
     // board. Without one the project is private to its listed members.
     homeChannel: { type: ObjectId, ref: 'Channel', default: null },
-    // People added directly (with or without a channel).
+    // PUBLIC = the whole workspace; PRIVATE = only `members`.
+    visibility: {
+      type: String,
+      enum: Object.values(PROJECT_VISIBILITY),
+      default: PROJECT_VISIBILITY.PRIVATE,
+    },
+    // People added directly (private projects; empty when public).
     members: [{ type: ObjectId, ref: 'User' }],
     // Extra channels that also see the board (and whose members are members).
     linkedChannels: [{ type: ObjectId, ref: 'Channel' }],

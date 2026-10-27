@@ -900,3 +900,16 @@ button.open {
 .lockedTicket small {
   color: var(--muted);
 }
+
+/* "Move to project" under an unassigned task's thread header. */
+.moveRow {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: 8px;
+}
+
+.moveRow > :first-child {
+  flex: 1;
+  min-width: 160px;
+}

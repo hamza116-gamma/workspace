@@ -628,6 +628,55 @@ const listForTarget = (organizationId, target, query = {}) =>
       .limit(LIST_LIMIT),
   );
 
+/**
+ * "Unassigned": tasks in no project, from the chats the user can read
+ * (joined or public channels, their DMs). Never other people's private chats.
+ */
+const listUnassigned = async (organizationId, userId, query = {}) => {
+  const { loadSearchScope } = require('./searchScope.service');
+  const scope = await loadSearchScope(organizationId, userId);
+  return populate(
+    Task.find({
+      organization: organizationId,
+      project: null,
+      $or: [
+        { channel: { $in: scope.channelIds } },
+        { conversation: { $in: scope.conversationIds } },
+      ],
+      ...buildFilter(query),
+    })
+      .sort({ position: 1, updatedAt: -1 })
+      .limit(LIST_LIMIT),
+  );
+};
+
+/**
+ * Moves an unassigned chat task into a project: it gets the next project
+ * key (TASK-8 -> MOB-3; the old key keeps working). Assignees who are not
+ * project members are dropped (returned so they can be told).
+ */
+const moveToProject = async (task, project) => {
+  if (task.project) {
+    throw new AppError(409, 'This task is already in a project');
+  }
+  const members = await projectService.memberIds(project);
+  const dropped = task.assignees.map(idOf).filter((id) => !members.has(id));
+  const numbered = await Project.findByIdAndUpdate(
+    project._id,
+    { $inc: { seq: 1 } },
+    { new: true, projection: { seq: 1 } },
+  );
+  await Task.updateOne(
+    { _id: task._id, project: null },
+    {
+      $set: { project: project._id, projectKey: project.key, number: numbered.seq },
+      $addToSet: { formerKeys: `${task.projectKey}-${task.number}` },
+      $pull: { assignees: { $in: dropped } },
+    },
+  );
+  return { task: await findByIdForOrg(task._id, task.organization), dropped };
+};
+
 // "My tasks": everything assigned to the user, limited to chats they can
 // still see (defence in depth: assignees are removed when they leave).
 const listAssignedTo = async (organizationId, userId, query = {}) => {
@@ -793,5 +842,8 @@ module.exports = {
   listForTarget,
   listAssignedTo,
   getByMessageIds,
+  listUnassigned,
+  lockedTask,
+  moveToProject,
   unassignFromChannel,
 };

@@ -145,6 +145,13 @@ const PROJECT_STATUS = {
 };
 
 // What a project posts to its home channel automatically.
+// PUBLIC: everyone active in the workspace is a member (now and later).
+// PRIVATE: only the people listed.
+const PROJECT_VISIBILITY = {
+  PUBLIC: 'PUBLIC',
+  PRIVATE: 'PRIVATE',
+};
+
 const PROJECT_UPDATES = {
   OFF: 'OFF',
   KEY: 'KEY',
@@ -158,6 +165,7 @@ module.exports = {
   AUDIT_ACTIONS,
   PROJECT_STATUS,
   PROJECT_UPDATES,
+  PROJECT_VISIBILITY,
   CHAT_TASK_KEY,
   TASK_STATUS,
   TASK_PRIORITY,

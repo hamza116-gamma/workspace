@@ -10,6 +10,7 @@ import { tokensToDisplay } from '@/lib/mentions';
 import { useProjects } from '@/hooks/useProjects';
 import { createProjectTask } from '@/lib/projects';
 import { useProjectsEnabled } from '@/hooks/useProjectsEnabled';
+import { useChannels } from '@/hooks/useChannels';
 import { MentionInput } from './MentionText';
 import { LabelInput } from './LabelInput';
 import { TASK_PRIORITY_COLORS, TASK_PRIORITY_LABELS, type TaskPriority } from '@/types/task';
@@ -53,11 +54,13 @@ export const CreateTaskDialog = ({
   // Turn this message into a task...
   message?: Message | null;
   // ...or post a brand-new task card in this chat (Tasks tab, /task).
-  // projectKey: create on that project's board (no chat post, any members).
+  // projectKey: create on that project's board (optionally also posted in a
+  // channel). pickChannel: the user picks the channel (Unassigned board).
   target?: {
     channelId: string | null;
     conversationId: string | null;
     projectKey?: string;
+    pickChannel?: boolean;
     title?: string;
   } | null;
   onClose: () => void;
@@ -80,6 +83,14 @@ export const CreateTaskDialog = ({
   const [projectId, setProjectId] = useState('');
   const pickProject = projectsEnabled && !target?.projectKey && memberProjects.length > 0;
   const chosenProject = memberProjects.find((p) => p.id === projectId);
+  // Channel to post the card in: optional on a project board, required on
+  // the Unassigned board (a task without a project lives in a chat).
+  const { channels } = useChannels();
+  const channelOptions = channels
+    .filter((c) => c.isMember && c.status === 'ACTIVE')
+    .map((c) => ({ value: c.id, label: `${c.type === 'PRIVATE' ? '🔒 ' : '# '}${c.name}` }));
+  const showChannel = Boolean(target?.projectKey || target?.pickChannel);
+  const [channelId, setChannelId] = useState('');
 
   useEffect(() => {
     if (!message && !target) {
@@ -90,6 +101,7 @@ export const CreateTaskDialog = ({
     setDueDate('');
     setError('');
     setProjectId('');
+    setChannelId('');
     setAssignees([]);
     if (message) {
       const readable = tokensToDisplay(message.content, message.mentions);
@@ -105,8 +117,13 @@ export const CreateTaskDialog = ({
   // without resetting what the user already typed.
   const chosenKey = chosenProject?.key ?? target?.projectKey ?? '';
   useEffect(() => {
-    const chat = message ?? target;
+    const chat = message ?? (target?.pickChannel ? { channelId, conversationId: null } : target);
     if (!chat) {
+      return;
+    }
+    if (!chosenKey && !chat.channelId && !chat.conversationId) {
+      // Unassigned board before a channel is picked: nobody to offer yet.
+      setPeople([]);
       return;
     }
     setPeople(null);
@@ -133,7 +150,7 @@ export const CreateTaskDialog = ({
     return () => {
       alive = false;
     };
-  }, [message, target, chosenKey]);
+  }, [message, target, chosenKey, channelId]);
 
   const submit = async (event: React.FormEvent) => {
     event.preventDefault();
@@ -142,6 +159,10 @@ export const CreateTaskDialog = ({
     }
     if (!title.trim()) {
       setError('Task title is required');
+      return;
+    }
+    if (target?.pickChannel && !chosenProject && !channelId) {
+      setError('Pick a channel for the task, or a project');
       return;
     }
     setSaving(true);
@@ -159,7 +180,18 @@ export const CreateTaskDialog = ({
       if (message) {
         await createTaskFromMessage(message.id, withProject);
       } else if (target?.projectKey) {
-        await createProjectTask(target.projectKey, fields);
+        await createProjectTask(target.projectKey, {
+          ...fields,
+          ...(channelId ? { channelId } : {}),
+        });
+      } else if (target?.pickChannel && chosenProject) {
+        // A project picked on the Unassigned board: it goes on that board.
+        await createProjectTask(chosenProject.key, {
+          ...fields,
+          ...(channelId ? { channelId } : {}),
+        });
+      } else if (target?.pickChannel) {
+        await createTaskInChat({ channelId, conversationId: null }, fields);
       } else if (target) {
         await createTaskInChat(target, withProject);
       }
@@ -216,14 +248,32 @@ export const CreateTaskDialog = ({
           <Dropdown
             label="Project"
             options={[
-              { value: '', label: 'No project (chat task)' },
+              { value: '', label: 'Unassigned' },
               ...memberProjects.map((p) => ({ value: p.id, label: `${p.key} · ${p.name}` })),
             ]}
             value={projectId}
             onChange={setProjectId}
           />
         )}
-        {chosenProject && (
+        {showChannel && (
+          <Dropdown
+            label={
+              target?.pickChannel && !chosenProject ? 'Channel' : 'Post in channel (optional)'
+            }
+            placeholder={
+              target?.pickChannel && !chosenProject ? 'Pick a channel' : 'Only on the board'
+            }
+            options={[
+              ...(target?.pickChannel && !chosenProject
+                ? []
+                : [{ value: '', label: 'Only on the board' }]),
+              ...channelOptions,
+            ]}
+            value={channelId}
+            onChange={setChannelId}
+          />
+        )}
+        {chosenProject && !target?.pickChannel && (
           <p className={styles.muted}>
             Goes on the {chosenProject.key} board. People here who aren&apos;t in{' '}
             {chosenProject.name} see the card but can&apos;t open it.

@@ -22,7 +22,7 @@ const audit = (req, action, project, metadata) =>
 // Sidebars and project lists refresh on any project change.
 // Only people who can see the project hear about it: everyone in the
 // workspace for a public home channel, else its members (home + linked).
-const emitChanged = (req, project) => {
+const emitChanged = (req, project, alsoUserIds = []) => {
   const io = getIo(req);
   if (!io) {
     return;
@@ -33,17 +33,20 @@ const emitChanged = (req, project) => {
   };
   (async () => {
     const home = await Channel.findById(project.homeChannel).select('type');
-    if (home?.type === CHANNEL_TYPES.PUBLIC) {
+    if (projectService.isPublic(project) || home?.type === CHANNEL_TYPES.PUBLIC) {
       io.to(`org:${req.organization._id}`).emit('project.changed', payload);
       return;
     }
     const members = await projectService.memberIds(project);
-    members.forEach((id) => io.to(`user:${id}`).emit('project.changed', payload));
+    new Set([...members, ...alsoUserIds.map(String)]).forEach((id) =>
+      io.to(`user:${id}`).emit('project.changed', payload),
+    );
   })().catch(() => {});
 };
 
 // What the viewer may do: drives buttons in the UI (the server re-checks).
 const withViewer = async (req, project) => ({
+  memberCount: (await projectService.memberIds(project)).size,
   isMember: await projectService.isMember(project, req.user._id),
   // Tickets that would be deleted with the project (no channel to return to).
   channelFreeTickets: await projectService.countChannelFreeTickets(project),
@@ -89,10 +92,16 @@ const get = asyncHandler(async (req, res) => {
 // Projects are made of the people added to them; channels no longer give
 // membership (a channel's tasks join a project only when someone picks it).
 const peopleOnly = (body = {}) => {
-  if (body.homeChannelId || (Array.isArray(body.linkedChannelIds) && body.linkedChannelIds.length)) {
+  if (
+    body.homeChannelId ||
+    (Array.isArray(body.linkedChannelIds) && body.linkedChannelIds.length)
+  ) {
     throw new AppError(400, 'Projects have members, not channels. Add the people instead');
   }
-  const { homeChannelId, linkedChannelIds, adoptTasks, ...rest } = body;
+  const rest = { ...body };
+  delete rest.homeChannelId;
+  delete rest.linkedChannelIds;
+  delete rest.adoptTasks;
   return rest;
 };
 
@@ -135,7 +144,7 @@ const update = asyncHandler(async (req, res) => {
       'was unassigned (no longer a project member)',
     );
   }
-  emitChanged(req, project);
+  emitChanged(req, project, lostMemberIds);
   success(res, {
     project: projectService.toPublicProject(project, await withViewer(req, project)),
   });

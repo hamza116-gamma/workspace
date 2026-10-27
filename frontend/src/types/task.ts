@@ -38,6 +38,8 @@ export type Task = {
 export type TaskInput = {
   // Project for a ticket made from a message ('' = no project).
   projectId?: string;
+  // New ticket on a project board: also post its card in this channel.
+  channelId?: string;
   title?: string;
   description?: string;
   status?: TaskStatus;

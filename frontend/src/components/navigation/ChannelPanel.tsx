@@ -202,7 +202,13 @@ export const ChannelPanel = () => {
               </Link>
             </div>
             <div className={styles.list}>
-              {projects.length === 0 && <p className={styles.empty}>No projects yet.</p>}
+              <Link
+                href="/projects/TASK"
+                className={`${styles.quickItem} ${styles.quickLink}`}
+              >
+                <span className={styles.projectKey}>TASK</span>
+                <span>Unassigned</span>
+              </Link>
               {projects.map((project) => (
                 <Link
                   key={project.id}

@@ -5,9 +5,11 @@ const taskService = require('../services/task.service');
 const messageService = require('../services/message.service');
 const projectService = require('../services/project.service');
 const threadService = require('../services/thread.service');
+const channelService = require('../services/channel.service');
 const { postMessage } = require('./message.controller');
 const { serializeMessage } = require('../services/serialize.service');
 const { emitTask, emitCard, emitActivity, notifyAssigned } = require('../sockets/taskEvents');
+const { emitToMessageRooms, serializeLive } = require('../sockets/messageEvents');
 
 const getIo = (req) => req.app.get('io');
 const idOf = (value) => String(value?._id ?? value);
@@ -37,6 +39,22 @@ const followTicket = (req, task, userIds) =>
       threadService.follow(req.organization._id, task.message, userId),
     ),
   );
+
+// Creates a project ticket for a card just posted in chat. If that fails
+// (bad assignee, ...) the card is taken back, so no orphan card is left.
+const ticketForCard = async (req, card, args) => {
+  try {
+    return await taskService.createTicket({ ...args, ...(card ? { sourceMessage: card } : {}) });
+  } catch (error) {
+    if (card) {
+      const deleted = await messageService.deleteMessage(card, req.user._id);
+      emitToMessageRooms(getIo(req), deleted, 'message.deleted', {
+        message: await serializeLive(deleted),
+      });
+    }
+    throw error;
+  }
+};
 
 // Explicit project from the request ("" = none, a chat task), else the
 // channel's project. The user must be able to add tickets to it.
@@ -116,12 +134,11 @@ const createInTarget = (targetKey) =>
         target: { [targetKey]: doc },
         body: { content: fields.title },
       });
-      const ticket = await taskService.createTicket({
+      const ticket = await ticketForCard(req, card, {
         organizationId: req.organization._id,
         actor: req.user,
         fields,
         project,
-        sourceMessage: card,
       });
       await followTicket(req, ticket, [req.user._id, ...ticket.assignees.map(idOf)]);
       await announceCreated(req, ticket);
@@ -171,6 +188,44 @@ const listInTarget = (targetKey) =>
   });
 
 // GET /tasks: the caller's assigned tasks ("My tasks").
+// GET /tasks/unassigned: the "Unassigned" board.
+const listUnassigned = asyncHandler(async (req, res) => {
+  const tasks = await taskService.listUnassigned(req.organization._id, req.user._id, req.query);
+  success(res, { tasks: tasks.map(taskService.toPublicTask) });
+});
+
+// POST /tasks/:taskId/project { projectId }: move an unassigned task into a
+// project the user is a member of.
+const moveToProject = asyncHandler(async (req, res) => {
+  const task = await taskService.loadForWrite(
+    req.params.taskId,
+    req.organization._id,
+    req.user._id,
+  );
+  const project = await chooseProject(req, null);
+  if (!project) {
+    throw new AppError(400, 'Pick a project');
+  }
+  const io = getIo(req);
+  const { task: moved, dropped } = await taskService.moveToProject(task, project);
+  const reply = await taskService.postActivity(
+    moved,
+    req.user._id,
+    `moved this to ${project.name} (${moved.projectKey}-${moved.number})`,
+  );
+  await emitActivity(io, reply);
+  await emitCard(io, moved);
+  // The chat's live board drops it; the project board and assignees get it.
+  io?.to(
+    `${moved.channel ? 'channel' : 'conversation'}:${idOf(moved.channel || moved.conversation)}`,
+  ).emit('task.updated', {
+    organizationId: String(req.organization._id),
+    task: taskService.lockedTask(moved),
+  });
+  emitTask(io, moved, 'task.updated', dropped);
+  respond(res, moved);
+});
+
 const listMine = asyncHandler(async (req, res) => {
   const tasks = await taskService.listAssignedTo(req.organization._id, req.user._id, req.query);
   success(res, { tasks: tasks.map(taskService.toPublicTask) });
@@ -185,8 +240,26 @@ const createInProject = asyncHandler(async (req, res) => {
   }
   await projectService.assertCanRead(project, req.user._id);
   await projectService.assertCanWrite(project, req.user._id);
+  // Optional channel: the card is also posted there (the user must be able to
+  // post in it). Without one the ticket lives only on the board.
+  const channel = req.body?.channelId
+    ? await channelService.assertCanWriteById(
+        req.body.channelId,
+        req.organization._id,
+        req.user._id,
+      )
+    : null;
   const fields = await taskService.prepareFields(req.organization._id, {}, req.body, '', project);
-  const ticket = await taskService.createTicket({
+  const card = channel
+    ? await postMessage({
+        io: getIo(req),
+        organizationId: req.organization._id,
+        user: req.user,
+        target: { channel },
+        body: { content: fields.title },
+      })
+    : null;
+  const ticket = await ticketForCard(req, card, {
     organizationId: req.organization._id,
     actor: req.user,
     fields,
@@ -391,6 +464,8 @@ const remove = asyncHandler(async (req, res) => {
 });
 
 module.exports = {
+  listUnassigned,
+  moveToProject,
   createInProject,
   addComment,
   listAssignable,
