@@ -13,6 +13,10 @@ export type Task = {
   channelId: string | null;
   conversationId: string | null;
   messageId: string;
+  // Chat message this ticket was made from (it shows a chip).
+  sourceMessageId?: string | null;
+  // Author of that message.
+  reporter?: User | null;
   title: string;
   description: string;
   status: TaskStatus;
@@ -29,6 +33,8 @@ export type Task = {
 };
 
 export type TaskInput = {
+  // Project for a ticket made from a message ('' = no project).
+  projectId?: string;
   title?: string;
   description?: string;
   status?: TaskStatus;

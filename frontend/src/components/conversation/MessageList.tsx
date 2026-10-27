@@ -12,8 +12,9 @@ import { Icon } from '@/components/ui/Icon';
 import { Spinner } from '@/components/ui/Spinner';
 import { MessageActions } from './MessageActions';
 import { CreateTaskDialog } from '@/components/tasks/CreateTaskDialog';
-import { TaskCard } from '@/components/tasks/TaskCard';
-import { tokensToDisplay } from '@/lib/mentions';
+import { TaskChip } from '@/components/tasks/TaskChip';
+import { TicketPreview, ticketKeysIn } from '@/components/tasks/TicketPreview';
+import { useThreadPanel } from '@/hooks/useThreadPanel';
 import { MessageContent } from './MessageContent';
 import { HuddleSummary } from '@/components/huddle/HuddleSummary';
 import { MessageEditor } from './editor/MessageEditor';
@@ -24,10 +25,6 @@ import { ReactionPill } from './ReactionPill';
 import type { Message } from '@/types/message';
 import type { ScrollAnchor } from '@/lib/chatCache';
 import styles from './MessageList.module.css';
-
-// Whitespace-insensitive compare (task title + description vs. the message).
-const sameText = (a: string, b: string) =>
-  a.replace(/\s+/g, ' ').trim() === b.replace(/\s+/g, ' ').trim();
 
 const GROUP_WINDOW_MS = 5 * 60 * 1000;
 // Older pages auto-loaded to reach a focused (searched / linked) message.
@@ -139,6 +136,7 @@ export const MessageList = ({
   canModerate = false,
   editRequest = 0,
   separatorAfter,
+  ownTicketKey,
 }: {
   messages: Message[];
   loading: boolean;
@@ -175,8 +173,11 @@ export const MessageList = ({
   editRequest?: number;
   /** Divider (e.g. "3 replies") after this message; it also ends its group. */
   separatorAfter?: { messageId: string; label: string };
+  // In a ticket's own panel: don't preview that same ticket again.
+  ownTicketKey?: string;
 }) => {
   const { user } = useAuth();
+  const { openThread } = useThreadPanel();
   const { marks } = useUnread();
   const { channelId: pinsChannelId, pinnedIds, togglePin } = usePins();
   const { savedIds, toggleSave } = useSaved();
@@ -645,27 +646,27 @@ export const MessageList = ({
                                 <HuddleSummary message={message} />
                               ) : (
                                 <>
+                                  <MessageContent
+                                    content={message.content}
+                                    mentions={message.mentions}
+                                    senderId={message.sender.id}
+                                  />
+                                  {/* Quiet chat: a one-line chip, details open in the panel. */}
                                   {message.task && (
-                                    <TaskCard
+                                    <TaskChip
                                       task={message.task}
-                                      canModerate={canModerate}
-                                      mentionNames={message.mentions.map((user) => user.fullName)}
+                                      onOpen={() => openThread(message.task!.messageId)}
                                     />
                                   )}
-                                  {/* The card already shows the text when it is the task title. */}
-                                  {!(
-                                    message.task &&
-                                    sameText(
-                                      tokensToDisplay(message.content, message.mentions),
-                                      `${message.task.title} ${message.task.description}`,
-                                    )
-                                  ) && (
-                                    <MessageContent
-                                      content={message.content}
-                                      mentions={message.mentions}
-                                      senderId={message.sender.id}
-                                    />
-                                  )}
+                                  {ticketKeysIn(message.content, message.task?.key)
+                                    .filter((key) => key !== ownTicketKey)
+                                    .map((key) => (
+                                      <TicketPreview
+                                        key={key}
+                                        ticketKey={key}
+                                        onOpen={(task) => openThread(task.messageId)}
+                                      />
+                                    ))}
                                   <MessageAttachments
                                     attachments={message.attachments}
                                     compact={compact}

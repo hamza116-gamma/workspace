@@ -4,7 +4,8 @@ const { AppError } = require('../utils/AppError');
 const projectService = require('../services/project.service');
 const taskService = require('../services/task.service');
 const auditService = require('../services/audit.service');
-const { AUDIT_ACTIONS } = require('../config/constants');
+const { AUDIT_ACTIONS, CHANNEL_TYPES } = require('../config/constants');
+const Channel = require('../models/channel.model');
 
 const getIo = (req) => req.app.get('io');
 const orgRole = (req) => req.membership?.role;
@@ -18,13 +19,27 @@ const audit = (req, action, project, metadata) =>
   auditService.record(req.organization._id, req.user._id, action, projectTarget(project), metadata);
 
 // Sidebars and project lists refresh on any project change.
-const emitChanged = (req, project) =>
-  getIo(req)
-    ?.to(`org:${req.organization._id}`)
-    .emit('project.changed', {
-      organizationId: String(req.organization._id),
-      projectId: String(project._id),
-    });
+// Only people who can see the project hear about it: everyone in the
+// workspace for a public home channel, else its members (home + linked).
+const emitChanged = (req, project) => {
+  const io = getIo(req);
+  if (!io) {
+    return;
+  }
+  const payload = {
+    organizationId: String(req.organization._id),
+    projectId: String(project._id),
+  };
+  (async () => {
+    const home = await Channel.findById(project.homeChannel).select('type');
+    if (home?.type === CHANNEL_TYPES.PUBLIC) {
+      io.to(`org:${req.organization._id}`).emit('project.changed', payload);
+      return;
+    }
+    const members = await projectService.memberIds(project);
+    members.forEach((id) => io.to(`user:${id}`).emit('project.changed', payload));
+  })().catch(() => {});
+};
 
 // What the viewer may do: drives buttons in the UI (the server re-checks).
 const withViewer = async (req, project) => ({

@@ -1,7 +1,6 @@
 'use client';
 
 import { useCallback, useEffect, useState } from 'react';
-import { useRouter } from 'next/navigation';
 import { Spinner } from '@/components/ui/Spinner';
 import { Icon } from '@/components/ui/Icon';
 import { Dropdown } from '@/components/ui/Dropdown';
@@ -29,12 +28,8 @@ const PRIORITY_FILTERS: { value: PriorityFilter; label: string; color?: string }
   })),
 ];
 
-const locationFor = (task: Task) =>
-  `${task.channelId ? `/channels/${task.channelId}` : `/dm/${task.conversationId}`}?message=${task.messageId}`;
-
 /** "My tasks": every task assigned to the viewer, as a Kanban board. */
 export const TasksView = () => {
-  const router = useRouter();
   const { user } = useAuth();
   const [tasks, setTasks] = useState<Task[]>([]);
   const [loading, setLoading] = useState(true);
@@ -133,7 +128,6 @@ export const TasksView = () => {
           onChange={(task) =>
             setTasks((current) => current.map((item) => (item.id === task.id ? task : item)))
           }
-          onOpenTask={(task) => router.push(locationFor(task))}
         />
       )}
     </div>

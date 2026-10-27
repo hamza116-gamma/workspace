@@ -4,6 +4,9 @@ const notificationService = require('../services/notification.service');
 const { NOTIFICATION_TYPES } = require('../models/notification.model');
 const { CHANNEL_NOTIFY } = require('../config/constants');
 const User = require('../models/user.model');
+const Task = require('../models/task.model');
+const Project = require('../models/project.model');
+const projectService = require('../services/project.service');
 const { isDndActive } = require('../utils/dnd');
 
 const idOf = (ref) => String(ref?._id ?? ref);
@@ -55,6 +58,34 @@ const channelRecipients = async (message, senderId) => {
   return [...recipients.values()];
 };
 
+// Ticket comments: the ticket's followers (thread follow rows) and people
+// mentioned, limited to those who can still open the ticket. Channel
+// members who never touched the ticket are not notified.
+const ticketRecipients = async (message, senderId) => {
+  const rootId = message.parentMessageId || message._id;
+  const task = await Task.findOne({ message: rootId });
+  if (!task) {
+    return [];
+  }
+  const project = task.project ? await Project.findById(task.project) : null;
+  const allowed = project
+    ? await projectService.memberIds(project)
+    : new Set((await channelService.listMembers(task.channel)).map((m) => idOf(m.user)));
+  const recipients = new Map();
+  (await threadService.listFollowers(rootId)).forEach((follower) => {
+    const id = idOf(follower.user);
+    if (id !== senderId && allowed.has(id)) {
+      recipients.set(id, { id, type: NOTIFICATION_TYPES.THREAD_REPLY });
+    }
+  });
+  (message.mentionedUserIds || []).map(idOf).forEach((id) => {
+    if (id !== senderId && allowed.has(id)) {
+      recipients.set(id, { id, type: NOTIFICATION_TYPES.MENTION });
+    }
+  });
+  return [...recipients.values()];
+};
+
 // Participants who muted the DM get no notifications from it.
 const conversationRecipients = (conversation, senderId) =>
   (conversation?.participants || [])
@@ -77,9 +108,11 @@ const notify = async (io, { message, actor, organizationId, conversation }) => {
     return;
   }
   const senderId = String(actor._id);
-  const recipients = message.channel
-    ? await channelRecipients(message, senderId)
-    : conversationRecipients(conversation, senderId);
+  const recipients = message.ticketThread
+    ? await ticketRecipients(message, senderId)
+    : message.channel
+      ? await channelRecipients(message, senderId)
+      : conversationRecipients(conversation, senderId);
   if (recipients.length === 0) {
     return;
   }
@@ -108,7 +141,8 @@ const notify = async (io, { message, actor, organizationId, conversation }) => {
 // Unread badges update live for every recipient except the sender. Events
 // carry organizationId so clients ignore other workspaces' events.
 const emitUnread = async (io, { message, actor, organizationId, conversation }) => {
-  if (!io || !message) {
+  // Ticket comments never touch channel unread badges.
+  if (!io || !message || message.ticketThread) {
     return;
   }
   let recipients = [];

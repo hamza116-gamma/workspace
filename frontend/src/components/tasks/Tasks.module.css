@@ -774,3 +774,96 @@ button.open {
 .newTask {
   margin-left: auto;
 }
+
+/* ---- quiet chat: chip + key preview ------------------------------------ */
+.chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  max-width: 100%;
+  margin-top: 6px;
+  padding: 3px 10px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--surface-1);
+  color: var(--ink-2);
+  font: inherit;
+  font-size: 12.5px;
+  cursor: pointer;
+  transition: border-color var(--t) var(--ease);
+}
+
+.chip:hover {
+  border-color: var(--brand);
+}
+
+.chipKey {
+  color: var(--ink);
+  font-weight: 700;
+}
+
+.chipStatus {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  font-weight: 600;
+}
+
+.chipStatus i {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+}
+
+.chipWho {
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+.preview {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  width: min(420px, 100%);
+  margin-top: 6px;
+  padding: 8px 12px;
+  border: 1px solid var(--line);
+  border-left: 3px solid var(--brand);
+  border-radius: 10px;
+  background: var(--surface-1);
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.preview:hover {
+  box-shadow: 0 4px 12px rgba(16, 24, 40, 0.07);
+}
+
+.previewTop {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 12px;
+}
+
+.previewPrio {
+  font-weight: 650;
+}
+
+.previewTop .chipStatus {
+  margin-left: auto;
+}
+
+.previewTitle {
+  font-size: 13.5px;
+  font-weight: 620;
+  color: var(--ink);
+}
+
+.previewMeta {
+  font-size: 12px;
+  color: var(--ink-3);
+}

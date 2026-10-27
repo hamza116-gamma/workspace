@@ -1,5 +1,6 @@
 import { apiData } from './api';
 import type { Task, TaskInput } from '@/types/task';
+import type { Message, PendingAttachment } from '@/types/message';
 import type { User } from '@/types/user';
 
 export const createTaskFromMessage = (messageId: string, body: TaskInput) =>
@@ -74,3 +75,14 @@ export const taskAccess = (
 // Status changes and the edit button: anyone but 'none'.
 export const canManageTask = (task: Task, userId: string | undefined, canModerate = false) =>
   taskAccess(task, userId, canModerate) !== 'none';
+
+// A comment in a ticket's own thread (never posted to the chat).
+export const addTaskComment = (
+  taskId: string,
+  content: string,
+  attachments: PendingAttachment[] = [],
+) =>
+  apiData<{ message: Message }>(`/tasks/${taskId}/comments`, {
+    method: 'POST',
+    body: { content, ...(attachments.length ? { attachments } : {}) },
+  });

@@ -10,7 +10,7 @@ const serializeMessage = async (message, viewerId) => {
   const [reactions, attachments, tasks] = await Promise.all([
     reactionService.getForMessage(message._id, viewerId),
     attachmentService.getForMessage(message._id),
-    message.task ? taskService.getByMessageIds([message._id]) : new Map(),
+    message.task || message.taskRef ? taskService.getByMessageIds([message._id]) : new Map(),
   ]);
   return messageService.toPublicMessage(
     message,
@@ -22,7 +22,9 @@ const serializeMessage = async (message, viewerId) => {
 
 const serializeMessages = async (messages, viewerId) => {
   const ids = messages.map((message) => message._id);
-  const taskIds = messages.filter((message) => message.task).map((message) => message._id);
+  const taskIds = messages
+    .filter((message) => message.task || message.taskRef)
+    .map((message) => message._id);
   const [reactionMap, attachmentMap, taskMap] = await Promise.all([
     reactionService.getByMessageIds(ids, viewerId),
     attachmentService.getByMessageIds(ids),

@@ -22,7 +22,6 @@ import { MemberFacepile } from './MemberFacepile';
 import { HuddleStartButton } from '@/components/huddle/HuddleStartButton';
 import { ConversationView } from './ConversationView';
 import { ConversationHeader, type ConversationTab } from './ConversationHeader';
-import { useFocusMessage } from '@/hooks/useFocusMessage';
 import { TasksBoard } from '@/components/tasks/TasksBoard';
 import { FilesLinks } from './FilesLinks';
 import headerStyles from './ConversationHeader.module.css';
@@ -64,7 +63,6 @@ export const DirectMessageWorkspace = ({ conversationId }: { conversationId: str
   const [addOpen, setAddOpen] = useState(false);
   const { isMuted, setMuted } = useConversationMute();
   const [tab, setTab] = useState<'messages' | 'files' | 'links' | 'tasks'>('messages');
-  const { focusMessage } = useFocusMessage();
   const markedRef = useRef<string | null>(null);
 
   useEffect(() => {
@@ -227,13 +225,7 @@ export const DirectMessageWorkspace = ({ conversationId }: { conversationId: str
               loading={filesLoading || linksLoading}
             />
           ) : tab === 'tasks' ? (
-            <TasksBoard
-              conversationId={conversation.id}
-              onOpenTask={(task) => {
-                setTab('messages');
-                focusMessage(task.messageId);
-              }}
-            />
+            <TasksBoard conversationId={conversation.id} />
           ) : undefined
         }
       />

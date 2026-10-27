@@ -7,6 +7,8 @@ import { Input } from '@/components/ui/Input';
 import { Dropdown } from '@/components/ui/Dropdown';
 import { createTaskFromMessage, createTaskInChat, listAssignable } from '@/lib/tasks';
 import { tokensToDisplay } from '@/lib/mentions';
+import { useProjects } from '@/hooks/useProjects';
+import { useProjectsEnabled } from '@/hooks/useProjectsEnabled';
 import { MentionInput } from './MentionText';
 import { LabelInput } from './LabelInput';
 import { TASK_PRIORITY_COLORS, TASK_PRIORITY_LABELS, type TaskPriority } from '@/types/task';
@@ -63,6 +65,21 @@ export const CreateTaskDialog = ({
   const [people, setPeople] = useState<User[] | null>(null);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
+  // Project for a message turned into a ticket ('' = no project, a chat task).
+  // Defaults to the channel's project; only projects the user is in.
+  const projectsEnabled = useProjectsEnabled();
+  const { projects } = useProjects();
+  const memberProjects = projects.filter((p) => p.isMember && !p.readOnly);
+  const [projectId, setProjectId] = useState('');
+  const [projectTouched, setProjectTouched] = useState(false);
+  const channelProject = message?.channelId
+    ? memberProjects.find(
+        (p) =>
+          p.homeChannelId === message.channelId || p.linkedChannelIds.includes(message.channelId!),
+      )
+    : undefined;
+  const effectiveProjectId = projectTouched ? projectId : (channelProject?.id ?? '');
+  const chosenProject = memberProjects.find((p) => p.id === effectiveProjectId);
 
   useEffect(() => {
     if (!message && !target) {
@@ -96,26 +113,39 @@ export const CreateTaskDialog = ({
     setPriority('MEDIUM');
     setDueDate('');
     setError('');
+    setProjectTouched(false);
+  }, [message, target]);
+
+  // Message flow: the people list follows the chosen project (a project
+  // ticket can go to any project member, asked via its home channel), without
+  // resetting what the user already typed.
+  const chosenHome = chosenProject?.homeChannelId ?? null;
+  useEffect(() => {
+    if (!message) {
+      return;
+    }
     setPeople(null);
     // People mentioned in the message are pre-selected as assignees.
     const mentioned = message.mentions.map((user) => user.id);
-    setAssignees([]);
     let alive = true;
-    listAssignable({ channelId: message.channelId, conversationId: message.conversationId }).then(
+    const peopleFrom = chosenHome
+      ? { channelId: chosenHome, conversationId: null }
+      : { channelId: message.channelId, conversationId: message.conversationId };
+    listAssignable(peopleFrom).then(
       (users) => {
         if (!alive) {
           return;
         }
         setPeople(users);
-        const inChat = new Set(users.map((user) => user.id));
-        setAssignees(mentioned.filter((id) => inChat.has(id)));
+        const allowed = new Set(users.map((user) => user.id));
+        setAssignees(mentioned.filter((id) => allowed.has(id)));
       },
       () => alive && setPeople([]),
     );
     return () => {
       alive = false;
     };
-  }, [message, target]);
+  }, [message, chosenHome]);
 
   const submit = async (event: React.FormEvent) => {
     event.preventDefault();
@@ -138,7 +168,10 @@ export const CreateTaskDialog = ({
         dueDate: dueDate ? new Date(`${dueDate}T23:59:00`).toISOString() : null,
       };
       if (message) {
-        await createTaskFromMessage(message.id, fields);
+        await createTaskFromMessage(message.id, {
+          ...fields,
+          ...(projectsEnabled ? { projectId: effectiveProjectId } : {}),
+        });
       } else if (target) {
         await createTaskInChat(target, fields);
       }
@@ -191,6 +224,26 @@ export const CreateTaskDialog = ({
             onChange={(event) => setDueDate(event.target.value)}
           />
         </div>
+        {message && projectsEnabled && (
+          <Dropdown
+            label="Project"
+            options={[
+              { value: '', label: 'No project (chat task)' },
+              ...memberProjects.map((p) => ({ value: p.id, label: `${p.key} · ${p.name}` })),
+            ]}
+            value={effectiveProjectId}
+            onChange={(value) => {
+              setProjectTouched(true);
+              setProjectId(value);
+            }}
+          />
+        )}
+        {message && chosenProject && (
+          <p className={styles.muted}>
+            Creates {chosenProject.key}-n with its own comments; this message only gets a small
+            link.
+          </p>
+        )}
         <LabelInput value={labels} onChange={setLabels} />
         <Dropdown
           multiple

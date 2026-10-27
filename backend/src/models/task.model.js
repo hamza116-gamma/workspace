@@ -15,6 +15,10 @@ const taskSchema = new mongoose.Schema(
     // The task card in the chat (Message.task points back here). Its thread
     // is the task's discussion and activity history.
     message: { type: ObjectId, ref: 'Message', required: true },
+    // The chat message this ticket was created from (shows a chip there).
+    sourceMessage: { type: ObjectId, ref: 'Message', default: null },
+    // Author of that source message (who reported it).
+    reporter: { type: ObjectId, ref: 'User', default: null },
     // Project this ticket belongs to (null = a chat task, keyed TASK-n).
     project: { type: ObjectId, ref: 'Project', default: null },
     // Key prefix (project key, or TASK); the key is `${projectKey}-${number}`.
@@ -55,6 +59,7 @@ taskSchema.pre('validate', function ensureSingleTarget(next) {
 });
 
 taskSchema.index({ message: 1 }, { unique: true });
+taskSchema.index({ sourceMessage: 1 }, { sparse: true });
 // (organization, number) was the unique key before projects; the migration
 // script drops that index.
 taskSchema.index({ organization: 1, projectKey: 1, number: 1 }, { unique: true });

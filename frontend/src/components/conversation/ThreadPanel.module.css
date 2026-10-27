@@ -90,3 +90,14 @@
     max-width: 100%;
   }
 }
+
+.ticketHead {
+  padding: 12px 16px 4px;
+  border-bottom: 1px solid var(--line);
+}
+
+.ticketHint {
+  margin: 6px 0 8px;
+  font-size: 12px;
+  color: var(--ink-3);
+}

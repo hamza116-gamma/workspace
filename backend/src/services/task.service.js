@@ -35,6 +35,12 @@ const toPublicTask = (task) => ({
   channelId: task.channel ? idOf(task.channel) : null,
   conversationId: task.conversation ? idOf(task.conversation) : null,
   messageId: idOf(task.message),
+  sourceMessageId: task.sourceMessage ? idOf(task.sourceMessage) : null,
+  reporter: task.reporter
+    ? task.reporter.fullName
+      ? toPublicUser(task.reporter)
+      : { id: idOf(task.reporter) }
+    : null,
   title: task.title,
   description: task.description,
   status: task.status,
@@ -54,7 +60,8 @@ const toPublicTask = (task) => ({
   updatedAt: task.updatedAt,
 });
 
-const populate = (query) => query.populate('assignees').populate('createdBy');
+const populate = (query) =>
+  query.populate('assignees').populate('createdBy').populate('reporter');
 
 // ---- validation -----------------------------------------------------------
 
@@ -320,6 +327,62 @@ const prepareFields = async (
  * Turns a message into a task card (fields from prepareFields). The message
  * link is claimed atomically so two concurrent converts cannot both succeed.
  */
+/**
+ * A project ticket with its own hidden thread ("quiet chat"): an anchor
+ * message in the project's home channel that never shows in the chat holds
+ * the ticket's comments and activity. When made from a chat message, that
+ * message only gets a small chip (taskRef) and its author is the reporter.
+ * Nothing is posted to any chat.
+ */
+const createTicket = async ({ organizationId, actor, fields, project, sourceMessage = null }) => {
+  const taskId = new mongoose.Types.ObjectId();
+  if (sourceMessage) {
+    // One ticket per message, claimed atomically (two clicks cannot both win).
+    const claimed = await Message.updateOne(
+      { _id: sourceMessage._id, task: null, taskRef: null, deletedAt: null },
+      { $set: { taskRef: taskId } },
+    );
+    if (claimed.modifiedCount === 0) {
+      throw new AppError(409, 'This message is already a ticket');
+    }
+  }
+  let anchor;
+  try {
+    anchor = await Message.create({
+      organization: organizationId,
+      channel: project.homeChannel,
+      sender: actor._id,
+      content: fields.title,
+      ticketThread: true,
+      task: taskId,
+    });
+    await Task.create({
+      _id: taskId,
+      organization: organizationId,
+      channel: project.homeChannel,
+      message: anchor._id,
+      sourceMessage: sourceMessage ? sourceMessage._id : null,
+      reporter: sourceMessage ? idOf(sourceMessage.sender) : null,
+      project: project._id,
+      projectKey: project.key,
+      number: await nextNumber(organizationId, project),
+      position: -Date.now(),
+      ...fields,
+      createdBy: actor._id,
+      closedAt: fields.status === TASK_STATUS.DONE ? new Date() : null,
+    });
+  } catch (error) {
+    if (sourceMessage) {
+      await Message.updateOne({ _id: sourceMessage._id, taskRef: taskId }, { $set: { taskRef: null } });
+    }
+    if (anchor) {
+      await Message.deleteOne({ _id: anchor._id });
+    }
+    throw error;
+  }
+  return populate(Task.findById(taskId));
+};
+
 const createForMessage = async (organizationId, message, actor, fields, project = null) => {
   assertConvertible(message, organizationId);
   const target = targetOf(message);
@@ -360,12 +423,15 @@ const createForMessage = async (organizationId, message, actor, fields, project 
 // notes are written for people who just lost access), mentions or drafts.
 const postActivity = async (task, actorId, content) => {
   const rootId = idOf(task.message);
+  const root = await Message.findById(rootId).select('ticketThread');
   const reply = await Message.create({
     organization: task.organization,
     ...targetOf(task),
     sender: actorId,
     content,
     parentMessageId: rootId,
+    // Notes in a ticket's own thread stay hidden from the chat too.
+    ticketThread: Boolean(root?.ticketThread),
   });
   await Message.updateOne(
     { _id: rootId },
@@ -485,6 +551,17 @@ const updateTask = async (task, payload = {}) => {
 
 const deleteTask = async (task) => {
   await Message.updateOne({ _id: task.message, task: task._id }, { $set: { task: null } });
+  if (task.sourceMessage) {
+    await Message.updateOne(
+      { _id: task.sourceMessage, taskRef: task._id },
+      { $set: { taskRef: null } },
+    );
+  }
+  // A ticket's hidden anchor goes with it (its comments stay unreachable).
+  await Message.updateOne(
+    { _id: task.message, ticketThread: true },
+    { $set: { deletedAt: new Date() } },
+  );
   await task.deleteOne();
 };
 
@@ -591,8 +668,15 @@ const getByMessageIds = async (messageIds) => {
   if (!messageIds.length) {
     return map;
   }
-  const tasks = await populate(Task.find({ message: { $in: messageIds } }));
-  tasks.forEach((task) => map.set(idOf(task.message), toPublicTask(task)));
+  const tasks = await populate(
+    Task.find({ $or: [{ message: { $in: messageIds } }, { sourceMessage: { $in: messageIds } }] }),
+  );
+  const wanted = new Set(messageIds.map(String));
+  tasks.forEach((task) => {
+    [task.message, task.sourceMessage]
+      .filter((id) => id && wanted.has(idOf(id)))
+      .forEach((id) => map.set(idOf(id), toPublicTask(task)));
+  });
   return map;
 };
 
@@ -647,6 +731,7 @@ const claimDueReminders = async (windowMs, limit = 50) => {
 };
 
 module.exports = {
+  createTicket,
   listAssignableUsers,
   listForProject,
   assertCanReadTask,

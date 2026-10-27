@@ -15,6 +15,7 @@ import {
   updateMessage,
 } from '@/lib/messages';
 import type { Message, PendingAttachment } from '@/types/message';
+import { addTaskComment } from '@/lib/tasks';
 
 type MessagePayload = { message: Message };
 
@@ -141,9 +142,14 @@ export const useThread = (rootId: string | null) => {
         alsoSendToChannel,
         ...(attachments.length ? { attachments } : {}),
       };
-      const result = root.channelId
-        ? await sendChannelMessage(root.channelId, trimmed, options)
-        : await sendConversationMessage(root.conversationId as string, trimmed, options);
+      // A ticket's own thread: comments go through the ticket (works for
+      // every project member, incl. linked channels; never to the chat).
+      const result =
+        root.ticketThread && root.taskId
+          ? await addTaskComment(root.taskId, trimmed, attachments)
+          : root.channelId
+            ? await sendChannelMessage(root.channelId, trimmed, options)
+            : await sendConversationMessage(root.conversationId as string, trimmed, options);
       applyMessage(result.message);
     },
     [rootId, root, applyMessage],

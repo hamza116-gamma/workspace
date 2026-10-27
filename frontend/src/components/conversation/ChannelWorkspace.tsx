@@ -330,7 +330,6 @@ export const ChannelWorkspace = ({ channelId }: { channelId: string }) => {
         channelId={channel.id}
         canModerate={canManage}
         canCreate={channel.isMember && !isArchived}
-        onOpenTask={(task) => openPinned(task.messageId)}
       />
     ) : tab === 'pins' ? (
       <ChannelPins onSelectMessage={openPinned} />

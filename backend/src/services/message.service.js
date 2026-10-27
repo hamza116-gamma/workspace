@@ -48,7 +48,13 @@ const toPublicMessage = (message, reactions = [], attachments = [], task = null)
   mentionHere: Boolean(message.mentionHere),
   links: message.links || [],
   huddleId: message.huddle ? String(message.huddle._id ?? message.huddle) : null,
-  taskId: message.task ? String(message.task._id ?? message.task) : null,
+  // A ticket card (legacy) or the chip of a message turned into a ticket.
+  taskId: message.task
+    ? String(message.task._id ?? message.task)
+    : message.taskRef
+      ? String(message.taskRef._id ?? message.taskRef)
+      : null,
+  ticketThread: Boolean(message.ticketThread),
   task,
   reactions,
   attachments,
@@ -76,6 +82,8 @@ const listMessages = async (target, { before, after, limit } = {}) => {
   const query = {
     ...target,
     $and: [
+      // Ticket threads (hidden anchor + replies) never appear in the chat.
+      { ticketThread: { $ne: true } },
       { $or: [{ parentMessageId: null }, { alsoSentToChannel: true }] },
       { $or: [{ deletedAt: null }, { parentMessageId: null, replyCount: { $gt: 0 } }] },
     ],
@@ -166,6 +174,30 @@ const filterMentionable = async (target, userIds) => {
   return [];
 };
 
+// Ticket comments: people who can be on the ticket (project members,
+// including linked channels). @channel / @here are not allowed there.
+const resolveTicketMentions = async (ticket, content) => {
+  const parsed = parseMentions(content);
+  if (parsed.all || parsed.here) {
+    throw new AppError(400, '@channel and @here cannot be used in ticket comments');
+  }
+  const service = ticketAccess();
+  const allowed = new Set(
+    (
+      await service.listAssignableUsers(
+        ticket.organization,
+        service.targetOf(ticket),
+        await service.projectOf(ticket),
+      )
+    ).map((user) => String(user.id)),
+  );
+  return {
+    mentionedUserIds: parsed.userIds.filter((id) => allowed.has(String(id))),
+    mentionAll: false,
+    mentionHere: false,
+  };
+};
+
 const resolveMentions = async (target, actorId, content) => {
   const parsed = parseMentions(content);
   if ((parsed.all || parsed.here) && !(await canMentionAll(target, actorId))) {
@@ -196,16 +228,26 @@ const createMessage = async (target, actor, payload) => {
     conversation: target.conversation || null,
   };
 
-  // Defence in depth: routes already enforce this for channel posts.
-  if (target.channel) {
+  let parentMessageId = null;
+  let alsoSentToChannel = false;
+  // Replying in a ticket's own thread (comment): access follows the ticket.
+  let ticket = null;
+  const parent =
+    payload.parentMessageId && mongoose.isValidObjectId(payload.parentMessageId)
+      ? await Message.findById(payload.parentMessageId)
+      : null;
+  if (parent?.ticketThread) {
+    ticket = await ticketOf(parent);
+    if (!ticket) {
+      throw new AppError(404, 'Thread not found');
+    }
+    await ticketAccess().assertCanWriteTask(ticket, actor._id);
+  } else if (target.channel) {
+    // Defence in depth: routes already enforce this for channel posts.
     await channelService.assertCanWriteById(target.channel, target.organization, actor._id);
   }
 
-  let parentMessageId = null;
-  let alsoSentToChannel = false;
-
   if (payload.parentMessageId && mongoose.isValidObjectId(payload.parentMessageId)) {
-    const parent = await Message.findById(payload.parentMessageId);
     if (
       !parent ||
       parent.deletedAt ||
@@ -221,10 +263,13 @@ const createMessage = async (target, actor, payload) => {
     }
     // Flat threads: a reply's parent is always the thread root.
     parentMessageId = parent.parentMessageId ? parent.parentMessageId : parent._id;
-    alsoSentToChannel = Boolean(payload.alsoSendToChannel);
+    // Ticket comments never go to the channel.
+    alsoSentToChannel = ticket ? false : Boolean(payload.alsoSendToChannel);
   }
 
-  const mentions = await resolveMentions(targetRef, actor._id, content);
+  const mentions = ticket
+    ? await resolveTicketMentions(ticket, content)
+    : await resolveMentions(targetRef, actor._id, content);
 
   let message;
   try {
@@ -236,6 +281,7 @@ const createMessage = async (target, actor, payload) => {
       content,
       parentMessageId,
       alsoSentToChannel,
+      ticketThread: Boolean(ticket),
       links: extractLinks(content),
       ...mentions,
     });
@@ -279,7 +325,23 @@ const findByIdForOrg = (id, organizationId) =>
     .populate('sender')
     .populate('mentionedUserIds');
 
+// The ticket a ticket-thread message belongs to (its anchor's task).
+const ticketOf = (message) =>
+  Task.findOne({ message: message.parentMessageId || message._id });
+
+// Lazy: task.service is loaded on first use (keeps require order simple).
+const ticketAccess = () => require('./task.service');
+
 const assertAccess = async (message, userId) => {
+  // Ticket comments follow the ticket (project members incl. linked channels).
+  if (message.ticketThread) {
+    const task = await ticketOf(message);
+    if (!task) {
+      throw new AppError(404, 'Message not found');
+    }
+    await ticketAccess().assertCanReadTask(task, userId);
+    return;
+  }
   if (message.channel) {
     const channel = await channelService.findById(message.channel, message.organization);
     if (!channel) {
@@ -336,6 +398,14 @@ const updateMessage = async (message, userId, content) => {
 // Message-level write gate (edit / delete / react / pin): channel messages
 // need an active membership in a non-archived channel.
 const assertCanWrite = async (message, userId) => {
+  if (message.ticketThread) {
+    const task = await ticketOf(message);
+    if (!task) {
+      throw new AppError(404, 'Message not found');
+    }
+    await ticketAccess().assertCanWriteTask(task, userId);
+    return;
+  }
   if (message.channel) {
     await channelService.assertCanWriteById(message.channel, message.organization, userId);
   }

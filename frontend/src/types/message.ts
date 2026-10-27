@@ -66,6 +66,8 @@ export type Message = {
   huddleId?: string | null;
   // Set when the message is a task card (its thread is the discussion).
   taskId?: string | null;
+  // Part of a ticket's own thread (hidden anchor + comments).
+  ticketThread?: boolean;
   task?: Task | null;
   editedAt: string | null;
   deletedAt: string | null;

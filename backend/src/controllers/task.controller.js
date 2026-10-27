@@ -4,7 +4,9 @@ const { AppError } = require('../utils/AppError');
 const taskService = require('../services/task.service');
 const messageService = require('../services/message.service');
 const projectService = require('../services/project.service');
+const threadService = require('../services/thread.service');
 const { postMessage } = require('./message.controller');
+const { serializeMessage } = require('../services/serialize.service');
 const { emitTask, emitCard, emitActivity, notifyAssigned } = require('../sockets/taskEvents');
 
 const getIo = (req) => req.app.get('io');
@@ -27,6 +29,37 @@ const announceCreated = async (req, task) => {
   await notifyAssigned(io, task, req.user, task.assignees.map(idOf));
 };
 
+// Creator, reporter and assignees follow the ticket's thread, so they hear
+// about its comments (nobody else in the channel does).
+const followTicket = (req, task, userIds) =>
+  Promise.all(
+    [...new Set(userIds.filter(Boolean).map(String))].map((userId) =>
+      threadService.follow(req.organization._id, task.message, userId),
+    ),
+  );
+
+// Explicit project from the request ("" = none, a chat task), else the
+// channel's project. The user must be able to add tickets to it.
+const chooseProject = async (req, channelId) => {
+  const { projectId } = req.body || {};
+  if (projectId === '' || projectId === null) {
+    return null;
+  }
+  const project = projectId
+    ? await projectService.findById(req.organization._id, projectId)
+    : await projectService.projectForChannel(req.organization._id, channelId);
+  if (projectId && !project) {
+    throw new AppError(404, 'Project not found');
+  }
+  if (project) {
+    if (!req.organization.settings?.projectsEnabled) {
+      throw new AppError(403, 'Projects is not enabled for this workspace');
+    }
+    await projectService.assertCanWrite(project, req.user._id);
+  }
+  return project;
+};
+
 // POST /messages/:messageId/task: turn an existing message into a task.
 const createFromMessage = asyncHandler(async (req, res) => {
   const message = await messageService.findByIdForOrg(req.params.messageId, req.organization._id);
@@ -35,8 +68,9 @@ const createFromMessage = asyncHandler(async (req, res) => {
   }
   await messageService.assertAccess(message, req.user._id);
   await messageService.assertCanWrite(message, req.user._id);
-  // A message in a project's home / linked channel becomes a ticket of it.
-  const project = await projectService.projectForChannel(req.organization._id, message.channel);
+  // Project ticket (picked, or the channel's project): own hidden thread and
+  // a chip on this message. Otherwise a chat task as before.
+  const project = await chooseProject(req, message.channel);
   const fields = await taskService.prepareFields(
     req.organization._id,
     taskService.targetOf(message),
@@ -44,13 +78,16 @@ const createFromMessage = asyncHandler(async (req, res) => {
     taskService.titleFromContent(message.content),
     project,
   );
-  const task = await taskService.createForMessage(
-    req.organization._id,
-    message,
-    req.user,
-    fields,
-    project,
-  );
+  const task = project
+    ? await taskService.createTicket({
+        organizationId: req.organization._id,
+        actor: req.user,
+        fields,
+        project,
+        sourceMessage: message,
+      })
+    : await taskService.createForMessage(req.organization._id, message, req.user, fields);
+  await followTicket(req, task, [req.user._id, idOf(message.sender), ...task.assignees.map(idOf)]);
   await announceCreated(req, task);
   respond(res, task, 201);
 });
@@ -71,6 +108,20 @@ const createInTarget = (targetKey) =>
       '',
       project,
     );
+    if (project) {
+      // Quiet: a project ticket gets its own hidden thread, nothing in chat.
+      await projectService.assertCanWrite(project, req.user._id);
+      const ticket = await taskService.createTicket({
+        organizationId: req.organization._id,
+        actor: req.user,
+        fields,
+        project,
+      });
+      await followTicket(req, ticket, [req.user._id, ...ticket.assignees.map(idOf)]);
+      await announceCreated(req, ticket);
+      respond(res, ticket, 201);
+      return;
+    }
     const message = await postMessage({
       io: getIo(req),
       organizationId: req.organization._id,
@@ -117,6 +168,24 @@ const listInTarget = (targetKey) =>
 const listMine = asyncHandler(async (req, res) => {
   const tasks = await taskService.listAssignedTo(req.organization._id, req.user._id, req.query);
   success(res, { tasks: tasks.map(taskService.toPublicTask) });
+});
+
+// POST /tasks/:taskId/comments: a comment in the ticket's own thread. Works
+// for every project member (incl. linked channels); posts nothing to chat.
+const addComment = asyncHandler(async (req, res) => {
+  const task = await taskService.loadForWrite(req.params.taskId, req.organization._id, req.user._id);
+  const message = await postMessage({
+    io: getIo(req),
+    organizationId: req.organization._id,
+    user: req.user,
+    target: { channel: { _id: task.channel } },
+    body: {
+      content: req.body?.content,
+      attachments: req.body?.attachments,
+      parentMessageId: idOf(task.message),
+    },
+  });
+  success(res, { message: await serializeMessage(message, req.user._id) }, 201);
 });
 
 // GET /tasks/assignable?channelId= | conversationId= | taskId=
@@ -252,6 +321,7 @@ const update = asyncHandler(async (req, res) => {
     // Unassigned people still get the event so it leaves their "My tasks".
     emitTask(io, task, 'task.updated', previousAssignees);
     await notifyAssigned(io, task, req.user, addedAssigneeIds);
+    await followTicket(req, task, addedAssigneeIds);
   }
   respond(res, task);
 });
@@ -282,6 +352,7 @@ const remove = asyncHandler(async (req, res) => {
 });
 
 module.exports = {
+  addComment,
   listAssignable,
   getByKey,
   createFromMessage,

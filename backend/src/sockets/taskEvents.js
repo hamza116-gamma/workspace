@@ -33,9 +33,15 @@ const emitCard = async (io, task) => {
   if (!io) {
     return;
   }
-  const root = await messageService.findByIdForOrg(task.message, task.organization);
-  if (root) {
-    emitToMessageRooms(io, root, 'message.updated', { message: await serializeLive(root) });
+  // The ticket's own thread root (a hidden anchor only reaches its thread
+  // room) and the chat message it was made from, whose chip shows the status.
+  for (const id of [task.message, task.sourceMessage].filter(Boolean)) {
+    const message = await messageService.findByIdForOrg(id, task.organization);
+    if (message) {
+      emitToMessageRooms(io, message, 'message.updated', {
+        message: await serializeLive(message),
+      });
+    }
   }
 };
 

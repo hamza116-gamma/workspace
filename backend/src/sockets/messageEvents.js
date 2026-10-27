@@ -11,14 +11,23 @@ const chatRoomFor = (message) =>
 
 const threadRootOf = (message) => message.parentMessageId || message._id;
 
+// Rooms that may hear about a message. A ticket's own thread (hidden anchor
+// and its comments) is never sent to the chat room: only to the thread room
+// of people who opened that ticket. This is the one place that rule lives.
+const roomsFor = (message, { chat = true } = {}) => {
+  const rooms = [`thread:${threadRootOf(message)}`];
+  if (chat && !message.ticketThread) {
+    rooms.push(chatRoomFor(message));
+  }
+  return rooms;
+};
+
 // Edits / deletes / reactions reach the chat room AND the thread room.
 const emitToMessageRooms = (io, message, event, payload) => {
   if (!io || !message) {
     return;
   }
-  io.to(chatRoomFor(message))
-    .to(`thread:${threadRootOf(message)}`)
-    .emit(event, payload);
+  io.to(roomsFor(message)).emit(event, payload);
 };
 
 const emitThreadUpdated = async (io, rootId, organizationId) => {
@@ -27,7 +36,7 @@ const emitThreadUpdated = async (io, rootId, organizationId) => {
     return;
   }
   const payload = { message: await serializeLive(root) };
-  io.to(chatRoomFor(root)).to(`thread:${root._id}`).emit('thread.updated', payload);
+  io.to(roomsFor(root)).emit('thread.updated', payload);
 };
 
 const emitCreated = async (io, message, organizationId) => {
@@ -38,15 +47,20 @@ const emitCreated = async (io, message, organizationId) => {
   const payload = { message: messageService.toPublicMessage(message, [], attachments) };
 
   if (!message.parentMessageId) {
-    io.to(chatRoomFor(message)).emit('message.created', payload);
+    if (!message.ticketThread) {
+      io.to(chatRoomFor(message)).emit('message.created', payload);
+    }
     return;
   }
-  const rooms = [`thread:${message.parentMessageId}`];
-  if (message.alsoSentToChannel) {
-    rooms.push(chatRoomFor(message));
-  }
-  io.to(rooms).emit('message.created', payload);
+  io.to(roomsFor(message, { chat: message.alsoSentToChannel })).emit('message.created', payload);
   await emitThreadUpdated(io, message.parentMessageId, organizationId);
 };
 
-module.exports = { serializeLive, chatRoomFor, emitToMessageRooms, emitThreadUpdated, emitCreated };
+module.exports = {
+  serializeLive,
+  chatRoomFor,
+  roomsFor,
+  emitToMessageRooms,
+  emitThreadUpdated,
+  emitCreated,
+};

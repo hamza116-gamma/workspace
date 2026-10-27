@@ -182,9 +182,6 @@ export const ProjectView = ({ projectKey }: { projectKey: string }) => {
           <KanbanBoard
             tasks={tasks}
             onChange={(task) => setTasks((current) => upsert(current, task))}
-            onOpenTask={(task) =>
-              router.push(`/channels/${task.channelId}?message=${task.messageId}`)
-            }
           />
         </div>
       ) : (

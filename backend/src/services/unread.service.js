@@ -10,6 +10,8 @@ const { CHANNEL_STATUS, CHANNEL_MEMBER_STATUS } = require('../config/constants')
 const unreadFilters = (userId) => [
   { deletedAt: null },
   { sender: { $ne: userId } },
+  // Ticket comments never make the channel unread.
+  { ticketThread: { $ne: true } },
   { $or: [{ parentMessageId: null }, { alsoSentToChannel: true }] },
 ];
 

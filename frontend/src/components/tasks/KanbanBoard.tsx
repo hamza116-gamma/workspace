@@ -4,6 +4,7 @@ import { useState } from 'react';
 import { Avatar } from '@/components/ui/Avatar';
 import { Icon } from '@/components/ui/Icon';
 import { useAuth } from '@/hooks/useAuth';
+import { useThreadPanel } from '@/hooks/useThreadPanel';
 import { taskAccess, updateTask, type TaskAccess } from '@/lib/tasks';
 import { tokensToDisplay } from '@/lib/mentions';
 import {
@@ -152,6 +153,7 @@ export const KanbanBoard = ({
   onOpenTask?: (task: Task) => void;
 }) => {
   const { user } = useAuth();
+  const { openThread } = useThreadPanel();
   const [dragId, setDragId] = useState<string | null>(null);
   const [overColumn, setOverColumn] = useState<TaskStatus | null>(null);
   // Card the dragged one would land before (null = end of the column).
@@ -263,7 +265,8 @@ export const KanbanBoard = ({
                         setOverColumn(null);
                         setBeforeId(null);
                       }}
-                      onOpen={onOpenTask ? () => onOpenTask(task) : undefined}
+                      // Default: open the ticket (card, comments) in the side panel.
+                      onOpen={() => (onOpenTask ? onOpenTask(task) : openThread(task.messageId))}
                       onSaved={onChange}
                     />
                   </div>
