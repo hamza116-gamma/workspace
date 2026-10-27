@@ -105,7 +105,7 @@ export const ChannelAboutCard = ({
           )}
           {type === 'PRIVATE' && channel.type === 'PUBLIC' && (
             <p className={styles.warning}>
-              People who aren't members will lose access to this channel.
+              People who aren&apos;t members will lose access to this channel.
             </p>
           )}
           <div className={styles.formActions}>

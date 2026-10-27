@@ -10,6 +10,8 @@ const organizationSchema = new mongoose.Schema(
     settings: {
       allowMemberChannelCreation: { type: Boolean, default: true },
       defaultChannelType: { type: String, enum: ['PUBLIC', 'PRIVATE'], default: 'PUBLIC' },
+      // Feature switch: Projects (tickets, milestones). Off until enabled.
+      projectsEnabled: { type: Boolean, default: false },
     },
     // Shareable join link; only owners/admins can read the token.
     inviteLink: {
