@@ -17,8 +17,19 @@ const byCreated = (a: Task, b: Task) => a.createdAt.localeCompare(b.createdAt);
  * Subtasks of a task, in its side panel: tick to finish, click to open, type
  * a title and press Enter to add. A subtask instead links back to its parent.
  */
-export const Subtasks = ({ task }: { task: Task }) => {
-  const { openThread } = useThreadPanel();
+export const Subtasks = ({
+  task,
+  onNavigate,
+}: {
+  task: Task;
+  // Called before opening another task's panel (e.g. closes the edit dialog).
+  onNavigate?: () => void;
+}) => {
+  const { openThread: openPanel } = useThreadPanel();
+  const openThread = (messageId: string) => {
+    onNavigate?.();
+    openPanel(messageId);
+  };
   const { socket } = useSocket();
   const { statusesFor, statusOf } = useTaskStatuses();
   const [items, setItems] = useState<Task[] | null>(null);

@@ -23,6 +23,7 @@ import {
 } from '@/types/task';
 import type { User } from '@/types/user';
 import { useTaskStatuses } from '@/hooks/useTaskStatuses';
+import { Subtasks } from './Subtasks';
 import styles from './Tasks.module.css';
 
 const TYPE_OPTIONS = (Object.keys(TASK_TYPE_LABELS) as TaskType[]).map((value) => ({
@@ -260,6 +261,8 @@ export const EditTaskDialog = ({
           value={assignees}
           onChange={setAssignees}
         />
+        {/* Subtasks save on their own (add / tick right away). */}
+        {!task.locked && <Subtasks task={task} onNavigate={onClose} />}
         {confirmDelete && task.subtaskTotal > 0 && (
           <div className={styles.subtaskChoice} role="radiogroup" aria-label="Its subtasks">
             <p className={styles.muted}>
