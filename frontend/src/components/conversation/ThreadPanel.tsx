@@ -14,6 +14,7 @@ import { MessageComposer } from './MessageComposer';
 import { TypingIndicator } from './TypingIndicator';
 import { TaskCard } from '@/components/tasks/TaskCard';
 import { MoveToProject } from '@/components/tasks/MoveToProject';
+import { Subtasks } from '@/components/tasks/Subtasks';
 import { listAssignable } from '@/lib/tasks';
 import type { User } from '@/types/user';
 import styles from './ThreadPanel.module.css';
@@ -108,6 +109,7 @@ export const ThreadPanel = () => {
           {ticket && root.task && (
             <div className={styles.ticketHead}>
               <TaskCard task={root.task} canModerate={canModerate} />
+              <Subtasks task={root.task} />
               <p className={styles.ticketHint}>
                 Comments and activity stay on this ticket; they are not posted to the channel.
               </p>
@@ -116,6 +118,7 @@ export const ThreadPanel = () => {
           {!ticket && root.task && (
             <div className={styles.ticketHead}>
               <MoveToProject task={root.task} />
+              {!root.task.locked && <Subtasks task={root.task} />}
             </div>
           )}
           <MessageList

@@ -33,6 +33,8 @@ export const ProjectView = ({ projectKey }: { projectKey: string }) => {
   const [tasks, setTasks] = useState<Task[]>([]);
   const [error, setError] = useState('');
   const [tab, setTab] = useState<'board' | 'settings'>('board');
+  // Subtasks are on the board too; hidden by default to keep it calm.
+  const [showSubtasks, setShowSubtasks] = useState(false);
   // Stable object: the dialog reloads its people list when this changes.
   // New tickets are created on the project (any members; nothing in chat).
   const [createTarget, setCreateTarget] = useState<{
@@ -185,8 +187,16 @@ export const ProjectView = ({ projectKey }: { projectKey: string }) => {
 
       {tab === 'board' ? (
         <div className={styles.boardArea}>
+          <label className={styles.boardFilter}>
+            <input
+              type="checkbox"
+              checked={showSubtasks}
+              onChange={(event) => setShowSubtasks(event.target.checked)}
+            />
+            Show subtasks
+          </label>
           <KanbanBoard
-            tasks={tasks}
+            tasks={showSubtasks ? tasks : tasks.filter((task) => !task.parentId)}
             statuses={project.statuses}
             onChange={(task) => setTasks((current) => upsert(current, task))}
           />

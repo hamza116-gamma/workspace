@@ -20,6 +20,21 @@ export const DEFAULT_STATUSES: TaskStatusDef[] = [
   { key: 'DONE', name: 'Done', color: '#22a06b', group: 'DONE' },
 ];
 export type TaskPriority = 'LOW' | 'MEDIUM' | 'HIGH' | 'URGENT';
+export type TaskType = 'TASK' | 'BUG' | 'FEATURE' | 'IMPROVEMENT';
+
+export const TASK_TYPE_LABELS: Record<TaskType, string> = {
+  TASK: 'Task',
+  BUG: 'Bug',
+  FEATURE: 'Feature',
+  IMPROVEMENT: 'Improvement',
+};
+
+export const TASK_TYPE_ICONS: Record<TaskType, string> = {
+  TASK: '✓',
+  BUG: '🐞',
+  FEATURE: '✨',
+  IMPROVEMENT: '⬆',
+};
 
 export type Task = {
   id: string;
@@ -40,6 +55,13 @@ export type Task = {
   status: TaskStatus;
   statusGroup: StatusGroup;
   priority: TaskPriority;
+  type: TaskType;
+  // Minutes (shown as 30m / 2h / 1.5d); null = no estimate.
+  estimateMinutes: number | null;
+  // Set on a subtask (one level only).
+  parentId: string | null;
+  subtaskTotal: number;
+  subtaskDone: number;
   assignees: User[];
   dueDate: string | null;
   labels: string[];
@@ -63,6 +85,9 @@ export type TaskInput = {
   description?: string;
   status?: TaskStatus;
   priority?: TaskPriority;
+  type?: TaskType;
+  // "30m", "2h", "1.5d", "1d 4h"; '' clears it.
+  estimate?: string;
   assignees?: string[];
   dueDate?: string | null;
   labels?: string[];
@@ -87,3 +112,13 @@ export const TASK_PRIORITY_COLORS: Record<TaskPriority, string> = {
 /** First status of a group in a list (where a moved / new task lands). */
 export const firstOfGroup = (statuses: TaskStatusDef[], group: StatusGroup) =>
   statuses.find((status) => status.group === group) ?? statuses[0];
+
+const DAY = 8 * 60;
+
+/** 120 -> "2h", 720 -> "1.5d", 90 -> "1h 30m" (a day is 8 hours). */
+export const formatEstimate = (minutes: number | null | undefined) => {
+  if (!minutes) return '';
+  if (minutes >= DAY && (minutes * 2) % DAY === 0) return `${minutes / DAY}d`;
+  if (minutes % 60 === 0) return `${minutes / 60}h`;
+  return minutes > 60 ? `${Math.floor(minutes / 60)}h ${minutes % 60}m` : `${minutes}m`;
+};

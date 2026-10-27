@@ -16,6 +16,7 @@ import { dueChip } from '@/lib/taskDue';
 import { EditTaskDialog } from './EditTaskDialog';
 import { Icon } from '@/components/ui/Icon';
 import { Avatar } from '@/components/ui/Avatar';
+import { EstimateChip, SubtaskProgress, TypeIcon } from './TaskMeta';
 import styles from './Tasks.module.css';
 
 
@@ -105,6 +106,7 @@ export const TaskCard = ({
   return (
     <div className={`${styles.card} ${current.group === 'DONE' ? styles.done : ''}`}>
       <div className={styles.cardHead}>
+        <TypeIcon task={task} />
         {onOpen ? (
           <button
             type="button"
@@ -120,6 +122,8 @@ export const TaskCard = ({
         <span className={`${styles.priority} ${styles[`p${task.priority}`] ?? ''}`}>
           {TASK_PRIORITY_LABELS[task.priority]}
         </span>
+        <EstimateChip task={task} />
+        <SubtaskProgress task={task} />
         <span className={styles.status}>
           <Dropdown
             size="sm"

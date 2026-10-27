@@ -158,6 +158,18 @@ const DEFAULT_TASK_STATUSES = [
   { key: TASK_STATUS.DONE, name: 'Done', color: '#22a06b', group: STATUS_GROUP.DONE },
 ];
 
+// Kind of ticket (fixed list for now).
+const TASK_TYPE = {
+  TASK: 'TASK',
+  BUG: 'BUG',
+  FEATURE: 'FEATURE',
+  IMPROVEMENT: 'IMPROVEMENT',
+};
+
+// Estimates are stored in minutes; a working day is 8 hours.
+const MINUTES_PER_DAY = 8 * 60;
+const ESTIMATE_MAX_MINUTES = 1000 * 60;
+
 const TASK_PRIORITY = {
   LOW: 'LOW',
   MEDIUM: 'MEDIUM',
@@ -197,6 +209,9 @@ module.exports = {
   TASK_STATUS,
   STATUS_GROUP,
   DEFAULT_TASK_STATUSES,
+  TASK_TYPE,
+  MINUTES_PER_DAY,
+  ESTIMATE_MAX_MINUTES,
   TASK_PRIORITY,
   HUDDLE_STATUS,
   HUDDLE_INVITE_STATUS,

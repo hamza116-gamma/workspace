@@ -226,6 +226,60 @@ const moveToProject = asyncHandler(async (req, res) => {
   respond(res, moved);
 });
 
+// GET /tasks/:taskId/subtasks
+const listSubtasks = asyncHandler(async (req, res) => {
+  const parent = await taskService.loadForRead(
+    req.params.taskId,
+    req.organization._id,
+    req.user._id,
+  );
+  const tasks = await taskService.listSubtasks(parent);
+  success(res, { tasks: tasks.map(taskService.toPublicTask) });
+});
+
+// POST /tasks/:taskId/subtasks: anyone who can work on the parent.
+const createSubtask = asyncHandler(async (req, res) => {
+  const parent = await taskService.loadForWrite(
+    req.params.taskId,
+    req.organization._id,
+    req.user._id,
+  );
+  const project = await taskService.projectOf(parent);
+  if (project) {
+    await projectService.assertCanWrite(project, req.user._id);
+  }
+  const subtask = await taskService.createSubtask({
+    organizationId: req.organization._id,
+    actor: req.user,
+    parent,
+    payload: req.body,
+  });
+  await followTicket(req, subtask, [req.user._id, ...subtask.assignees.map(idOf)]);
+  const io = getIo(req);
+  emitTask(io, subtask, 'task.created');
+  await notifyAssigned(io, subtask, req.user, subtask.assignees.map(idOf));
+  const reply = await taskService.postActivity(
+    parent,
+    req.user._id,
+    `added subtask ${subtask.projectKey}-${subtask.number}`,
+  );
+  await emitActivity(io, reply);
+  await emitParent(req, subtask);
+  respond(res, subtask, 201);
+});
+
+// A subtask changed: its parent's "2 / 5" changed too.
+const emitParent = async (req, task) => {
+  if (!task.parent) {
+    return;
+  }
+  const parent = await taskService.findByIdForOrg(idOf(task.parent), req.organization._id);
+  if (parent) {
+    emitTask(getIo(req), parent, 'task.updated');
+    await emitCard(getIo(req), parent);
+  }
+};
+
 const listMine = asyncHandler(async (req, res) => {
   const tasks = await taskService.listAssignedTo(req.organization._id, req.user._id, req.query);
   success(res, { tasks: tasks.map(taskService.toPublicTask) });
@@ -442,6 +496,7 @@ const update = asyncHandler(async (req, res) => {
     emitTask(io, task, 'task.updated', previousAssignees);
     await notifyAssigned(io, task, req.user, addedAssigneeIds);
     await followTicket(req, task, addedAssigneeIds);
+    await emitParent(req, task);
   }
   respond(res, task);
 });
@@ -464,14 +519,28 @@ const remove = asyncHandler(async (req, res) => {
   if (!isCreator && !isAuthor && !isModerator && !isManager) {
     throw new AppError(403, 'You can only delete tasks you created');
   }
-  await taskService.deleteTask(task);
+  // ?subtasks=delete also deletes its subtasks; otherwise they are kept.
+  const children = await taskService.deleteTask(task, {
+    subtasks: req.query.subtasks === 'delete' ? 'delete' : 'keep',
+  });
   const io = getIo(req);
   emitTask(io, task, 'task.deleted');
   await emitCard(io, task);
+  for (const child of children) {
+    if (req.query.subtasks === 'delete') {
+      emitTask(io, child, 'task.deleted');
+    } else {
+      const kept = await taskService.findByIdForOrg(child._id, req.organization._id);
+      if (kept) emitTask(io, kept, 'task.updated');
+    }
+  }
+  await emitParent(req, task);
   success(res, { id: idOf(task._id) });
 });
 
 module.exports = {
+  listSubtasks,
+  createSubtask,
   listUnassigned,
   moveToProject,
   createInProject,

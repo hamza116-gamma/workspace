@@ -17,6 +17,8 @@ router.get('/:taskId', taskController.get);
 router.patch('/:taskId', taskController.update);
 router.post('/:taskId/comments', taskController.addComment);
 router.post('/:taskId/project', taskController.moveToProject);
+router.get('/:taskId/subtasks', taskController.listSubtasks);
+router.post('/:taskId/subtasks', taskController.createSubtask);
 router.delete('/:taskId', taskController.remove);
 
 module.exports = router;

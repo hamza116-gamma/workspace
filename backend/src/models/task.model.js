@@ -4,6 +4,7 @@ const {
   TASK_PRIORITY,
   STATUS_GROUP,
   DEFAULT_TASK_STATUSES,
+  TASK_TYPE,
 } = require('../config/constants');
 
 const { ObjectId } = mongoose.Schema.Types;
@@ -47,6 +48,14 @@ const taskSchema = new mongoose.Schema(
       enum: Object.values(TASK_PRIORITY),
       default: TASK_PRIORITY.MEDIUM,
     },
+    type: { type: String, enum: Object.values(TASK_TYPE), default: TASK_TYPE.TASK },
+    // Optional estimate in minutes (shown as 30m / 2h / 1.5d).
+    estimateMinutes: { type: Number, default: null, min: 1 },
+    // Subtask of this task (one level: a subtask has no subtasks).
+    parent: { type: ObjectId, ref: 'Task', default: null },
+    // Kept by recountSubtasks: how many subtasks, and how many are done.
+    subtaskTotal: { type: Number, default: 0 },
+    subtaskDone: { type: Number, default: 0 },
     // Always members of the task's channel / participants of its conversation.
     assignees: [{ type: ObjectId, ref: 'User' }],
     dueDate: { type: Date, default: null },
@@ -101,6 +110,30 @@ taskSchema.pre('validate', async function syncStatusGroup() {
   this.statusGroup = status.group;
 });
 
+// A subtask's parent shows "2 / 5": recount after a subtask is added or its
+// group changes (deleting one recounts in the service).
+taskSchema.pre('save', function markRecount() {
+  this.$locals.recount = Boolean(this.parent) && (this.isNew || this.isModified('statusGroup'));
+});
+taskSchema.post('save', async function recountParent() {
+  if (this.$locals.recount) {
+    await this.constructor.recountSubtasks(this.parent);
+  }
+});
+
+taskSchema.statics.recountSubtasks = async function recountSubtasks(parentId) {
+  if (!parentId) {
+    return;
+  }
+  const id = parentId._id ?? parentId;
+  const [total, done] = await Promise.all([
+    this.countDocuments({ parent: id }),
+    this.countDocuments({ parent: id, statusGroup: STATUS_GROUP.DONE }),
+  ]);
+  await this.updateOne({ _id: id }, { $set: { subtaskTotal: total, subtaskDone: done } });
+};
+
+taskSchema.index({ parent: 1 });
 taskSchema.index({ message: 1 }, { unique: true });
 taskSchema.index({ sourceMessage: 1 }, { sparse: true });
 // (organization, number) was the unique key before projects; the migration

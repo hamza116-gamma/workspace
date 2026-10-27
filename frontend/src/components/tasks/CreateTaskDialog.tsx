@@ -20,6 +20,11 @@ import {
   firstOfGroup,
   type TaskPriority,
 } from '@/types/task';
+import {
+  TASK_TYPE_ICONS,
+  TASK_TYPE_LABELS,
+  type TaskType,
+} from '@/types/task';
 import type { Message } from '@/types/message';
 import type { User } from '@/types/user';
 import styles from './Tasks.module.css';
@@ -51,6 +56,12 @@ const restOfMessage = (content: string) => {
 
 const DESCRIPTION_MAX = 4000;
 
+const TYPE_OPTIONS = (Object.keys(TASK_TYPE_LABELS) as TaskType[]).map((value) => ({
+  value,
+  label: `${TASK_TYPE_ICONS[value]}  ${TASK_TYPE_LABELS[value]}`,
+}));
+
+
 /** Turns a message into a task. The card updates live from the socket. */
 export const CreateTaskDialog = ({
   message = null,
@@ -77,6 +88,10 @@ export const CreateTaskDialog = ({
   const [labels, setLabels] = useState<string[]>([]);
   const [priority, setPriority] = useState<TaskPriority>('MEDIUM');
   const [dueDate, setDueDate] = useState('');
+  // "More details": type and estimate (collapsed by default).
+  const [showMore, setShowMore] = useState(false);
+  const [type, setType] = useState<TaskType>('TASK');
+  const [estimate, setEstimate] = useState('');
   const [assignees, setAssignees] = useState<string[]>([]);
   const [people, setPeople] = useState<User[] | null>(null);
   const [saving, setSaving] = useState(false);
@@ -116,6 +131,9 @@ export const CreateTaskDialog = ({
     setLabels([]);
     setPriority('MEDIUM');
     setDueDate('');
+    setShowMore(false);
+    setType('TASK');
+    setEstimate('');
     setError('');
     setProjectId('');
     setChannelId('');
@@ -205,6 +223,8 @@ export const CreateTaskDialog = ({
         status: statusValue,
         assignees,
         dueDate: dueDate ? new Date(`${dueDate}T23:59:00`).toISOString() : null,
+        type,
+        estimate: estimate.trim(),
       };
       const withProject = chosenProject ? { ...fields, projectId: chosenProject.id } : fields;
       if (message) {
@@ -320,6 +340,32 @@ export const CreateTaskDialog = ({
           </p>
         )}
         <LabelInput value={labels} onChange={setLabels} />
+        <button
+          type="button"
+          className={styles.moreToggle}
+          aria-expanded={showMore}
+          onClick={() => setShowMore((open) => !open)}
+        >
+          {showMore ? '▾' : '▸'} More details
+          {!showMore && (type !== 'TASK' || estimate) && (
+            <span className={styles.moreSummary}>
+              {TASK_TYPE_LABELS[type]}
+              {estimate ? ` · ${estimate}` : ''}
+            </span>
+          )}
+        </button>
+        {showMore && (
+          <div className={styles.row}>
+            <Dropdown label="Type" options={TYPE_OPTIONS} value={type} onChange={setType} />
+            <Input
+              label="Estimate"
+              name="task-estimate"
+              placeholder="e.g. 30m, 2h, 1.5d"
+              value={estimate}
+              onChange={(event) => setEstimate(event.target.value)}
+            />
+          </div>
+        )}
         <Dropdown
           multiple
           label="Assignees"

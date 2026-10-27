@@ -9,8 +9,17 @@ export const createTaskFromMessage = (messageId: string, body: TaskInput) =>
 export const updateTask = (taskId: string, body: TaskInput) =>
   apiData<{ task: Task }>(`/tasks/${taskId}`, { method: 'PATCH', body });
 
-export const deleteTask = (taskId: string) =>
-  apiData<{ id: string }>(`/tasks/${taskId}`, { method: 'DELETE' });
+// subtasks: 'delete' also deletes its subtasks; by default they are kept.
+export const deleteTask = (taskId: string, subtasks: 'keep' | 'delete' = 'keep') =>
+  apiData<{ id: string }>(`/tasks/${taskId}?subtasks=${subtasks}`, { method: 'DELETE' });
+
+export const getTask = (taskId: string) => apiData<{ task: Task }>('/tasks/' + taskId);
+
+export const listSubtasks = (taskId: string) =>
+  apiData<{ tasks: Task[] }>(`/tasks/${taskId}/subtasks`);
+
+export const createSubtask = (taskId: string, body: TaskInput) =>
+  apiData<{ task: Task }>(`/tasks/${taskId}/subtasks`, { method: 'POST', body });
 
 export const listMyTasks = () => apiData<{ tasks: Task[] }>('/tasks');
 

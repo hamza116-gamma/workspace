@@ -14,12 +14,21 @@ import {
   TASK_PRIORITY_LABELS,
   type Task,
   type TaskPriority,
+  type TaskType,
+  TASK_TYPE_ICONS,
+  TASK_TYPE_LABELS,
+  formatEstimate,
   type TaskStatus,
   type TaskStatusDef,
 } from '@/types/task';
 import type { User } from '@/types/user';
 import { useTaskStatuses } from '@/hooks/useTaskStatuses';
 import styles from './Tasks.module.css';
+
+const TYPE_OPTIONS = (Object.keys(TASK_TYPE_LABELS) as TaskType[]).map((value) => ({
+  value,
+  label: `${TASK_TYPE_ICONS[value]}  ${TASK_TYPE_LABELS[value]}`,
+}));
 
 const PRIORITY_OPTIONS = (Object.keys(TASK_PRIORITY_LABELS) as TaskPriority[]).map((value) => ({
   value,
@@ -65,10 +74,14 @@ export const EditTaskDialog = ({
   const [description, setDescription] = useState(task.description);
   const [labels, setLabels] = useState<string[]>(task.labels);
   const [priority, setPriority] = useState<TaskPriority>(task.priority);
+  const [type, setType] = useState<TaskType>(task.type ?? 'TASK');
+  const [estimate, setEstimate] = useState(formatEstimate(task.estimateMinutes));
   const [status, setStatus] = useState<TaskStatus>(task.status);
   const { statusesFor } = useTaskStatuses();
   // Two-step delete: first click asks, second click deletes.
   const [confirmDelete, setConfirmDelete] = useState(false);
+  // A task with subtasks: delete them too, or keep them as separate tasks.
+  const [subtaskChoice, setSubtaskChoice] = useState<'keep' | 'delete'>('keep');
   const [dueDate, setDueDate] = useState(toDateInput(task.dueDate));
   const [assignees, setAssignees] = useState<string[]>([]);
   const [people, setPeople] = useState<User[] | null>(null);
@@ -85,6 +98,8 @@ export const EditTaskDialog = ({
     setDescription(task.description);
     setLabels(task.labels);
     setPriority(task.priority);
+    setType(task.type ?? 'TASK');
+    setEstimate(formatEstimate(task.estimateMinutes));
     setStatus(task.status);
     setConfirmDelete(false);
     setDueDate(toDateInput(task.dueDate));
@@ -108,7 +123,7 @@ export const EditTaskDialog = ({
     setSaving(true);
     setError('');
     try {
-      await deleteTask(task.id);
+      await deleteTask(task.id, subtaskChoice);
       onClose();
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Could not delete the task');
@@ -133,6 +148,10 @@ export const EditTaskDialog = ({
       ...(title.trim() !== task.title ? { title: title.trim() } : {}),
       ...(description.trim() !== task.description ? { description: description.trim() } : {}),
       ...(priority !== task.priority ? { priority } : {}),
+      ...(type !== (task.type ?? 'TASK') ? { type } : {}),
+      ...(estimate.trim() !== formatEstimate(task.estimateMinutes)
+        ? { estimate: estimate.trim() }
+        : {}),
       ...(status !== task.status ? { status } : {}),
       ...(labels.join(',') !== task.labels.join(',') ? { labels } : {}),
       ...(dueDate !== toDateInput(task.dueDate) ? { dueDate: nextDue } : {}),
@@ -211,6 +230,23 @@ export const EditTaskDialog = ({
             onChange={(event) => setDueDate(event.target.value)}
           />
         </div>
+        <div className={styles.row}>
+          <Dropdown
+            label="Type"
+            disabled={!full}
+            options={TYPE_OPTIONS}
+            value={type}
+            onChange={setType}
+          />
+          <Input
+            label="Estimate"
+            name="edit-task-estimate"
+            disabled={!full}
+            placeholder="e.g. 30m, 2h, 1.5d"
+            value={estimate}
+            onChange={(event) => setEstimate(event.target.value)}
+          />
+        </div>
         <LabelInput value={labels} disabled={!full} onChange={setLabels} />
         <Dropdown
           multiple
@@ -224,6 +260,29 @@ export const EditTaskDialog = ({
           value={assignees}
           onChange={setAssignees}
         />
+        {confirmDelete && task.subtaskTotal > 0 && (
+          <div className={styles.subtaskChoice} role="radiogroup" aria-label="Its subtasks">
+            <p className={styles.muted}>
+              It has {task.subtaskTotal} {task.subtaskTotal === 1 ? 'subtask' : 'subtasks'}:
+            </p>
+            <label>
+              <input
+                type="radio"
+                checked={subtaskChoice === 'keep'}
+                onChange={() => setSubtaskChoice('keep')}
+              />
+              Keep them as separate tasks
+            </label>
+            <label>
+              <input
+                type="radio"
+                checked={subtaskChoice === 'delete'}
+                onChange={() => setSubtaskChoice('delete')}
+              />
+              Delete them too
+            </label>
+          </div>
+        )}
         {error && <p className={styles.error}>{error}</p>}
         <div className={styles.actions}>
           {full && (

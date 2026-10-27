@@ -340,3 +340,15 @@
   line-height: 1.5;
   color: var(--ink-3);
 }
+
+/* "Show subtasks" above the project board. */
+.boardFilter {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  align-self: flex-end;
+  margin-bottom: 8px;
+  color: var(--ink-2);
+  font-size: 12.5px;
+  cursor: pointer;
+}

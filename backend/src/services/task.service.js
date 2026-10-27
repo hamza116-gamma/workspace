@@ -11,6 +11,9 @@ const {
   CHANNEL_MEMBER_STATUS,
   STATUS_GROUP,
   DEFAULT_TASK_STATUSES,
+  TASK_TYPE,
+  MINUTES_PER_DAY,
+  ESTIMATE_MAX_MINUTES,
 } = require('../config/constants');
 const { toPublicUser } = require('./user.service');
 const channelService = require('./channel.service');
@@ -62,6 +65,11 @@ const toPublicTask = (task) => ({
   status: task.status,
   statusGroup: task.statusGroup || STATUS_GROUP.TODO,
   priority: task.priority,
+  type: task.type || TASK_TYPE.TASK,
+  estimateMinutes: task.estimateMinutes ?? null,
+  parentId: task.parent ? idOf(task.parent) : null,
+  subtaskTotal: task.subtaskTotal || 0,
+  subtaskDone: task.subtaskDone || 0,
   assignees: (task.assignees || []).map((user) =>
     user && user.fullName ? toPublicUser(user) : { id: idOf(user) },
   ),
@@ -324,6 +332,45 @@ const assertConvertible = (message, organizationId) => {
   }
 };
 
+const ESTIMATE_UNITS = { m: 1, h: 60, d: MINUTES_PER_DAY };
+
+/**
+ * "30m", "2h", "1.5d", "1d 4h" or a number of minutes -> minutes. null / ''
+ * clears it.
+ */
+const parseEstimate = (value) => {
+  if (value === null || value === undefined || value === '') {
+    return null;
+  }
+  let minutes;
+  if (typeof value === 'number') {
+    minutes = value;
+  } else {
+    const text = String(value).trim().toLowerCase();
+    const parts = [...text.matchAll(/(\d+(?:\.\d+)?)\s*([mhd])/g)];
+    const rest = text.replace(/(\d+(?:\.\d+)?)\s*([mhd])/g, '').trim();
+    if (!parts.length || rest) {
+      throw new AppError(400, 'Estimate looks like 30m, 2h, 1.5d or 1d 4h');
+    }
+    minutes = parts.reduce(
+      (sum, [, amount, unit]) => sum + Number(amount) * ESTIMATE_UNITS[unit],
+      0,
+    );
+  }
+  minutes = Math.round(minutes);
+  if (!Number.isFinite(minutes) || minutes < 1 || minutes > ESTIMATE_MAX_MINUTES) {
+    throw new AppError(400, 'Estimate must be between 1 minute and 1000 hours');
+  }
+  return minutes;
+};
+
+const formatEstimate = (minutes) => {
+  if (!minutes) return 'none';
+  if (minutes % MINUTES_PER_DAY === 0) return `${minutes / MINUTES_PER_DAY}d`;
+  if (minutes % 60 === 0) return `${minutes / 60}h`;
+  return minutes > 60 ? `${Math.floor(minutes / 60)}h ${minutes % 60}m` : `${minutes}m`;
+};
+
 // Validates create input up front, so a new task's card message is only
 // posted once everything is known to be valid.
 const prepareFields = async (
@@ -346,8 +393,57 @@ const prepareFields = async (
     assignees: await assertAssignable(organizationId, target, payload.assignees || [], project),
     dueDate: payload.dueDate ? assertDueDate(payload.dueDate) : null,
     labels: payload.labels ? assertLabels(payload.labels) : [],
+    type: payload.type ? assertEnum(payload.type, TASK_TYPE, 'type') : TASK_TYPE.TASK,
+    estimateMinutes: parseEstimate(payload.estimate ?? payload.estimateMinutes),
   };
 };
+
+/**
+ * A subtask: a real task (own key, status, assignees) under `parent`, in the
+ * same place (same project, or the same chat for an unassigned task). It
+ * gets its own hidden thread, so nothing is posted in any chat.
+ */
+const createSubtask = async ({ organizationId, actor, parent, payload }) => {
+  if (parent.parent) {
+    throw new AppError(400, 'A subtask cannot have subtasks');
+  }
+  const project = await projectOf(parent);
+  const target = project ? {} : targetOf(parent);
+  const fields = await prepareFields(organizationId, target, payload, '', project);
+  const taskId = new mongoose.Types.ObjectId();
+  const place = project ? { channel: null } : target;
+  const anchor = await Message.create({
+    organization: organizationId,
+    ...place,
+    project: project ? project._id : null,
+    sender: actor._id,
+    content: fields.title,
+    ticketThread: true,
+    task: taskId,
+  });
+  try {
+    await Task.create({
+      _id: taskId,
+      organization: organizationId,
+      ...place,
+      message: anchor._id,
+      project: project ? project._id : null,
+      projectKey: project ? project.key : 'TASK',
+      number: await nextNumber(organizationId, project),
+      position: -Date.now(),
+      parent: parent._id,
+      ...fields,
+      createdBy: actor._id,
+      closedAt: fields.statusGroup === STATUS_GROUP.DONE ? new Date() : null,
+    });
+  } catch (error) {
+    await Message.deleteOne({ _id: anchor._id });
+    throw error;
+  }
+  return populate(Task.findById(taskId));
+};
+
+const listSubtasks = (parent) => populate(Task.find({ parent: parent._id }).sort({ createdAt: 1 }));
 
 /**
  * Turns a message into a task card (fields from prepareFields). The message
@@ -527,6 +623,22 @@ const updateTask = async (task, payload = {}) => {
       changes.push(`moved this to ${status.name}`);
     }
   }
+  if (payload.type !== undefined) {
+    const type = assertEnum(payload.type, TASK_TYPE, 'type');
+    if (type !== (task.type || TASK_TYPE.TASK)) {
+      task.type = type;
+      changes.push(`changed the type to ${type.toLowerCase()}`);
+    }
+  }
+  if (payload.estimate !== undefined || payload.estimateMinutes !== undefined) {
+    const estimate = parseEstimate(payload.estimate ?? payload.estimateMinutes);
+    if (estimate !== (task.estimateMinutes ?? null)) {
+      task.estimateMinutes = estimate;
+      changes.push(
+        estimate ? `set the estimate to ${formatEstimate(estimate)}` : 'removed the estimate',
+      );
+    }
+  }
   if (payload.priority !== undefined) {
     const priority = assertEnum(payload.priority, TASK_PRIORITY, 'priority');
     if (priority !== task.priority) {
@@ -586,7 +698,27 @@ const updateTask = async (task, payload = {}) => {
   return { task, changes, addedAssigneeIds, moved };
 };
 
-const deleteTask = async (task) => {
+/**
+ * Deletes a task. Its subtasks are deleted too (`subtasks: 'delete'`) or
+ * kept as separate tasks (default). Deleting a subtask updates its parent.
+ */
+const deleteTask = async (task, { subtasks = 'keep' } = {}) => {
+  const children = await Task.find({ parent: task._id });
+  if (subtasks === 'delete') {
+    for (const child of children) {
+      await deleteOneTask(child);
+    }
+  } else if (children.length) {
+    await Task.updateMany({ parent: task._id }, { $set: { parent: null } });
+  }
+  await deleteOneTask(task);
+  if (task.parent) {
+    await Task.recountSubtasks(task.parent);
+  }
+  return children;
+};
+
+const deleteOneTask = async (task) => {
   await Message.updateOne({ _id: task.message, task: task._id }, { $set: { task: null } });
   if (task.sourceMessage) {
     await Message.updateOne(
@@ -685,7 +817,22 @@ const moveToProject = async (task, project) => {
   if (task.project) {
     throw new AppError(409, 'This task is already in a project');
   }
+  if (task.parent) {
+    throw new AppError(400, 'Move its parent task instead; subtasks go with it');
+  }
   const members = await projectService.memberIds(project);
+  const dropped = new Set();
+  // The task first, then its subtasks (they keep belonging to it).
+  for (const item of [task, ...(await Task.find({ parent: task._id }))]) {
+    for (const id of item.assignees.map(idOf).filter((id) => !members.has(id))) {
+      dropped.add(id);
+    }
+    await moveOne(item, project, members);
+  }
+  return { task: await findByIdForOrg(task._id, task.organization), dropped: [...dropped] };
+};
+
+const moveOne = async (task, project, members) => {
   const dropped = task.assignees.map(idOf).filter((id) => !members.has(id));
   const numbered = await Project.findByIdAndUpdate(
     project._id,
@@ -708,7 +855,6 @@ const moveToProject = async (task, project) => {
       $pull: { assignees: { $in: dropped } },
     },
   );
-  return { task: await findByIdForOrg(task._id, task.organization), dropped };
 };
 
 // "My tasks": everything assigned to the user, limited to chats they can
@@ -851,6 +997,9 @@ const claimDueReminders = async (windowMs, limit = 50) => {
 };
 
 module.exports = {
+  createSubtask,
+  listSubtasks,
+  parseEstimate,
   statusesOf,
   assertAssignable,
   unassignFromProject,

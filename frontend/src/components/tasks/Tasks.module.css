@@ -913,3 +913,224 @@ button.open {
   flex: 1;
   min-width: 160px;
 }
+
+/* ---- type, estimate, subtasks (chat card, board card, panel) ---- */
+.typeIcon {
+  display: inline-grid;
+  place-items: center;
+  width: 18px;
+  height: 18px;
+  border-radius: 5px;
+  background: var(--surface-2);
+  font-size: 11px;
+  line-height: 1;
+}
+
+.typeBUG {
+  background: var(--neg-soft, #fef3f2);
+}
+
+.typeFEATURE {
+  background: var(--brand-soft, #eef4ff);
+}
+
+.typeIMPROVEMENT {
+  background: var(--pos-soft, #ecfdf3);
+  color: var(--pos, #12805c);
+}
+
+.estimate {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  padding: 1px 7px;
+  border-radius: var(--r-pill, 99px);
+  background: var(--surface-2);
+  color: var(--ink-2);
+  font-size: 11px;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+.subtaskProgress {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  color: var(--ink-3);
+  font-size: 11px;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+.subtaskBar {
+  position: relative;
+  width: 36px;
+  height: 4px;
+  overflow: hidden;
+  border-radius: 99px;
+  background: var(--surface-3, var(--line));
+}
+
+.subtaskBar i {
+  position: absolute;
+  inset: 0 auto 0 0;
+  border-radius: inherit;
+  background: var(--pos, #12b76a);
+}
+
+.subtaskTag {
+  padding: 1px 6px;
+  border-radius: var(--r-pill, 99px);
+  background: var(--info-soft, var(--surface-2));
+  color: var(--ink-2);
+  font-size: 10.5px;
+}
+
+/* "More details" in the create dialog. */
+.moreToggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  align-self: flex-start;
+  padding: 2px 0;
+  border: 0;
+  background: transparent;
+  color: var(--ink-2);
+  font: inherit;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.moreSummary {
+  color: var(--ink-3);
+  font-weight: 400;
+}
+
+.subtaskChoice {
+  display: grid;
+  gap: 6px;
+  padding: 10px 12px;
+  border: 1px solid var(--line-2);
+  border-radius: var(--r-md, 10px);
+  font-size: 13px;
+}
+
+.subtaskChoice label {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  cursor: pointer;
+}
+
+/* Subtasks in a task's side panel. */
+.subtasks {
+  display: grid;
+  gap: 8px;
+  padding: 12px;
+  border: 1px solid var(--line);
+  border-radius: var(--r-md, 10px);
+  background: var(--paper, var(--surface-1));
+}
+
+.subtasksHead {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  font-size: 12px;
+  font-weight: 650;
+  letter-spacing: 0.03em;
+  text-transform: uppercase;
+  color: var(--ink-3);
+}
+
+.subtasksCount {
+  font-variant-numeric: tabular-nums;
+  letter-spacing: 0;
+}
+
+.subtaskList {
+  display: grid;
+  gap: 2px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.subtaskRow {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto auto;
+  align-items: center;
+  gap: 8px;
+  padding: 4px 6px;
+  margin: 0 -6px;
+  border-radius: 8px;
+}
+
+.subtaskRow:hover {
+  background: var(--surface-1);
+}
+
+.subtaskTitle {
+  min-width: 0;
+  overflow: hidden;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: var(--ink);
+  font: inherit;
+  font-size: 13px;
+  text-align: left;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  cursor: pointer;
+}
+
+.subtaskTitle:hover {
+  text-decoration: underline;
+}
+
+.subtaskDone {
+  color: var(--ink-3);
+  text-decoration: line-through;
+}
+
+.subtaskKey {
+  color: var(--ink-3);
+  font-size: 11.5px;
+  font-weight: 600;
+}
+
+.subtaskStatus {
+  font-size: 11px;
+  white-space: nowrap;
+}
+
+.subtaskInput {
+  height: 32px;
+  padding: 0 10px;
+  border: 1px dashed var(--line-2);
+  border-radius: 8px;
+  background: transparent;
+  color: var(--ink);
+  font: inherit;
+  font-size: 13px;
+}
+
+.subtaskInput:focus {
+  border-style: solid;
+  outline: 2px solid var(--brand, #2e90fa);
+  outline-offset: -1px;
+}
+
+.parentLink {
+  justify-self: start;
+  padding: 4px 10px;
+  border: 1px solid var(--line-2);
+  border-radius: var(--r-pill, 99px);
+  background: transparent;
+  color: var(--ink-2);
+  font: inherit;
+  font-size: 12px;
+  cursor: pointer;
+}

@@ -27,7 +27,7 @@ export const ticketKeysIn = (content: string, exclude?: string) =>
 // checks access). Counted, so a board and previews sharing a project don't
 // leave it for each other.
 const roomUsers = new Map<string, number>();
-const watchProject = (socket: Socket, projectId: string) => {
+export const watchProject = (socket: Socket, projectId: string) => {
   const count = roomUsers.get(projectId) ?? 0;
   roomUsers.set(projectId, count + 1);
   if (count === 0) socket.emit('project:join', projectId);

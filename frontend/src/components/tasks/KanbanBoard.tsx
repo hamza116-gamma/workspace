@@ -20,6 +20,7 @@ import { EditTaskDialog } from './EditTaskDialog';
 import { dueChip } from '@/lib/taskDue';
 import { DUE_CLASS } from './TaskCard';
 import cardStyles from './Tasks.module.css';
+import { EstimateChip, SubtaskProgress, TypeIcon } from './TaskMeta';
 import styles from './Kanban.module.css';
 
 const sorted = (items: Task[]) => [...items].sort((a, b) => a.position - b.position);
@@ -62,6 +63,7 @@ const BoardCard = ({
       onDragEnd={onDragEnd}
     >
       <div className={styles.cardTop}>
+        <TypeIcon task={task} />
         <span className={styles.key}>{task.key}</span>
         <span
           className={styles.priority}
@@ -99,6 +101,14 @@ const BoardCard = ({
               {label}
             </span>
           ))}
+        </div>
+      )}
+
+      {(task.estimateMinutes || task.subtaskTotal > 0 || task.parentId) && (
+        <div className={styles.cardMeta}>
+          {task.parentId && <span className={styles.subtaskTag}>Subtask</span>}
+          <EstimateChip task={task} />
+          <SubtaskProgress task={task} />
         </div>
       )}
 

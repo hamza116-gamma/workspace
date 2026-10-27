@@ -413,6 +413,13 @@ const applyStatuses = async (project, value, moveTo = {}) => {
     }
   }
   project.statuses = next;
+  // Bulk moves skip the save hooks: recount "2 / 5" on the project's parents.
+  for (const parentId of await Task.distinct('parent', {
+    project: project._id,
+    parent: { $ne: null },
+  })) {
+    await Task.recountSubtasks(parentId);
+  }
 };
 
 const moveStatusTickets = async (projectId, fromKey, to) => {

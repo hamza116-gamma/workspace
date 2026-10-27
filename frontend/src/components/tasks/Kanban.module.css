@@ -314,3 +314,11 @@
     opacity: 1;
   }
 }
+
+/* Estimate / subtask progress row on a board card. */
+.cardMeta {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+}
