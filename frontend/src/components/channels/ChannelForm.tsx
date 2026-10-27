@@ -98,9 +98,15 @@ export const ChannelForm = ({
         value={type}
         onChange={(event) => setType(event.target.value as ChannelType)}
       >
-        <option value="PUBLIC">Public — anyone in the workspace can join</option>
-        <option value="PRIVATE">Private — only invited people can access</option>
+        <option value="PUBLIC">Public — everyone in the workspace is added</option>
+        <option value="PRIVATE">Private — only the people you pick</option>
       </Select>
+
+      {type === 'PUBLIC' && (
+        <p className={styles.membersHint}>
+          Everyone in the workspace is added to this channel, including people who join later.
+        </p>
+      )}
 
       {type === 'PRIVATE' && (
         <div className={styles.members}>

@@ -169,6 +169,8 @@ const acceptInvitation = async (user, token) => {
   await invitation.save();
   if (membership.status === MEMBER_STATUS.ACTIVE) {
     await joinDefaultChannel(invitation.organization, user._id);
+    // Public channels include everyone in the workspace.
+    await require('./channel.service').joinPublicChannels(invitation.organization, user._id);
   }
 
   return { invitation, membership, joined };

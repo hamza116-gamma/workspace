@@ -817,6 +817,7 @@ const claimDueReminders = async (windowMs, limit = 50) => {
 };
 
 module.exports = {
+  assertAssignable,
   unassignFromProject,
   createTicket,
   listAssignableUsers,

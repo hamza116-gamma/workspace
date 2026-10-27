@@ -47,10 +47,15 @@ const create = asyncHandler(async (req, res) => {
     req.body,
   );
   await audit(req, AUDIT_ACTIONS.CHANNEL_CREATED, channel, { type: channel.type });
+  // Public: everyone in the workspace is added. Private: the creator adds
+  // the people they picked (POST /:id/members).
+  const added =
+    channel.type === CHANNEL_TYPES.PUBLIC ? await channelService.addEveryone(channel) : [];
+  added.forEach((userId) => emitMembershipChanged(getIo(req), channel, userId, true));
   success(
     res,
     {
-      channel: toChannelWithContext(channel, membership, 1),
+      channel: toChannelWithContext(channel, membership, 1 + added.length),
       membership: channelService.toMembership(membership),
     },
     201,
@@ -88,7 +93,31 @@ const update = asyncHandler(async (req, res) => {
     type: req.channel.type,
   };
   const channel = await channelService.updateChannel(req.channel, req.body);
+  if (changingType && channel.type === CHANNEL_TYPES.PUBLIC) {
+    // Public again: everyone in the workspace is a member.
+    const added = await channelService.addEveryone(channel);
+    added.forEach((userId) => emitMembershipChanged(getIo(req), channel, userId, true));
+  }
   if (changingType && channel.type === CHANNEL_TYPES.PRIVATE) {
+    // Going private: only the people picked stay (and whoever made the change).
+    if (Array.isArray(req.body.memberIds)) {
+      const keep = new Set([...req.body.memberIds.map(String), String(req.user._id)]);
+      const current = await channelService.listMembers(channel._id);
+      for (const member of current) {
+        const userId = String(member.user?._id ?? member.user);
+        if (keep.has(userId)) {
+          continue;
+        }
+        await channelService.removeMember(channel, userId);
+        emitMembershipChanged(getIo(req), channel, userId, false);
+        await releaseChannelAssignee(
+          getIo(req),
+          channel._id,
+          userId,
+          'was unassigned (removed from the channel)',
+        );
+      }
+    }
     await dropNonMemberSockets(getIo(req), channel);
   }
   const changes = Object.keys(before)

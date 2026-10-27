@@ -20,6 +20,8 @@ export type UpdateChannelInput = {
   topic?: string;
   purpose?: string;
   type?: ChannelType;
+  // Going private: the members who stay (everyone else is removed).
+  memberIds?: string[];
 };
 
 export const listChannels = (options: { joinedOnly?: boolean; archived?: boolean } = {}) => {

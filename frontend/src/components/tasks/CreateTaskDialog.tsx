@@ -130,11 +130,22 @@ export const CreateTaskDialog = ({
     // People mentioned in the message are pre-selected as assignees.
     const wanted = message ? message.mentions.map((user) => user.id) : [];
     let alive = true;
-    listAssignable(
-      chosenKey
-        ? { projectKey: chosenKey, channelId: null, conversationId: null }
-        : { channelId: chat.channelId, conversationId: chat.conversationId },
-    ).then(
+    // A project ticket also posted in a channel: only people in both the
+    // project and that channel. "Only on the board": all project members.
+    const projectPeople = () =>
+      listAssignable({ projectKey: chosenKey, channelId: null, conversationId: null });
+    const load = !chosenKey
+      ? listAssignable({ channelId: chat.channelId, conversationId: chat.conversationId })
+      : channelId
+        ? Promise.all([
+            projectPeople(),
+            listAssignable({ channelId, conversationId: null }),
+          ]).then(([inProject, inChannel]) => {
+            const there = new Set(inChannel.map((user) => user.id));
+            return inProject.filter((user) => there.has(user.id));
+          })
+        : projectPeople();
+    load.then(
       (users) => {
         if (!alive) {
           return;

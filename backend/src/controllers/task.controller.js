@@ -250,6 +250,14 @@ const createInProject = asyncHandler(async (req, res) => {
       )
     : null;
   const fields = await taskService.prepareFields(req.organization._id, {}, req.body, '', project);
+  if (channel) {
+    // Posted in a channel: assignees must be in that channel too.
+    await taskService.assertAssignable(
+      req.organization._id,
+      { channel: String(channel._id) },
+      fields.assignees.map(idOf),
+    );
+  }
   const card = channel
     ? await postMessage({
         io: getIo(req),
