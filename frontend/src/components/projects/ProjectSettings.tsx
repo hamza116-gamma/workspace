@@ -5,7 +5,6 @@ import { useRouter } from 'next/navigation';
 import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
 import { Dropdown } from '@/components/ui/Dropdown';
-import { useChannels } from '@/hooks/useChannels';
 import { useOrg } from '@/hooks/useOrg';
 import { useOrgMembers } from '@/hooks/useOrgMembers';
 import { listAssignable } from '@/lib/tasks';
@@ -14,7 +13,7 @@ import { PROJECT_KEY_PATTERN, type Project } from '@/types/project';
 import type { User } from '@/types/user';
 import styles from './Projects.module.css';
 
-/** Name, key, lead, linked channels; archive / restore; delete (admins). */
+/** Name, key, lead, people; archive / restore; delete (admins). */
 export const ProjectSettings = ({
   project,
   onSaved,
@@ -23,14 +22,11 @@ export const ProjectSettings = ({
   onSaved: (project: Project) => void;
 }) => {
   const router = useRouter();
-  const { channels } = useChannels();
   const { active } = useOrg();
   const isAdmin = active?.role === 'OWNER' || active?.role === 'ADMIN';
   const [name, setName] = useState(project.name);
   const [key, setKey] = useState(project.key);
   const [leadId, setLeadId] = useState(project.lead.id);
-  const [linked, setLinked] = useState(project.linkedChannelIds);
-  const [homeId, setHomeId] = useState(project.homeChannelId ?? '');
   const [people, setPeople] = useState(project.memberIds);
   const orgPeople = useOrgMembers()
     .filter((member) => member.status === 'ACTIVE')
@@ -46,12 +42,10 @@ export const ProjectSettings = ({
     setName(project.name);
     setKey(project.key);
     setLeadId(project.lead.id);
-    setLinked(project.linkedChannelIds);
-    setHomeId(project.homeChannelId ?? '');
     setPeople(project.memberIds);
   }, [project]);
 
-  // Lead candidates = current project members (channels + people).
+  // Lead candidates = current project members.
   useEffect(() => {
     listAssignable({ projectKey: project.key, channelId: null, conversationId: null }).then(
       setMembers,
@@ -83,8 +77,6 @@ export const ProjectSettings = ({
           name: name.trim(),
           ...(keyChanged ? { key } : {}),
           leadId,
-          homeChannelId: homeId,
-          linkedChannelIds: linked,
           memberIds: people,
         });
         onSaved(next);
@@ -92,19 +84,6 @@ export const ProjectSettings = ({
       },
       keyChanged ? `Saved. Old ${project.key}-n links still work.` : 'Saved.',
     );
-
-  const linkOptions = channels
-    .filter((c) => c.status === 'ACTIVE' && c.id !== homeId && c.isMember)
-    .map((c) => ({ value: c.id, label: `# ${c.name}` }));
-  // Home: any active joined channel (the server checks rights and that it's
-  // free), or none - then the project is private to the people listed.
-  const homeOptions = [
-    { value: '', label: 'No channel (private to the people below)' },
-    ...channels
-      .filter((c) => c.status === 'ACTIVE' && c.isMember)
-      .map((c) => ({ value: c.id, label: `${c.type === 'PRIVATE' ? '🔒 ' : '# '}${c.name}` })),
-  ];
-  const homeChanged = homeId !== (project.homeChannelId ?? '');
 
   return (
     <div className={styles.settings}>
@@ -151,33 +130,9 @@ export const ProjectSettings = ({
         />
         <h3 className={styles.subhead}>Members</h3>
         <p className={styles.hint}>
-          Members come from the home channel, linked channels and the people added here; any one of
-          these is enough. Anyone who stops being a member is unassigned from its tickets.
+          Only these people can see the project and its tickets. Anyone removed is unassigned from
+          its tickets.
         </p>
-        <Dropdown
-          label="Home channel"
-          options={homeOptions}
-          value={homeId}
-          onChange={setHomeId}
-          disabled={!editable}
-        />
-        {homeChanged && (
-          <p className={styles.hint}>
-            {homeId
-              ? 'Its members join the project and it gets the board.'
-              : 'Without a channel the project is private to the people below.'}{' '}
-            People only in the old channel stop being members.
-          </p>
-        )}
-        <Dropdown
-          multiple
-          label="Linked channels"
-          placeholder="None"
-          options={linkOptions}
-          value={linked}
-          onChange={setLinked}
-          disabled={!editable}
-        />
         <Dropdown
           multiple
           label="People"
@@ -203,7 +158,7 @@ export const ProjectSettings = ({
             <h3>{project.status === 'ARCHIVED' ? 'Restore' : 'Archive'}</h3>
             <p className={styles.hint}>
               {project.status === 'ARCHIVED'
-                ? 'Make the project active again (its home channel must be free).'
+                ? 'Make the project active again.'
                 : 'Archived projects are read-only and hidden from the list. You can restore them.'}
             </p>
             <div className={styles.actions}>
@@ -242,13 +197,13 @@ export const ProjectSettings = ({
           <section className={`${styles.section} ${styles.danger}`}>
             <h3>Delete project</h3>
             <p className={styles.hint}>
-              Tickets that live in a channel are kept: they go back there as tasks (TASK-n), and{' '}
-              {project.key}-n links keep working.
+              Old channel tasks moved into the project go back to their chat as TASK-n. The chat
+              messages tickets were made from stay; only the card link is removed.
             </p>
             {(project.channelFreeTickets ?? 0) > 0 && (
               <p className={styles.error}>
                 {project.channelFreeTickets}{' '}
-                {project.channelFreeTickets === 1 ? 'ticket has' : 'tickets have'} no channel to go
+                {project.channelFreeTickets === 1 ? 'ticket has' : 'tickets have'} no chat to go
                 back to and will be deleted with the project.
               </p>
             )}

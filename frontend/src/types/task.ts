@@ -30,6 +30,9 @@ export type Task = {
   closedAt: string | null;
   createdAt: string;
   updatedAt: string;
+  // Project ticket seen in chat: only id/key/title come with the message;
+  // members load the rest by key.
+  locked?: boolean;
 };
 
 export type TaskInput = {

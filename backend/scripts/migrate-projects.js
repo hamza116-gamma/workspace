@@ -16,6 +16,8 @@
 const { connectDatabase, disconnectDatabase } = require('../src/config/db');
 const Task = require('../src/models/task.model');
 const Project = require('../src/models/project.model');
+const Message = require('../src/models/message.model');
+const projectService = require('../src/services/project.service');
 const { CHAT_TASK_KEY } = require('../src/config/constants');
 
 const APPLY = process.argv.includes('--apply');
@@ -53,6 +55,37 @@ const main = async () => {
   if (APPLY && outdated) {
     await Project.collection.dropIndex('homeChannel_1');
     console.log('  dropped (rebuilt below)');
+  }
+
+  // Projects no longer take members from channels: today's channel members
+  // become direct members, then the channel links are dropped. Hidden ticket
+  // threads leave the old home channel (they belong to the project only).
+  const channelled = await Project.find({
+    $or: [{ homeChannel: { $type: 'objectId' } }, { 'linkedChannels.0': { $exists: true } }],
+  });
+  console.log(`- projects still tied to channels: ${channelled.length}`);
+  for (const project of channelled) {
+    const people = await projectService.memberIds(project);
+    const tickets = await Task.find({ project: project._id }).select('message');
+    const anchors = (
+      await Message.find({ _id: { $in: tickets.map((t) => t.message) }, ticketThread: true })
+    ).map((m) => m._id);
+    console.log(`  ${project.key}: ${people.size} members, ${anchors.length} ticket threads`);
+    if (!APPLY) {
+      continue;
+    }
+    await Project.updateOne(
+      { _id: project._id },
+      { $set: { members: [...people], homeChannel: null, linkedChannels: [] } },
+    );
+    await Task.updateMany(
+      { project: project._id, message: { $in: anchors } },
+      { $set: { channel: null } },
+    );
+    await Message.updateMany(
+      { $or: [{ _id: { $in: anchors } }, { parentMessageId: { $in: anchors } }] },
+      { $set: { channel: null, project: project._id } },
+    );
   }
 
   if (APPLY) {

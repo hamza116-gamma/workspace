@@ -86,12 +86,22 @@ const get = asyncHandler(async (req, res) => {
   });
 });
 
+// Projects are made of the people added to them; channels no longer give
+// membership (a channel's tasks join a project only when someone picks it).
+const peopleOnly = (body = {}) => {
+  if (body.homeChannelId || (Array.isArray(body.linkedChannelIds) && body.linkedChannelIds.length)) {
+    throw new AppError(400, 'Projects have members, not channels. Add the people instead');
+  }
+  const { homeChannelId, linkedChannelIds, adoptTasks, ...rest } = body;
+  return rest;
+};
+
 const create = asyncHandler(async (req, res) => {
   const { project, adopted } = await projectService.createProject(
     req.organization._id,
     req.user,
     orgRole(req),
-    req.body,
+    peopleOnly(req.body),
   );
   await audit(req, AUDIT_ACTIONS.PROJECT_CREATED, project, { adopted });
   emitChanged(req, project);
@@ -111,7 +121,7 @@ const update = asyncHandler(async (req, res) => {
     found,
     req.user._id,
     orgRole(req),
-    req.body,
+    peopleOnly(req.body),
   );
   if (renamedFrom) {
     await audit(req, AUDIT_ACTIONS.PROJECT_KEY_CHANGED, project, { from: renamedFrom });

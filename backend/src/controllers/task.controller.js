@@ -97,10 +97,8 @@ const createFromMessage = asyncHandler(async (req, res) => {
 const createInTarget = (targetKey) =>
   asyncHandler(async (req, res) => {
     const doc = targetKey === 'channel' ? req.channel : req.conversation;
-    const project =
-      targetKey === 'channel'
-        ? await projectService.projectForChannel(req.organization._id, doc._id)
-        : null;
+    // Picked project (any chat, DMs too); none = a plain chat task.
+    const project = req.body?.projectId ? await chooseProject(req, null) : null;
     const fields = await taskService.prepareFields(
       req.organization._id,
       { [targetKey]: idOf(doc) },
@@ -109,13 +107,21 @@ const createInTarget = (targetKey) =>
       project,
     );
     if (project) {
-      // Quiet: a project ticket gets its own hidden thread, nothing in chat.
-      await projectService.assertCanWrite(project, req.user._id);
+      // The card goes in this chat; the ticket (details, comments) lives on
+      // the board and only project members can open it.
+      const card = await postMessage({
+        io: getIo(req),
+        organizationId: req.organization._id,
+        user: req.user,
+        target: { [targetKey]: doc },
+        body: { content: fields.title },
+      });
       const ticket = await taskService.createTicket({
         organizationId: req.organization._id,
         actor: req.user,
         fields,
         project,
+        sourceMessage: card,
       });
       await followTicket(req, ticket, [req.user._id, ...ticket.assignees.map(idOf)]);
       await announceCreated(req, ticket);

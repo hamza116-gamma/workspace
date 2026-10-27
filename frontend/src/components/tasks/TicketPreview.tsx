@@ -55,17 +55,11 @@ const loadByKey = (key: string) => {
 };
 
 /**
- * Live preview of a ticket mentioned by key. Loaded with the viewer's own
- * access: people who can't see the ticket get nothing (no leak).
+ * A ticket loaded by key with the viewer's own access, kept live.
+ * undefined = loading, null = no access / no such ticket.
  */
-export const TicketPreview = ({
-  ticketKey,
-  onOpen,
-}: {
-  ticketKey: string;
-  onOpen: (task: Task) => void;
-}) => {
-  const [task, setTask] = useState<Task | null>(null);
+export const useTicketByKey = (ticketKey: string) => {
+  const [task, setTask] = useState<Task | null | undefined>(undefined);
   const { socket } = useSocket();
   const projectId = task?.projectId ?? null;
   useEffect(() => {
@@ -88,7 +82,21 @@ export const TicketPreview = ({
       setTask(deleted ? null : next);
     }
   });
+  return task;
+};
 
+/**
+ * Live preview of a ticket mentioned by key. Loaded with the viewer's own
+ * access: people who can't see the ticket get nothing (no leak).
+ */
+export const TicketPreview = ({
+  ticketKey,
+  onOpen,
+}: {
+  ticketKey: string;
+  onOpen: (task: Task) => void;
+}) => {
+  const task = useTicketByKey(ticketKey);
   if (!task) {
     return null;
   }

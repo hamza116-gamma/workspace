@@ -43,18 +43,52 @@ const channelFree = async (organization, owner, members, extra = {}) =>
 
 // ---- projects without a channel ------------------------------------------
 
-test('only owners, admins or moderators create a project without a channel', async () => {
+test('anyone in the workspace can create a project; they are its first member', async () => {
   const { organization, users } = await setup();
-  await assert.rejects(
-    projectService.createProject(organization._id, users[1], MEMBER, { name: 'X', key: 'XX' }),
-    /without a channel/,
-  );
-  const { project } = await projectService.createProject(organization._id, users[1], 'MODERATOR', {
-    name: 'Mod project',
-    key: 'MOD',
+  const { project } = await projectService.createProject(organization._id, users[1], MEMBER, {
+    name: 'Mine',
+    key: 'MIN',
   });
   assert.equal(project.homeChannel, null);
   assert.deepEqual(project.members.map(String), [String(users[1]._id)], 'creator is a member');
+});
+
+test('a ticket card in chat names the ticket only; details need membership', async () => {
+  const { organization, users } = await setup();
+  const project = await channelFree(organization, users[0], [users[1]]);
+  const chat = await createChannel(organization, users[0], [users[0], users[1], users[2]]);
+  const source = await messageService.createMessage(
+    { organization: organization._id, channel: chat._id },
+    users[0],
+    {
+      content: 'Rotate the keys',
+    },
+  );
+  const fields = await taskService.prepareFields(
+    organization._id,
+    {},
+    { description: 'secret steps' },
+    'Rotate the keys',
+    project,
+  );
+  const task = await taskService.createTicket({
+    organizationId: organization._id,
+    actor: users[0],
+    fields,
+    project,
+    sourceMessage: source,
+  });
+  const card = (await taskService.getByMessageIds([source._id])).get(String(source._id));
+  assert.equal(card.locked, true);
+  assert.equal(card.key, 'SEC-1');
+  assert.equal(card.description, '');
+  assert.equal(card.assignees, undefined);
+  // The hidden ticket thread (members only) still carries the full ticket.
+  assert.equal(
+    (await taskService.getByMessageIds([task.message])).get(String(task.message)).description,
+    'secret steps',
+  );
+  await assert.rejects(taskService.loadForRead(task._id, organization._id, users[2]._id));
 });
 
 test('a project without a channel is private to its listed members', async () => {

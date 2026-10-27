@@ -18,7 +18,8 @@ const emitTask = (io, task, event, extraUserIds = []) => {
     task: taskService.toPublicTask(task),
   };
   const rooms = [`thread:${idOf(task.message)}`];
-  if (task.channel || task.conversation) {
+  // Project tickets stay out of chat rooms (not everyone there is a member).
+  if ((task.channel || task.conversation) && !task.project) {
     rooms.push(chatRoomFor(task));
   }
   // Project boards (see project:join) and the project's previous board when

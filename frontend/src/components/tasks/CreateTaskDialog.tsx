@@ -72,87 +72,68 @@ export const CreateTaskDialog = ({
   const [people, setPeople] = useState<User[] | null>(null);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
-  // Project for a message turned into a ticket ('' = no project, a chat task).
-  // Defaults to the channel's project; only projects the user is in.
+  // Project for a task made in chat ('' = no project, a plain chat task).
+  // Only projects the user is in; not offered on a project's own board.
   const projectsEnabled = useProjectsEnabled();
   const { projects } = useProjects();
   const memberProjects = projects.filter((p) => p.isMember && !p.readOnly);
   const [projectId, setProjectId] = useState('');
-  const [projectTouched, setProjectTouched] = useState(false);
-  const channelProject = message?.channelId
-    ? memberProjects.find(
-        (p) =>
-          p.homeChannelId === message.channelId || p.linkedChannelIds.includes(message.channelId!),
-      )
-    : undefined;
-  const effectiveProjectId = projectTouched ? projectId : (channelProject?.id ?? '');
-  const chosenProject = memberProjects.find((p) => p.id === effectiveProjectId);
+  const pickProject = projectsEnabled && !target?.projectKey && memberProjects.length > 0;
+  const chosenProject = memberProjects.find((p) => p.id === projectId);
 
   useEffect(() => {
     if (!message && !target) {
       return;
     }
-    if (!message && target) {
-      setTitle(target.title ?? '');
-      setDescription('');
-      setLabels([]);
-      setPriority('MEDIUM');
-      setDueDate('');
-      setError('');
-      setAssignees([]);
-      setPeople(null);
-      let alive = true;
-      listAssignable(target).then(
-        (users) => alive && setPeople(users),
-        () => alive && setPeople([]),
-      );
-      return () => {
-        alive = false;
-      };
-    }
-    if (!message) {
-      return;
-    }
-    const readable = tokensToDisplay(message.content, message.mentions);
-    setTitle(firstLine(readable));
-    setDescription(restOfMessage(readable).slice(0, DESCRIPTION_MAX));
     setLabels([]);
     setPriority('MEDIUM');
     setDueDate('');
     setError('');
-    setProjectTouched(false);
+    setProjectId('');
+    setAssignees([]);
+    if (message) {
+      const readable = tokensToDisplay(message.content, message.mentions);
+      setTitle(firstLine(readable));
+      setDescription(restOfMessage(readable).slice(0, DESCRIPTION_MAX));
+    } else if (target) {
+      setTitle(target.title ?? '');
+      setDescription('');
+    }
   }, [message, target]);
 
-  // Message flow: the people list follows the chosen project (a project
-  // ticket can go to any project member, asked via its home channel), without
-  // resetting what the user already typed.
-  const chosenHome = chosenProject?.homeChannelId ?? null;
+  // The people list follows the chosen project (its members) or the chat,
+  // without resetting what the user already typed.
+  const chosenKey = chosenProject?.key ?? target?.projectKey ?? '';
   useEffect(() => {
-    if (!message) {
+    const chat = message ?? target;
+    if (!chat) {
       return;
     }
     setPeople(null);
     // People mentioned in the message are pre-selected as assignees.
-    const mentioned = message.mentions.map((user) => user.id);
+    const wanted = message ? message.mentions.map((user) => user.id) : [];
     let alive = true;
-    const peopleFrom = chosenHome
-      ? { channelId: chosenHome, conversationId: null }
-      : { channelId: message.channelId, conversationId: message.conversationId };
-    listAssignable(peopleFrom).then(
+    listAssignable(
+      chosenKey
+        ? { projectKey: chosenKey, channelId: null, conversationId: null }
+        : { channelId: chat.channelId, conversationId: chat.conversationId },
+    ).then(
       (users) => {
         if (!alive) {
           return;
         }
         setPeople(users);
         const allowed = new Set(users.map((user) => user.id));
-        setAssignees(mentioned.filter((id) => allowed.has(id)));
+        setAssignees((current) =>
+          [...new Set([...current, ...wanted])].filter((id) => allowed.has(id)),
+        );
       },
       () => alive && setPeople([]),
     );
     return () => {
       alive = false;
     };
-  }, [message, chosenHome]);
+  }, [message, target, chosenKey]);
 
   const submit = async (event: React.FormEvent) => {
     event.preventDefault();
@@ -174,15 +155,13 @@ export const CreateTaskDialog = ({
         assignees,
         dueDate: dueDate ? new Date(`${dueDate}T23:59:00`).toISOString() : null,
       };
+      const withProject = chosenProject ? { ...fields, projectId: chosenProject.id } : fields;
       if (message) {
-        await createTaskFromMessage(message.id, {
-          ...fields,
-          ...(projectsEnabled ? { projectId: effectiveProjectId } : {}),
-        });
+        await createTaskFromMessage(message.id, withProject);
       } else if (target?.projectKey) {
         await createProjectTask(target.projectKey, fields);
       } else if (target) {
-        await createTaskInChat(target, fields);
+        await createTaskInChat(target, withProject);
       }
       onClose();
     } catch (err) {
@@ -233,24 +212,21 @@ export const CreateTaskDialog = ({
             onChange={(event) => setDueDate(event.target.value)}
           />
         </div>
-        {message && projectsEnabled && (
+        {pickProject && (
           <Dropdown
             label="Project"
             options={[
               { value: '', label: 'No project (chat task)' },
               ...memberProjects.map((p) => ({ value: p.id, label: `${p.key} · ${p.name}` })),
             ]}
-            value={effectiveProjectId}
-            onChange={(value) => {
-              setProjectTouched(true);
-              setProjectId(value);
-            }}
+            value={projectId}
+            onChange={setProjectId}
           />
         )}
-        {message && chosenProject && (
+        {chosenProject && (
           <p className={styles.muted}>
-            Creates {chosenProject.key}-n with its own comments; this message only gets a small
-            link.
+            Goes on the {chosenProject.key} board. People here who aren&apos;t in{' '}
+            {chosenProject.name} see the card but can&apos;t open it.
           </p>
         )}
         <LabelInput value={labels} onChange={setLabels} />

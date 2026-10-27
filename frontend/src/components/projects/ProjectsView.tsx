@@ -7,7 +7,6 @@ import { Spinner } from '@/components/ui/Spinner';
 import { Icon } from '@/components/ui/Icon';
 import { useProjects } from '@/hooks/useProjects';
 import { useProjectsEnabled } from '@/hooks/useProjectsEnabled';
-import { useChannels } from '@/hooks/useChannels';
 import { useOrg } from '@/hooks/useOrg';
 import { NewProjectDialog } from './NewProjectDialog';
 import page from '@/components/saved/SavedView.module.css';
@@ -19,14 +18,10 @@ export const ProjectsView = () => {
   const [archived, setArchived] = useState(false);
   const { projects, loading } = useProjects({ archived });
   const { projects: activeProjects } = useProjects();
-  const { channels } = useChannels();
   const { active } = useOrg();
   const [creating, setCreating] = useState(false);
-  const canCreate =
-    active?.role === 'OWNER' ||
-    active?.role === 'ADMIN' ||
-    channels.some((channel) => channel.membership?.role === 'MODERATOR');
-  const channelName = (id: string) => channels.find((c) => c.id === id)?.name ?? 'channel';
+  // Anyone in the workspace can start a project (they become its lead).
+  const canCreate = Boolean(active);
 
   if (!enabled) {
     return (
@@ -46,7 +41,7 @@ export const ProjectsView = () => {
           <span className={page.eyebrow}>Work</span>
           <h1 className={page.title}>Projects</h1>
           <p className={page.subtitle}>
-            Tickets, milestones and boards. Each project lives in a home channel.
+            Tickets, milestones and boards. Only a project&apos;s people can see it.
           </p>
         </div>
         {canCreate && <Button onClick={() => setCreating(true)}>+ New project</Button>}
@@ -80,9 +75,7 @@ export const ProjectsView = () => {
           </span>
           <p className={page.emptyTitle}>{archived ? 'No archived projects' : 'No projects yet'}</p>
           <p className={page.empty}>
-            {canCreate
-              ? 'Create one to track tickets for a team.'
-              : 'Admins and channel moderators can create projects.'}
+            Create one to track tickets for a team.
           </p>
         </div>
       ) : (
@@ -98,9 +91,7 @@ export const ProjectsView = () => {
                   <b className={styles.name}>{project.name}</b>
                 </div>
                 <p className={styles.meta}>
-                  {project.homeChannelId
-                    ? `# ${channelName(project.homeChannelId)}`
-                    : `🔒 Private · ${project.memberIds.length} people`}{' '}
+                  {project.memberIds.length} {project.memberIds.length === 1 ? 'person' : 'people'}{' '}
                   · {total} {total === 1 ? 'ticket' : 'tickets'} · lead {project.lead.fullName}
                 </p>
                 <div className={styles.bar}>

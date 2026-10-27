@@ -396,8 +396,8 @@ const adoptChannelTasks = async (project) => {
 /**
  * Members come from a home channel, people added directly, or both.
  *   With a channel: workspace admins or that channel's moderators create it.
- *   Without one (private to its members): workspace owners, admins and
- *   moderators. The creator is always a member.
+ *   Without one (private to its members): anyone in the workspace; the
+ *   creator is always a member.
  * Returns { project, adopted } (number of the channel's tasks moved in).
  */
 const createProject = async (organizationId, actor, orgRole, payload = {}) => {
@@ -410,11 +410,6 @@ const createProject = async (organizationId, actor, orgRole, payload = {}) => {
   if (home) {
     await assertCanUseAsHome(home, actor._id, orgRole);
     await assertHomeAvailable(organizationId, home);
-  } else if (!isAdmin(orgRole) && orgRole !== ORG_ROLES.MODERATOR) {
-    throw new AppError(
-      403,
-      'Only workspace owners, admins or moderators can create a project without a channel',
-    );
   }
   await assertKeyFree(organizationId, key);
   const linkedChannels =

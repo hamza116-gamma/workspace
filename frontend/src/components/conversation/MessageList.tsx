@@ -13,6 +13,7 @@ import { Spinner } from '@/components/ui/Spinner';
 import { MessageActions } from './MessageActions';
 import { CreateTaskDialog } from '@/components/tasks/CreateTaskDialog';
 import { TaskCard } from '@/components/tasks/TaskCard';
+import { ChatTicketCard } from '@/components/tasks/ChatTicketCard';
 import { tokensToDisplay } from '@/lib/mentions';
 import { TicketPreview, ticketKeysIn } from '@/components/tasks/TicketPreview';
 import { useThreadPanel } from '@/hooks/useThreadPanel';
@@ -651,7 +652,15 @@ export const MessageList = ({
                                 <HuddleSummary message={message} />
                               ) : (
                                 <>
-                                  {message.task && (
+                                  {message.task?.locked && (
+                                    <ChatTicketCard
+                                      task={message.task}
+                                      canModerate={canModerate}
+                                      mentionNames={message.mentions.map((user) => user.fullName)}
+                                      onOpen={(task) => openThread(task.messageId)}
+                                    />
+                                  )}
+                                  {message.task && !message.task.locked && (
                                     <TaskCard
                                       task={message.task}
                                       canModerate={canModerate}

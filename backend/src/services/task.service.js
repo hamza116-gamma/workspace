@@ -672,6 +672,23 @@ const listAssignedTo = async (organizationId, userId, query = {}) => {
 };
 
 // Message serialization: task cards keyed by message id.
+// A project ticket's card in chat (the message it came from, or an old
+// channel task moved into a project) is seen by everyone in that chat, so it
+// only names the ticket; members load the details by key (access-checked).
+const inChat = (task, messageId) =>
+  Boolean(task.project) &&
+  (idOf(messageId) === idOf(task.sourceMessage) || Boolean(task.channel || task.conversation));
+
+const lockedTask = (task) => ({
+  id: idOf(task._id),
+  key: `${task.projectKey}-${task.number}`,
+  projectId: idOf(task.project),
+  title: task.title,
+  description: '',
+  messageId: idOf(task.message),
+  locked: true,
+});
+
 const getByMessageIds = async (messageIds) => {
   const map = new Map();
   if (!messageIds.length) {
@@ -684,7 +701,7 @@ const getByMessageIds = async (messageIds) => {
   tasks.forEach((task) => {
     [task.message, task.sourceMessage]
       .filter((id) => id && wanted.has(idOf(id)))
-      .forEach((id) => map.set(idOf(id), toPublicTask(task)));
+      .forEach((id) => map.set(idOf(id), inChat(task, id) ? lockedTask(task) : toPublicTask(task)));
   });
   return map;
 };

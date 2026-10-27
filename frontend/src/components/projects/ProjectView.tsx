@@ -7,7 +7,6 @@ import { Button } from '@/components/ui/Button';
 import { Spinner } from '@/components/ui/Spinner';
 import { useTaskEvents } from '@/hooks/useTaskEvents';
 import { useSocket } from '@/hooks/useSocket';
-import { useChannels } from '@/hooks/useChannels';
 import { getProject, listProjectTasks } from '@/lib/projects';
 import { KanbanBoard } from '@/components/tasks/KanbanBoard';
 import { CreateTaskDialog } from '@/components/tasks/CreateTaskDialog';
@@ -28,7 +27,6 @@ const upsert = (tasks: Task[], task: Task) => {
 export const ProjectView = ({ projectKey }: { projectKey: string }) => {
   const router = useRouter();
   const { socket } = useSocket();
-  const { channels } = useChannels();
   const [project, setProject] = useState<Project | null>(null);
   const [tasks, setTasks] = useState<Task[]>([]);
   const [error, setError] = useState('');
@@ -115,7 +113,6 @@ export const ProjectView = ({ projectKey }: { projectKey: string }) => {
     );
   }
 
-  const home = channels.find((channel) => channel.id === project.homeChannelId);
   const canAdd = project.isMember && !project.readOnly;
 
   return (
@@ -129,17 +126,8 @@ export const ProjectView = ({ projectKey }: { projectKey: string }) => {
             <span className={styles.key}>{project.key}</span> {project.name}
           </h1>
           <p className={styles.meta}>
-            {project.homeChannelId ? (
-              <>
-                Home {home ? <Link href={`/channels/${home.id}`}># {home.name}</Link> : 'channel'}
-              </>
-            ) : (
-              <>
-                🔒 Private · {project.memberIds.length}{' '}
-                {project.memberIds.length === 1 ? 'person' : 'people'}
-              </>
-            )}{' '}
-            · lead {project.lead.fullName} · {tasks.length}{' '}
+            {project.memberIds.length}{' '}
+            {project.memberIds.length === 1 ? 'person' : 'people'} · lead {project.lead.fullName} · {tasks.length}{' '}
             {tasks.length === 1 ? 'ticket' : 'tickets'}
           </p>
         </div>
@@ -159,14 +147,7 @@ export const ProjectView = ({ projectKey }: { projectKey: string }) => {
         <p className={styles.banner}>
           {project.status === 'ARCHIVED'
             ? 'This project is archived and read-only.'
-            : 'The home channel is archived, so this project is read-only. Restore or re-home it in Settings.'}
-        </p>
-      )}
-      {!project.isMember && !project.readOnly && (
-        <p className={styles.banner}>
-          You can view this project. Join{' '}
-          {home ? <Link href={`/channels/${home.id}`}># {home.name}</Link> : 'its channel'} to
-          change tickets.
+            : 'This project is read-only.'}
         </p>
       )}
 
