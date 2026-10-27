@@ -27,6 +27,7 @@ import {
   type TaskPriority,
 } from '@/types/task';
 import { TASK_TYPE_ICONS, TASK_TYPE_LABELS, type TaskType } from '@/types/task';
+import type { Task } from '@/types/task';
 import type { Message } from '@/types/message';
 import type { User } from '@/types/user';
 import styles from './Tasks.module.css';
@@ -68,6 +69,7 @@ export const CreateTaskDialog = ({
   message = null,
   target = null,
   onClose,
+  onCreated,
 }: {
   // Turn this message into a task...
   message?: Message | null;
@@ -82,6 +84,9 @@ export const CreateTaskDialog = ({
     title?: string;
   } | null;
   onClose: () => void;
+  // The new task, as soon as it exists (boards add it without waiting for
+  // the live update).
+  onCreated?: (task: Task) => void;
 }) => {
   const open = Boolean(message || target);
   const [title, setTitle] = useState('');
@@ -235,7 +240,7 @@ export const CreateTaskDialog = ({
         estimate: estimate.trim(),
       };
       const withProject = chosenProject ? { ...fields, projectId: chosenProject.id } : fields;
-      let created: { task: { id: string } } | null = null;
+      let created: { task: Task } | null = null;
       if (message) {
         created = await createTaskFromMessage(message.id, withProject);
       } else if (target?.projectKey) {
@@ -254,6 +259,7 @@ export const CreateTaskDialog = ({
       } else if (target) {
         created = await createTaskInChat(target, withProject);
       }
+      if (created) onCreated?.(created.task);
       // Subtasks from step 3 (a pending title in the box counts too).
       const titles = [...drafts, draft.trim()].filter(Boolean);
       if (created && titles.length) {

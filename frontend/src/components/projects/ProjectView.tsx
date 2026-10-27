@@ -8,6 +8,7 @@ import { Icon } from '@/components/ui/Icon';
 import { Spinner } from '@/components/ui/Spinner';
 import { useTaskEvents } from '@/hooks/useTaskEvents';
 import { useSocket } from '@/hooks/useSocket';
+import { watchProject } from '@/components/tasks/TicketPreview';
 import { rememberProjectStatuses } from '@/hooks/useTaskStatuses';
 import { getProject, listProjectTasks } from '@/lib/projects';
 import { KanbanBoard } from '@/components/tasks/KanbanBoard';
@@ -76,20 +77,20 @@ export const ProjectView = ({ projectKey }: { projectKey: string }) => {
     };
   }, [socket, project?.id, load]);
 
-  // Live board: join the project room. After a dropped connection, rejoin and
-  // reload so no stale cards remain.
+  // Live board: join the project room through the shared counter, so a ticket
+  // preview or subtask list closing elsewhere never takes the board out of
+  // the room. After a dropped connection, rejoin and reload.
   const projectId = project?.id;
   useEffect(() => {
     if (!socket || !projectId) return;
-    const join = () => socket.emit('project:join', projectId);
+    const release = watchProject(socket, projectId);
     const onReconnect = () => {
-      join();
+      socket.emit('project:join', projectId);
       void load();
     };
-    join();
     socket.io.on('reconnect', onReconnect);
     return () => {
-      socket.emit('project:leave', projectId);
+      release();
       socket.io.off('reconnect', onReconnect);
     };
   }, [socket, projectId, load]);
@@ -211,7 +212,13 @@ export const ProjectView = ({ projectKey }: { projectKey: string }) => {
         />
       )}
 
-      <CreateTaskDialog target={createTarget} onClose={() => setCreateTarget(null)} />
+      <CreateTaskDialog
+        target={createTarget}
+        onClose={() => setCreateTarget(null)}
+        onCreated={(task) => {
+          if (task.projectId === project.id) setTasks((current) => upsert(current, task));
+        }}
+      />
     </div>
   );
 };

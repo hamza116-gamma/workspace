@@ -105,6 +105,9 @@ export const UnassignedView = () => {
       <CreateTaskDialog
         target={creating ? NEW_TASK_TARGET : null}
         onClose={() => setCreating(false)}
+        onCreated={(task) => {
+          if (!task.projectId) setTasks((current) => upsert(current ?? [], task));
+        }}
       />
     </div>
   );
