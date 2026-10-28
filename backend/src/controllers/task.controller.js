@@ -21,6 +21,7 @@ const respond = (res, task, status = 200) =>
 // Shared tail of every create: activity note, card refresh, notifications.
 const announceCreated = async (req, task) => {
   const io = getIo(req);
+  await taskService.recordEvent(task, req.user._id, 'created');
   const reply = await taskService.postActivity(task, req.user._id, `created ${keyOf(task)}`);
   await emitActivity(io, reply);
   await emitCard(io, task);
@@ -204,7 +205,11 @@ const moveToProject = asyncHandler(async (req, res) => {
     throw new AppError(400, 'Pick a project');
   }
   const io = getIo(req);
+  const oldKey = keyOf(task);
   const { task: moved, dropped } = await taskService.moveToProject(task, project);
+  await taskService.recordEvent(moved, req.user._id, 'moved', [
+    { field: 'project', from: oldKey, to: keyOf(moved) },
+  ]);
   const reply = await taskService.postActivity(
     moved,
     req.user._id,
@@ -221,6 +226,18 @@ const moveToProject = asyncHandler(async (req, res) => {
   });
   emitTask(io, moved, 'task.updated', dropped);
   respond(res, moved);
+});
+
+// GET /tasks/:taskId/history: every change, newest first.
+const listHistory = asyncHandler(async (req, res) => {
+  const task = await taskService.loadForRead(req.params.taskId, req.organization._id, req.user._id);
+  success(res, { events: await taskService.listHistory(task) });
+});
+
+// GET /tasks/:taskId/followers: who hears about its comments.
+const listFollowers = asyncHandler(async (req, res) => {
+  const task = await taskService.loadForRead(req.params.taskId, req.organization._id, req.user._id);
+  success(res, { followers: await taskService.listFollowers(task) });
 });
 
 // GET /tasks/:taskId/subtasks
@@ -252,6 +269,10 @@ const createSubtask = asyncHandler(async (req, res) => {
     payload: req.body,
   });
   await followTicket(req, subtask, [req.user._id, ...subtask.assignees.map(idOf)]);
+  await taskService.recordEvent(subtask, req.user._id, 'created');
+  await taskService.recordEvent(parent, req.user._id, 'subtask', [
+    { field: 'subtask', from: '', to: `${keyOf(subtask)} ${subtask.title}` },
+  ]);
   const io = getIo(req);
   emitTask(io, subtask, 'task.created');
   await notifyAssigned(io, subtask, req.user, subtask.assignees.map(idOf));
@@ -480,7 +501,10 @@ const update = asyncHandler(async (req, res) => {
   );
   await assertCanEdit(req, task);
   const previousAssignees = task.assignees.map(idOf);
-  const { changes, addedAssigneeIds, moved } = await taskService.updateTask(task, req.body);
+  const { changes, diff, addedAssigneeIds, moved } = await taskService.updateTask(task, req.body);
+  if (diff.length) {
+    await taskService.recordEvent(task, req.user._id, 'changed', diff);
+  }
   if (moved && !changes.length) {
     emitTask(getIo(req), task, 'task.updated');
   }
@@ -536,6 +560,8 @@ const remove = asyncHandler(async (req, res) => {
 });
 
 module.exports = {
+  listHistory,
+  listFollowers,
   listSubtasks,
   createSubtask,
   listUnassigned,

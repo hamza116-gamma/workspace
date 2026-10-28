@@ -183,3 +183,37 @@ test('moving a parent into a project brings its subtasks; deleting can keep or d
   await taskService.deleteTask(lone);
   assert.equal((await Task.findById(parent3._id)).subtaskTotal, 0);
 });
+
+test('history records readable before/after values; followers are people who can see it', async () => {
+  const { organization, users, project } = await setup();
+  const task = await ticket(organization, project, users[0], { assignees: [String(users[1]._id)] });
+  await taskService.recordEvent(task, users[0]._id, 'created');
+  const { diff } = await taskService.updateTask(task, {
+    status: 'IN_REVIEW',
+    priority: 'HIGH',
+    estimate: '2h',
+  });
+  assert.deepEqual(
+    diff.map((change) => [change.field, change.from, change.to]),
+    [
+      ['status', 'To do', 'In review'],
+      ['estimate', '', '2h'],
+      ['priority', 'MEDIUM', 'HIGH'],
+    ],
+  );
+  await taskService.recordEvent(task, users[0]._id, 'changed', diff);
+  const history = await taskService.listHistory(task);
+  assert.deepEqual(history.map((event) => event.kind).sort(), ['changed', 'created']);
+  assert.ok(
+    history.every((event) => String(event.actor.id ?? event.actor._id) === String(users[0]._id)),
+  );
+
+  const threadService = require('../src/services/thread.service');
+  await threadService.follow(organization._id, task.message, users[0]._id);
+  await threadService.follow(organization._id, task.message, users[1]._id);
+  const followers = await taskService.listFollowers(task);
+  assert.deepEqual(
+    followers.map((user) => String(user.id)).sort(),
+    [String(users[0]._id), String(users[1]._id)].sort(),
+  );
+});

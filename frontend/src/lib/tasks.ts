@@ -105,3 +105,19 @@ export const listUnassignedTasks = () => apiData<{ tasks: Task[] }>('/tasks/unas
 // Moves an unassigned task into a project (it gets the project's next key).
 export const moveTaskToProject = (taskId: string, projectId: string) =>
   apiData<{ task: Task }>(`/tasks/${taskId}/project`, { method: 'POST', body: { projectId } });
+
+// One entry of a task's history (newest first from the server).
+export type TaskHistoryEvent = {
+  id: string;
+  kind: 'created' | 'changed' | 'subtask' | 'moved';
+  actor: { id: string; fullName?: string; avatarUrl?: string | null };
+  changes: { field: string; from: string; to: string }[];
+  createdAt: string;
+};
+
+export const listTaskHistory = (taskId: string) =>
+  apiData<{ events: TaskHistoryEvent[] }>(`/tasks/${taskId}/history`);
+
+// People following the task's thread (still able to see the task).
+export const listTaskFollowers = (taskId: string) =>
+  apiData<{ followers: User[] }>(`/tasks/${taskId}/followers`);

@@ -15,6 +15,7 @@ import { TypingIndicator } from './TypingIndicator';
 import { TaskCard } from '@/components/tasks/TaskCard';
 import { MoveToProject } from '@/components/tasks/MoveToProject';
 import { Subtasks } from '@/components/tasks/Subtasks';
+import { TicketActivity } from '@/components/tasks/TicketActivity';
 import { TicketFold } from './TicketFold';
 import { listAssignable } from '@/lib/tasks';
 import type { User } from '@/types/user';
@@ -111,6 +112,11 @@ export const ThreadPanel = () => {
             <TicketFold task={root.task}>
               <TaskCard task={root.task} canModerate={canModerate} />
               <Subtasks task={root.task} />
+              <TicketActivity
+                task={root.task}
+                following={following}
+                onToggleFollow={() => void toggleFollow()}
+              />
               <p className={styles.ticketHint}>
                 Comments and activity stay on this ticket; they are not posted to the channel.
               </p>
@@ -120,6 +126,13 @@ export const ThreadPanel = () => {
             <TicketFold task={root.task} label="Subtasks and project">
               <MoveToProject task={root.task} />
               {!root.task.locked && <Subtasks task={root.task} />}
+              {!root.task.locked && (
+                <TicketActivity
+                  task={root.task}
+                  following={following}
+                  onToggleFollow={() => void toggleFollow()}
+                />
+              )}
             </TicketFold>
           )}
           <MessageList

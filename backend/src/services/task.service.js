@@ -25,6 +25,8 @@ const channelService = require('./channel.service');
 const conversationService = require('./conversation.service');
 const projectService = require('./project.service');
 const Project = require('../models/project.model');
+const TaskEvent = require('../models/taskEvent.model');
+const ThreadFollow = require('../models/threadFollow.model');
 const User = require('../models/user.model');
 
 const LABEL_MAX = 30;
@@ -598,6 +600,14 @@ const nameList = (users) => users.map((user) => user.fullName || 'someone').join
 const updateTask = async (task, payload = {}) => {
   const target = targetOf(task);
   const changes = [];
+  // For the history: { field, from, to } with readable values.
+  const diff = [];
+  const statusList = statusesOf(await projectOf(task));
+  const statusName = (key) => findStatus(statusList, key)?.name ?? key;
+  const day = (date) => (date ? new Date(date).toDateString() : '');
+  const beforeNames = new Map(
+    (task.assignees || []).map((user) => [idOf(user), user.fullName || 'someone']),
+  );
   let addedAssigneeIds = [];
   // Board reordering is silent (no activity note).
   let moved = false;
@@ -615,6 +625,7 @@ const updateTask = async (task, payload = {}) => {
   if (payload.title !== undefined) {
     const title = assertTitle(payload.title);
     if (title !== task.title) {
+      diff.push({ field: 'title', from: task.title, to: title });
       task.title = title;
       changes.push(`renamed the task to "${title}"`);
     }
@@ -622,13 +633,15 @@ const updateTask = async (task, payload = {}) => {
   if (payload.description !== undefined) {
     const description = assertDescription(payload.description);
     if (description !== task.description) {
+      diff.push({ field: 'description', from: '', to: '' });
       task.description = description;
       changes.push('updated the description');
     }
   }
   if (payload.status !== undefined) {
-    const status = assertStatus(statusesOf(await projectOf(task)), payload.status);
+    const status = assertStatus(statusList, payload.status);
     if (status.key !== task.status) {
+      diff.push({ field: 'status', from: statusName(task.status), to: status.name });
       const wasDone = task.statusGroup === STATUS_GROUP.DONE;
       task.status = status.key;
       task.statusGroup = status.group;
@@ -643,6 +656,7 @@ const updateTask = async (task, payload = {}) => {
   if (payload.type !== undefined) {
     const type = assertEnum(payload.type, TASK_TYPE, 'type');
     if (type !== (task.type || TASK_TYPE.TASK)) {
+      diff.push({ field: 'type', from: task.type || TASK_TYPE.TASK, to: type });
       task.type = type;
       changes.push(`changed the type to ${type.toLowerCase()}`);
     }
@@ -650,6 +664,11 @@ const updateTask = async (task, payload = {}) => {
   if (payload.estimate !== undefined || payload.estimateMinutes !== undefined) {
     const estimate = parseEstimate(payload.estimate ?? payload.estimateMinutes);
     if (estimate !== (task.estimateMinutes ?? null)) {
+      diff.push({
+        field: 'estimate',
+        from: task.estimateMinutes ? formatEstimate(task.estimateMinutes) : '',
+        to: estimate ? formatEstimate(estimate) : '',
+      });
       task.estimateMinutes = estimate;
       changes.push(
         estimate ? `set the estimate to ${formatEstimate(estimate)}` : 'removed the estimate',
@@ -659,6 +678,7 @@ const updateTask = async (task, payload = {}) => {
   if (payload.priority !== undefined) {
     const priority = assertEnum(payload.priority, TASK_PRIORITY, 'priority');
     if (priority !== task.priority) {
+      diff.push({ field: 'priority', from: task.priority, to: priority });
       task.priority = priority;
       changes.push(`set priority to ${priority.toLowerCase()}`);
     }
@@ -668,6 +688,7 @@ const updateTask = async (task, payload = {}) => {
     const before = task.dueDate ? task.dueDate.getTime() : null;
     const after = dueDate ? dueDate.getTime() : null;
     if (before !== after) {
+      diff.push({ field: 'dueDate', from: day(task.dueDate), to: day(dueDate) });
       task.dueDate = dueDate;
       task.dueRemindedAt = null;
       changes.push(
@@ -678,6 +699,7 @@ const updateTask = async (task, payload = {}) => {
   if (payload.labels !== undefined) {
     const labels = assertLabels(payload.labels);
     if (labels.join('\n') !== (task.labels || []).join('\n')) {
+      diff.push({ field: 'labels', from: (task.labels || []).join(', '), to: labels.join(', ') });
       task.labels = labels;
       changes.push(labels.length ? `set labels: ${labels.join(', ')}` : 'cleared the labels');
     }
@@ -697,6 +719,11 @@ const updateTask = async (task, payload = {}) => {
       task.assignees = next;
       await task.populate('assignees');
       const byId = new Map(task.assignees.map((user) => [idOf(user), user]));
+      diff.push({
+        field: 'assignees',
+        from: [...beforeNames.values()].join(', '),
+        to: task.assignees.map((user) => user.fullName || 'someone').join(', '),
+      });
       if (addedAssigneeIds.length) {
         changes.push(`assigned ${nameList(addedAssigneeIds.map((id) => byId.get(id) || {}))}`);
       }
@@ -712,7 +739,48 @@ const updateTask = async (task, payload = {}) => {
     await task.save();
     await task.populate('assignees');
   }
-  return { task, changes, addedAssigneeIds, moved };
+  return { task, changes, diff, addedAssigneeIds, moved };
+};
+
+// ---- history ------------------------------------------------------------------
+
+const recordEvent = (task, actorId, kind, changes = []) =>
+  TaskEvent.create({
+    organization: task.organization,
+    task: task._id,
+    actor: actorId,
+    kind,
+    changes,
+  }).catch(() => null); // history must never break the action itself
+
+const listHistory = async (task) => {
+  const events = await TaskEvent.find({ task: task._id })
+    .sort({ createdAt: -1 })
+    .limit(200)
+    .populate('actor');
+  return events.map((event) => ({
+    id: idOf(event._id),
+    kind: event.kind,
+    actor: event.actor?.fullName ? toPublicUser(event.actor) : { id: idOf(event.actor) },
+    changes: event.changes.map(({ field, from, to }) => ({ field, from, to })),
+    createdAt: event.createdAt,
+  }));
+};
+
+/**
+ * People following the task's thread (they hear about its comments), limited
+ * to those who can still see the task.
+ */
+const listFollowers = async (task) => {
+  const rows = await ThreadFollow.find({ threadRoot: task.message }).populate('user');
+  const allowed = new Set(
+    (await listAssignableUsers(task.organization, targetOf(task), await projectOf(task))).map(
+      (user) => String(user.id),
+    ),
+  );
+  return rows
+    .filter((row) => row.user && allowed.has(idOf(row.user)))
+    .map((row) => toPublicUser(row.user));
 };
 
 /**
@@ -1035,6 +1103,9 @@ const claimDueReminders = async (windowMs, limit = 50) => {
 };
 
 module.exports = {
+  recordEvent,
+  listHistory,
+  listFollowers,
   createSubtask,
   listSubtasks,
   parseEstimate,
