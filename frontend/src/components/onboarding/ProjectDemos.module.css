@@ -25,7 +25,8 @@
   display: grid;
   align-content: start;
   gap: 4px;
-  min-height: 74px;
+  min-width: 0;
+  min-height: 84px;
   padding: 5px;
   border-radius: 7px;
   background: #f2f4f7;
@@ -58,6 +59,10 @@
 }
 
 .card {
+  box-sizing: border-box;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
   padding: 4px 5px;
   border-left: 2px solid #2e90fa;
   border-radius: 5px;
@@ -71,7 +76,8 @@
   font-size: 9px;
 }
 
-/* WEB-2 starts under "To do" and slides right to "Done". */
+/* WEB-2 sits in the second slot of "To do" and slides to the second slot of
+   "Done" (columns are 92px wide with a 6px gap: one step is 98px). */
 .moving {
   position: absolute;
   top: 54px;
@@ -92,7 +98,7 @@
   }
   80%,
   100% {
-    transform: translateX(196px) translateY(24px);
+    transform: translateX(196px);
     border-left-color: #12b76a;
   }
 }
