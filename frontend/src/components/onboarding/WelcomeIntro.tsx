@@ -7,6 +7,7 @@ import { useAuth } from '@/hooks/useAuth';
 import { useOrg } from '@/hooks/useOrg';
 import { updateMe } from '@/lib/users';
 import { TaskDemo } from './TaskDemo';
+import { ProjectsDemo, SubtasksDemo } from './ProjectDemos';
 import {
   ActivityDemo,
   ChannelsDemo,
@@ -22,6 +23,8 @@ const DEMOS = {
   channels: ChannelsDemo,
   thread: ThreadDemo,
   task: TaskDemo,
+  projects: ProjectsDemo,
+  subtasks: SubtasksDemo,
   search: SearchDemo,
   huddle: HuddleDemo,
   activity: ActivityDemo,
@@ -81,8 +84,30 @@ const SLIDES = (workspace: string): Slide[] => [
     text: 'Anything can become a task: assign it, set a due date and track it to done, right in the chat.',
     points: [
       'Message ⋯ menu → Create task, or type /task',
-      'Each chat has a Tasks board: drag cards to change status',
+      'Pick a project to put it on that project’s board, or leave it Unassigned',
       'My tasks shows everything assigned to you',
+    ],
+  },
+  {
+    icon: 'list',
+    demo: 'projects',
+    title: 'Projects, boards and milestones',
+    text: 'Group work into projects. Each has its own board, list, backlog and milestones, and only its people can see it.',
+    points: [
+      'Projects in the sidebar → New project (public, or private to the people you pick)',
+      'Tickets get keys like WEB-12; drag them across the board',
+      'Backlog keeps ideas off the board; milestones track progress to a date',
+    ],
+  },
+  {
+    icon: 'check',
+    demo: 'subtasks',
+    title: 'Tickets, subtasks and sharing',
+    text: 'Create a ticket in three quick steps, break it into subtasks, and share it to any channel; comments stay in one thread.',
+    points: [
+      'Steps: Basics → Details (status, people, estimate, type) → Subtasks',
+      'Subtasks get keys like WEB-12.1; tick them off from the ticket',
+      'Each ticket has followers and a history of every change',
     ],
   },
   {
@@ -127,6 +152,11 @@ const TOUR: { target: string; title: string; text: string }[] = [
     target: 'composer',
     title: 'Write a message',
     text: 'Type here. Use @ to mention, / for commands like /task, and + to attach files.',
+  },
+  {
+    target: 'projects',
+    title: 'Projects',
+    text: 'Your projects and the Unassigned board. All opens the full list, where you can start a new one.',
   },
   {
     target: 'tasks',

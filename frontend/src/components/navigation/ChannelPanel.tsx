@@ -191,7 +191,7 @@ export const ChannelPanel = () => {
 
       <div className={styles.scroll}>
         {projectsEnabled && (
-          <div className={styles.section}>
+          <div className={styles.section} data-tour="projects">
             <div className={styles.sectionHeader}>
               <span className={styles.sectionLabel}>
                 <Icon name="task" size={14} />
