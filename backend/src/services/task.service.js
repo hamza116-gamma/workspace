@@ -75,6 +75,10 @@ const toPublicTask = (task) => ({
   type: task.type || TASK_TYPE.TASK,
   estimateMinutes: task.estimateMinutes ?? null,
   parentId: task.parent ? idOf(task.parent) : null,
+  shares: (task.shares || []).map((share) => ({
+    channelId: idOf(share.channel),
+    messageId: idOf(share.message),
+  })),
   subtaskTotal: task.subtaskTotal || 0,
   subtaskDone: task.subtaskDone || 0,
   assignees: (task.assignees || []).map((user) =>
@@ -461,6 +465,45 @@ const nextSubIndex = async (parent) =>
     )
   ).subtaskSeq;
 
+/**
+ * Shares a project ticket to a channel: a card there that opens the
+ * ticket's own thread. The card message is posted by the caller (it has
+ * the chat pipeline); this records it.
+ */
+const assertShareable = (task, channelId) => {
+  if (!task.project) {
+    throw new AppError(400, 'Only project tickets can be shared; chat tasks live in their chat');
+  }
+  if ((task.shares || []).some((share) => idOf(share.channel) === String(channelId))) {
+    throw new AppError(409, 'Already shared in that channel');
+  }
+};
+
+const addShare = async (task, { channelId, messageId, userId }) => {
+  await Task.updateOne(
+    { _id: task._id },
+    { $push: { shares: { channel: channelId, message: messageId, sharedBy: userId } } },
+  );
+  await Message.updateOne({ _id: messageId }, { $set: { taskRef: task._id } });
+  return findByIdForOrg(task._id, task.organization);
+};
+
+// Returns the removed share's card message id (or null).
+const removeShare = async (task, channelId) => {
+  const share = (task.shares || []).find((item) => idOf(item.channel) === String(channelId));
+  if (!share) {
+    throw new AppError(404, 'Not shared in that channel');
+  }
+  await Task.updateOne({ _id: task._id }, { $pull: { shares: { channel: share.channel } } });
+  await Message.updateOne(
+    { _id: share.message },
+    { $set: { taskRef: null, deletedAt: new Date(), content: '' } },
+  );
+  return idOf(share.message);
+};
+
+const findByMessageId = (messageId) => Task.findOne({ message: messageId });
+
 const listSubtasks = (parent) =>
   populate(Task.find({ parent: parent._id }).sort({ subIndex: 1, createdAt: 1 }));
 
@@ -825,6 +868,13 @@ const deleteOneTask = async (task) => {
       { $set: { taskRef: null } },
     );
   }
+  // Shared cards in channels go too (nothing left to open).
+  for (const share of task.shares || []) {
+    await Message.updateOne(
+      { _id: share.message, taskRef: task._id },
+      { $set: { taskRef: null, deletedAt: new Date(), content: '' } },
+    );
+  }
   // A ticket's hidden anchor goes with it (its comments stay unreachable).
   await Message.updateOne(
     { _id: task.message, ticketThread: true },
@@ -1012,7 +1062,9 @@ const listAssignedTo = async (organizationId, userId, query = {}) => {
 // only names the ticket; members load the details by key (access-checked).
 const inChat = (task, messageId) =>
   Boolean(task.project) &&
-  (idOf(messageId) === idOf(task.sourceMessage) || Boolean(task.channel || task.conversation));
+  (idOf(messageId) === idOf(task.sourceMessage) ||
+    (task.shares || []).some((share) => idOf(share.message) === idOf(messageId)) ||
+    Boolean(task.channel || task.conversation));
 
 const lockedTask = (task) => ({
   id: idOf(task._id),
@@ -1030,13 +1082,30 @@ const getByMessageIds = async (messageIds) => {
     return map;
   }
   const tasks = await populate(
-    Task.find({ $or: [{ message: { $in: messageIds } }, { sourceMessage: { $in: messageIds } }] }),
+    Task.find({
+      $or: [
+        { message: { $in: messageIds } },
+        { sourceMessage: { $in: messageIds } },
+        { 'shares.message': { $in: messageIds } },
+      ],
+    }),
   );
+  // Comment count = replies in the ticket's own thread (shown on every card).
+  const anchors = await Message.find({ _id: { $in: tasks.map((task) => task.message) } }).select(
+    'replyCount',
+  );
+  const comments = new Map(anchors.map((anchor) => [idOf(anchor._id), anchor.replyCount || 0]));
   const wanted = new Set(messageIds.map(String));
   tasks.forEach((task) => {
-    [task.message, task.sourceMessage]
+    const commentCount = comments.get(idOf(task.message)) ?? 0;
+    [task.message, task.sourceMessage, ...(task.shares || []).map((share) => share.message)]
       .filter((id) => id && wanted.has(idOf(id)))
-      .forEach((id) => map.set(idOf(id), inChat(task, id) ? lockedTask(task) : toPublicTask(task)));
+      .forEach((id) =>
+        map.set(idOf(id), {
+          ...(inChat(task, id) ? lockedTask(task) : toPublicTask(task)),
+          commentCount,
+        }),
+      );
   });
   return map;
 };
@@ -1103,6 +1172,10 @@ const claimDueReminders = async (windowMs, limit = 50) => {
 };
 
 module.exports = {
+  findByMessageId,
+  assertShareable,
+  addShare,
+  removeShare,
   recordEvent,
   listHistory,
   listFollowers,

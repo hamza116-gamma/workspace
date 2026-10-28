@@ -1398,3 +1398,42 @@ button.open {
   color: var(--ink-3);
   font-size: 11px;
 }
+
+/* "Shared in" channels of a ticket (side panel). */
+.shares {
+  display: grid;
+  gap: 6px;
+  margin-top: 8px;
+}
+
+.shareRow {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+}
+
+.shareLabel {
+  color: var(--ink-3);
+  font-weight: 600;
+}
+
+.shareChip {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 2px 4px 2px 8px;
+  border-radius: var(--r-pill, 99px);
+  background: var(--surface-1);
+  border: 1px solid var(--line);
+  color: var(--ink-2);
+}
+
+.shareChip button {
+  border: 0;
+  background: transparent;
+  color: var(--ink-3);
+  font-size: 11px;
+  cursor: pointer;
+}

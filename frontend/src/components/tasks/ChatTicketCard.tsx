@@ -25,7 +25,8 @@ export const ChatTicketCard = ({
   if (task) {
     return (
       <TaskCard
-        task={task}
+        // The chat stub carries the ticket's comment count; keep it.
+        task={{ ...task, commentCount: stub.commentCount }}
         canModerate={canModerate}
         mentionNames={mentionNames}
         onOpen={() => onOpen(task)}

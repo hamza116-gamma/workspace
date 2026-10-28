@@ -20,6 +20,8 @@ router.post('/:taskId/project', taskController.moveToProject);
 router.get('/:taskId/subtasks', taskController.listSubtasks);
 router.get('/:taskId/history', taskController.listHistory);
 router.get('/:taskId/followers', taskController.listFollowers);
+router.post('/:taskId/shares', taskController.share);
+router.delete('/:taskId/shares/:channelId', taskController.unshare);
 router.post('/:taskId/subtasks', taskController.createSubtask);
 router.delete('/:taskId', taskController.remove);
 

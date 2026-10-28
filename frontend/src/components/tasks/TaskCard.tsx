@@ -4,12 +4,7 @@ import { useLayoutEffect, useRef, useState } from 'react';
 import { Dropdown } from '@/components/ui/Dropdown';
 import { useAuth } from '@/hooks/useAuth';
 import { taskAccess, updateTask } from '@/lib/tasks';
-import {
-  TASK_PRIORITY_LABELS,
-  type Task,
-  type TaskStatus,
-  type TaskStatusDef,
-} from '@/types/task';
+import { TASK_PRIORITY_LABELS, type Task, type TaskStatus, type TaskStatusDef } from '@/types/task';
 import { useTaskStatuses } from '@/hooks/useTaskStatuses';
 import { MentionText } from './MentionText';
 import { dueChip } from '@/lib/taskDue';
@@ -18,7 +13,6 @@ import { Icon } from '@/components/ui/Icon';
 import { Avatar } from '@/components/ui/Avatar';
 import { EstimateChip, SubtaskProgress, TypeIcon } from './TaskMeta';
 import styles from './Tasks.module.css';
-
 
 // Status choices for a task: its project's statuses (or the defaults).
 const statusOptions = (statuses: TaskStatusDef[]) =>
@@ -167,14 +161,14 @@ export const TaskCard = ({
           )}
         </>
       )}
+      {(task.commentCount ?? 0) > 0 && onOpen && (
+        <button type="button" className={styles.viewSubtasks} onClick={onOpen}>
+          💬 {task.commentCount} {task.commentCount === 1 ? 'comment' : 'comments'}
+        </button>
+      )}
       {task.subtaskTotal > 0 && (
         // Opens the task's thread, which lists every subtask.
-        <button
-          type="button"
-          className={styles.viewSubtasks}
-          onClick={onOpen}
-          disabled={!onOpen}
-        >
+        <button type="button" className={styles.viewSubtasks} onClick={onOpen} disabled={!onOpen}>
           View subtasks
           <SubtaskProgress task={task} />
         </button>

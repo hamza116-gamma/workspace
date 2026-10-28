@@ -59,6 +59,17 @@ const taskSchema = new mongoose.Schema(
     // Last subtask index handed out (on the parent; never reused).
     subtaskSeq: { type: Number, default: 0 },
     // Kept by recountSubtasks: how many subtasks, and how many are done.
+    // Channels this ticket's card was shared to (Phase 4). Each card opens
+    // the ticket's own thread, so comments are one conversation everywhere.
+    shares: [
+      {
+        _id: false,
+        channel: { type: ObjectId, ref: 'Channel', required: true },
+        message: { type: ObjectId, ref: 'Message', required: true },
+        sharedBy: { type: ObjectId, ref: 'User', required: true },
+        sharedAt: { type: Date, default: Date.now },
+      },
+    ],
     subtaskTotal: { type: Number, default: 0 },
     subtaskDone: { type: Number, default: 0 },
     // Always members of the task's channel / participants of its conversation.
@@ -139,6 +150,7 @@ taskSchema.statics.recountSubtasks = async function recountSubtasks(parentId) {
 };
 
 taskSchema.index({ parent: 1 });
+taskSchema.index({ 'shares.message': 1 });
 taskSchema.index({ message: 1 }, { unique: true });
 taskSchema.index({ sourceMessage: 1 }, { sparse: true });
 // (organization, number) was the unique key before projects; the migration

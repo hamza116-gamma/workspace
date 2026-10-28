@@ -61,6 +61,10 @@ export type Task = {
   // Set on a subtask (one level only).
   parentId: string | null;
   subtaskTotal: number;
+  // Channels the ticket's card was shared to (project tickets).
+  shares?: { channelId: string; messageId: string }[];
+  // Comments in the ticket's thread (on chat cards).
+  commentCount?: number;
   subtaskDone: number;
   assignees: User[];
   dueDate: string | null;

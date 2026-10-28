@@ -121,3 +121,10 @@ export const listTaskHistory = (taskId: string) =>
 // People following the task's thread (still able to see the task).
 export const listTaskFollowers = (taskId: string) =>
   apiData<{ followers: User[] }>(`/tasks/${taskId}/followers`);
+
+// Share a project ticket's card to a channel (its comments stay in one thread).
+export const shareTask = (taskId: string, channelId: string) =>
+  apiData<{ task: Task }>(`/tasks/${taskId}/shares`, { method: 'POST', body: { channelId } });
+
+export const unshareTask = (taskId: string, channelId: string) =>
+  apiData<{ task: Task }>(`/tasks/${taskId}/shares/${channelId}`, { method: 'DELETE' });

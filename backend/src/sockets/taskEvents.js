@@ -39,7 +39,8 @@ const emitCard = async (io, task) => {
   }
   // The ticket's own thread root (a hidden anchor only reaches its thread
   // room) and the chat message it was made from, whose chip shows the status.
-  for (const id of [task.message, task.sourceMessage].filter(Boolean)) {
+  const shared = (task.shares || []).map((share) => share.message);
+  for (const id of [task.message, task.sourceMessage, ...shared].filter(Boolean)) {
     const message = await messageService.findByIdForOrg(id, task.organization);
     if (message) {
       emitToMessageRooms(io, message, 'message.updated', {

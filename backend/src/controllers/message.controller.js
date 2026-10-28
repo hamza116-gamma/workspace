@@ -77,6 +77,13 @@ const postMessage = async ({ io, organizationId, user, target, body }) => {
   if (target.conversation) {
     emitConversationActivity(io, target.conversation);
   }
+  if (message.ticketThread && message.parentMessageId) {
+    // Shared cards show the ticket's comment count: refresh them.
+    const ticket = await require('../services/task.service').findByMessageId?.(
+      message.parentMessageId,
+    );
+    if (ticket) await require('../sockets/taskEvents').emitCard(io, ticket);
+  }
   return message;
 };
 

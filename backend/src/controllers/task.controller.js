@@ -228,6 +228,67 @@ const moveToProject = asyncHandler(async (req, res) => {
   respond(res, moved);
 });
 
+// POST /tasks/:taskId/shares { channelId }: post the ticket's card in a
+// channel. Project members only, in a channel they can post in.
+const share = asyncHandler(async (req, res) => {
+  const task = await taskService.loadForWrite(
+    req.params.taskId,
+    req.organization._id,
+    req.user._id,
+  );
+  const channelId = req.body?.channelId;
+  taskService.assertShareable(task, channelId);
+  const project = await taskService.projectOf(task);
+  await projectService.assertCanWrite(project, req.user._id);
+  const channel = await channelService.assertCanWriteById(
+    channelId,
+    req.organization._id,
+    req.user._id,
+  );
+  const card = await postMessage({
+    io: getIo(req),
+    organizationId: req.organization._id,
+    user: req.user,
+    target: { channel },
+    body: { content: task.title },
+  });
+  const shared = await taskService.addShare(task, {
+    channelId: channel._id,
+    messageId: card._id,
+    userId: req.user._id,
+  });
+  const io = getIo(req);
+  await taskService.recordEvent(shared, req.user._id, 'changed', [
+    { field: 'shared', from: '', to: `#${channel.name}` },
+  ]);
+  await emitCard(io, shared);
+  emitTask(io, shared, 'task.updated');
+  respond(res, shared, 201);
+});
+
+// DELETE /tasks/:taskId/shares/:channelId: remove that channel's card.
+const unshare = asyncHandler(async (req, res) => {
+  const task = await taskService.loadForWrite(
+    req.params.taskId,
+    req.organization._id,
+    req.user._id,
+  );
+  const project = await taskService.projectOf(task);
+  if (project) await projectService.assertCanWrite(project, req.user._id);
+  const messageId = await taskService.removeShare(task, req.params.channelId);
+  const io = getIo(req);
+  const removed = await messageService.findByIdForOrg(messageId, req.organization._id);
+  if (removed) {
+    emitToMessageRooms(io, removed, 'message.deleted', { message: await serializeLive(removed) });
+  }
+  const fresh = await taskService.findByIdForOrg(task._id, req.organization._id);
+  await taskService.recordEvent(fresh, req.user._id, 'changed', [
+    { field: 'shared', from: 'a channel', to: '' },
+  ]);
+  emitTask(io, fresh, 'task.updated');
+  respond(res, fresh);
+});
+
 // GET /tasks/:taskId/history: every change, newest first.
 const listHistory = asyncHandler(async (req, res) => {
   const task = await taskService.loadForRead(req.params.taskId, req.organization._id, req.user._id);
@@ -560,6 +621,8 @@ const remove = asyncHandler(async (req, res) => {
 });
 
 module.exports = {
+  share,
+  unshare,
   listHistory,
   listFollowers,
   listSubtasks,
