@@ -161,12 +161,6 @@ export const TaskCard = ({
           )}
         </>
       )}
-      {/* Project tickets only: a chat task already shows its replies. */}
-      {task.projectId && (task.commentCount ?? 0) > 0 && onOpen && (
-        <button type="button" className={styles.viewSubtasks} onClick={onOpen}>
-          💬 {task.commentCount} {task.commentCount === 1 ? 'comment' : 'comments'}
-        </button>
-      )}
       {task.subtaskTotal > 0 && (
         // Opens the task's thread, which lists every subtask.
         <button type="button" className={styles.viewSubtasks} onClick={onOpen} disabled={!onOpen}>

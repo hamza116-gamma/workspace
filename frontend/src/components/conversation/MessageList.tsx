@@ -726,6 +726,20 @@ export const MessageList = ({
                               {message.replyCount} {message.replyCount === 1 ? 'reply' : 'replies'}
                             </button>
                           )}
+                          {/* A ticket card (shared, or made from a message): its replies
+                              live in the ticket's own thread. Same link, opens that. */}
+                          {message.replyCount === 0 &&
+                            (message.task?.commentCount ?? 0) > 0 &&
+                            !message.parentMessageId && (
+                              <button
+                                type="button"
+                                className={styles.threadLink}
+                                onClick={() => openThread(message.task!.messageId)}
+                              >
+                                {message.task!.commentCount}{' '}
+                                {message.task!.commentCount === 1 ? 'reply' : 'replies'}
+                              </button>
+                            )}
                         </div>
 
                         {!isDeleted && onReact && !compact && editingId !== message.id && (
