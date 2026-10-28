@@ -21,6 +21,7 @@ import { TicketFold } from './TicketFold';
 import { listAssignable } from '@/lib/tasks';
 import type { User } from '@/types/user';
 import styles from './ThreadPanel.module.css';
+import { NotFoundState, isNotFound } from '@/components/ui/NotFoundState';
 
 export const ThreadPanel = () => {
   const { rootId, closeThread } = useThreadPanel();
@@ -105,7 +106,17 @@ export const ThreadPanel = () => {
         </div>
       ) : error || !root ? (
         <div className={styles.alertWrap}>
-          <Alert>{error || 'Thread not found'}</Alert>
+          <NotFoundState
+            compact
+            icon="thread"
+            title={isNotFound(error) ? 'Thread not found' : 'Couldn’t load this thread'}
+            text={
+              isNotFound(error)
+                ? 'The message may have been deleted, or you no longer have access to it.'
+                : (error ?? '')
+            }
+            actionHref={null}
+          />
         </div>
       ) : (
         <>

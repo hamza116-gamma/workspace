@@ -28,6 +28,7 @@ import headerStyles from './ConversationHeader.module.css';
 import { MemberPickerDialog } from './MemberPickerDialog';
 import type { PresenceState } from '@/types/user';
 import styles from './DirectMessageWorkspace.module.css';
+import { NotFoundState, isNotFound } from '@/components/ui/NotFoundState';
 
 const PRESENCE_LABEL: Record<PresenceState, string> = {
   ACTIVE: 'Active',
@@ -117,7 +118,17 @@ export const DirectMessageWorkspace = ({ conversationId }: { conversationId: str
   }
 
   if (error || !conversation) {
-    return <Alert>{error || 'Conversation not found'}</Alert>;
+    return isNotFound(error) ? (
+      <NotFoundState
+        icon="message"
+        title="Conversation not found"
+        text="It may have been removed, or you're not part of it. Start a new message instead."
+        actionLabel="New message"
+        actionHref="/dm/new"
+      />
+    ) : (
+      <NotFoundState icon="info" title="Couldn’t load this conversation" text={error ?? ''} />
+    );
   }
 
   const single = others.length === 1 ? others[0] : null;

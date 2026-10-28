@@ -17,6 +17,7 @@ import { ProjectSettings } from './ProjectSettings';
 import { peopleLabel, UNASSIGNED_KEY, type Project } from '@/types/project';
 import type { Task } from '@/types/task';
 import styles from './Projects.module.css';
+import { NotFoundState, isNotFound } from '@/components/ui/NotFoundState';
 
 const upsert = (tasks: Task[], task: Task) => {
   const index = tasks.findIndex((item) => item.id === task.id);
@@ -104,24 +105,18 @@ export const ProjectView = ({ projectKey }: { projectKey: string }) => {
   });
 
   if (error) {
-    const missing = /not found/i.test(error);
     return (
-      <div className={`${styles.page} ${styles.centerState}`}>
-        <div className={styles.stateCard}>
-          <span className={styles.stateIcon} aria-hidden>
-            <Icon name="task" size={22} />
-          </span>
-          <h2 className={styles.stateTitle}>
-            {missing ? 'Project not found' : 'Couldn’t load this project'}
-          </h2>
-          <p className={styles.stateText}>
-            {missing
-              ? 'It may have been deleted, or you’re not one of its people. Ask the project lead to add you.'
-              : error}
-          </p>
-          <Button onClick={() => router.push('/projects')}>Back to projects</Button>
-        </div>
-      </div>
+      <NotFoundState
+        icon="task"
+        title={isNotFound(error) ? 'Project not found' : 'Couldn’t load this project'}
+        text={
+          isNotFound(error)
+            ? 'It may have been deleted, or you’re not one of its people. Ask the project lead to add you.'
+            : error
+        }
+        actionLabel="Back to projects"
+        actionHref="/projects"
+      />
     );
   }
   if (!project) {
