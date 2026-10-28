@@ -359,7 +359,7 @@ export const EditTaskDialog = ({
           </div>
         )}
         {error && <p className={styles.error}>{error}</p>}
-        <div className={styles.actions}>
+        <div className={`${styles.actions} ${styles.stickyFoot}`}>
           {full && (
             <Button
               variant="danger"

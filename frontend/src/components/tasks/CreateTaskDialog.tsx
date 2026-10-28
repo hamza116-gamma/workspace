@@ -472,7 +472,7 @@ export const CreateTaskDialog = ({
         )}
 
         {error && <p className={styles.error}>{error}</p>}
-        <div className={styles.stepActions}>
+        <div className={`${styles.stepActions} ${styles.stickyFoot}`}>
           {step > 0 ? (
             <Button
               variant="secondary"
