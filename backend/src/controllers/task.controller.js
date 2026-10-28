@@ -206,7 +206,15 @@ const moveToProject = asyncHandler(async (req, res) => {
   }
   const io = getIo(req);
   const oldKey = keyOf(task);
+  const oldProjectId = task.project ? idOf(task.project) : null;
   const { task: moved, dropped } = await taskService.moveToProject(task, project);
+  if (oldProjectId) {
+    // The previous project's board removes it.
+    io?.to(`project:${oldProjectId}`).emit('task.updated', {
+      organizationId: String(req.organization._id),
+      task: taskService.toPublicTask(moved),
+    });
+  }
   await taskService.recordEvent(moved, req.user._id, 'moved', [
     { field: 'project', from: oldKey, to: keyOf(moved) },
   ]);

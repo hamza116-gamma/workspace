@@ -5,7 +5,15 @@ import { Modal } from '@/components/ui/Modal';
 import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
 import { Dropdown } from '@/components/ui/Dropdown';
-import { deleteTask, listAssignable, updateTask, type TaskAccess } from '@/lib/tasks';
+import {
+  deleteTask,
+  listAssignable,
+  moveTaskToProject,
+  updateTask,
+  type TaskAccess,
+} from '@/lib/tasks';
+import { useProjects } from '@/hooks/useProjects';
+import { useProjectsEnabled } from '@/hooks/useProjectsEnabled';
 import { useAuth } from '@/hooks/useAuth';
 import { MentionInput } from './MentionText';
 import { LabelInput } from './LabelInput';
@@ -92,6 +100,17 @@ export const EditTaskDialog = ({
   const [error, setError] = useState('');
   const { user } = useAuth();
   const full = access === 'full';
+  // Project: an Unassigned task can go into a project; a project ticket can
+  // move to another project (not back to Unassigned: it has no chat).
+  const { projects } = useProjects();
+  const projectsOn = useProjectsEnabled();
+  const memberProjects = projects.filter((p) => p.isMember && !p.readOnly);
+  const [projectId, setProjectId] = useState(task.projectId ?? '');
+  const projectOptions = [
+    ...(task.projectId ? [] : [{ value: '', label: 'Unassigned' }]),
+    ...memberProjects.map((p) => ({ value: p.id, label: `${p.key} · ${p.name}` })),
+  ];
+  const projectChanged = projectId !== (task.projectId ?? '');
 
   useEffect(() => {
     if (!open) {
@@ -106,12 +125,15 @@ export const EditTaskDialog = ({
     setStatus(task.status);
     setConfirmDelete(false);
     setStep(0);
+    setProjectId(task.projectId ?? '');
     setDueDate(toDateInput(task.dueDate));
     setAssignees(task.assignees.map((user) => user.id));
     setError('');
     setPeople(null);
     let alive = true;
-    listAssignable(task).then(
+    // By id only: a task also has projectKey (TASK for chat tasks), which
+    // would be read as a project lookup and find nothing.
+    listAssignable({ id: task.id, channelId: null, conversationId: null }).then(
       (users) => alive && setPeople(users),
       () => alive && setPeople([]),
     );
@@ -161,14 +183,24 @@ export const EditTaskDialog = ({
       ...(dueDate !== toDateInput(task.dueDate) ? { dueDate: nextDue } : {}),
       ...([...assignees].sort().join(',') !== before ? { assignees } : {}),
     };
-    if (Object.keys(changes).length === 0) {
+    if (Object.keys(changes).length === 0 && !projectChanged) {
       onClose();
       return;
     }
     setSaving(true);
     setError('');
     try {
-      const { task: updated } = await updateTask(task.id, changes);
+      let updated = task;
+      if (projectChanged && projectId) {
+        // Moving re-numbers it and picks the new project's status (same
+        // group) and members, so status / assignees edits are not re-sent.
+        ({ task: updated } = await moveTaskToProject(task.id, projectId));
+        delete (changes as { status?: string }).status;
+        delete (changes as { assignees?: string[] }).assignees;
+      }
+      if (Object.keys(changes).length) {
+        ({ task: updated } = await updateTask(task.id, changes));
+      }
       onSaved(updated);
       onClose();
     } catch (err) {
@@ -192,6 +224,22 @@ export const EditTaskDialog = ({
         />
         {step === 0 && (
           <>
+            {projectsOn && full && !task.parentId && !task.locked && projectOptions.length > 0 && (
+              <>
+                <Dropdown
+                  label="Project"
+                  options={projectOptions}
+                  value={projectId}
+                  onChange={setProjectId}
+                />
+                {projectChanged && (
+                  <p className={styles.muted}>
+                    It gets a new key in that project (the old one keeps working), the matching
+                    status there, and anyone outside the project is unassigned.
+                  </p>
+                )}
+              </>
+            )}
             {!full && (
               <p className={styles.muted}>
                 You can update the description. The title, priority, due date and assignees are set

@@ -962,9 +962,14 @@ const listUnassigned = async (organizationId, userId, query = {}) => {
  * key (TASK-8 -> MOB-3; the old key keeps working). Assignees who are not
  * project members are dropped (returned so they can be told).
  */
+/**
+ * Moves a task into a project: a chat task (Unassigned) or a ticket of
+ * another project. New key (old one kept as alias), same status group,
+ * non-members dropped, subtasks follow.
+ */
 const moveToProject = async (task, project) => {
-  if (task.project) {
-    throw new AppError(409, 'This task is already in a project');
+  if (task.project && idOf(task.project) === idOf(project._id)) {
+    throw new AppError(409, 'The task is already in this project');
   }
   if (task.parent) {
     throw new AppError(400, 'Move its parent task instead; subtasks go with it');
@@ -995,7 +1000,7 @@ const moveOne = async (task, project, members, sharedNumber = null) => {
       )
     ).seq;
   await Task.updateOne(
-    { _id: task._id, project: null },
+    { _id: task._id, project: task.project ?? null },
     {
       $set: {
         project: project._id,
@@ -1009,6 +1014,11 @@ const moveOne = async (task, project, members, sharedNumber = null) => {
       $addToSet: { formerKeys: keyOf(task) },
       $pull: { assignees: { $in: dropped } },
     },
+  );
+  // A ticket's hidden thread belongs to its project (access, quiet chat).
+  await Message.updateMany(
+    { $or: [{ _id: task.message }, { parentMessageId: task.message }], ticketThread: true },
+    { $set: { project: project._id } },
   );
   return number;
 };
@@ -1103,7 +1113,10 @@ const getByMessageIds = async (messageIds) => {
       .forEach((id) =>
         map.set(idOf(id), {
           ...(inChat(task, id) ? lockedTask(task) : toPublicTask(task)),
-          commentCount,
+          // Only cards that point to the ticket thread elsewhere (shares, a
+          // message made into a ticket); a task whose card is its own thread
+          // already shows its replies.
+          ...(idOf(id) === idOf(task.message) ? {} : { commentCount }),
         }),
       );
   });

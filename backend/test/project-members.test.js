@@ -379,5 +379,5 @@ test('Unassigned lists chat tasks the user can read; moving one gives it a proje
   assert.ok(moved.formerKeys.includes(`${task.projectKey}-${task.number}`));
   assert.deepEqual(dropped, [String(users[1]._id)], 'non-members are unassigned');
   assert.deepEqual(await list(users[1]), []);
-  await assert.rejects(taskService.moveToProject(moved, project), /already in a project/);
+  await assert.rejects(taskService.moveToProject(moved, project), /already in this project/);
 });

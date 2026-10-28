@@ -30,6 +30,9 @@ export const useMyOpenTaskCount = () => {
   }, [active?.id]);
 
   useTaskEvents((task, deleted) => {
+    // A locked chat copy (project ticket seen in chat) has no assignees:
+    // nothing to learn from it here.
+    if (task.locked) return;
     const mine = !deleted && task.assignees.some((assignee) => assignee.id === user?.id);
     setOpen((current) => {
       const next = { ...current };

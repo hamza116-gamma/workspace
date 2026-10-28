@@ -38,6 +38,8 @@ export const TasksView = () => {
 
   // Live: newly assigned tasks appear, unassigned / deleted ones leave.
   useTaskEvents((task, deleted) => {
+    // A locked chat copy has no assignees; the full update comes separately.
+    if (task.locked) return;
     const mine = !deleted && task.assignees.some((assignee) => assignee.id === user?.id);
     setTasks((current) => {
       const index = current.findIndex((item) => item.id === task.id);
