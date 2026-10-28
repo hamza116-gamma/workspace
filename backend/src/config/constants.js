@@ -102,6 +102,11 @@ const AUDIT_ACTIONS = {
   CHANNEL_UNARCHIVED: 'CHANNEL_UNARCHIVED',
   CHANNEL_MEMBER_REMOVED: 'CHANNEL_MEMBER_REMOVED',
   MESSAGE_DELETED_BY_ADMIN: 'MESSAGE_DELETED_BY_ADMIN',
+  PROJECT_CREATED: 'PROJECT_CREATED',
+  PROJECT_ARCHIVED: 'PROJECT_ARCHIVED',
+  PROJECT_RESTORED: 'PROJECT_RESTORED',
+  PROJECT_DELETED: 'PROJECT_DELETED',
+  PROJECT_KEY_CHANGED: 'PROJECT_KEY_CHANGED',
 };
 
 // Huddles (Phase 6.6): one LIVE huddle per channel / conversation.
@@ -126,6 +131,45 @@ const TASK_STATUS = {
   DONE: 'DONE',
 };
 
+// Every status belongs to one group. The group drives "is it done?" (progress,
+// closedAt, due reminders, open counts); names and colours are free.
+const STATUS_GROUP = {
+  TODO: 'TODO',
+  IN_PROGRESS: 'IN_PROGRESS',
+  DONE: 'DONE',
+};
+
+// Statuses of chat tasks (Unassigned) and the starting set of a new project.
+// Their keys are the old fixed statuses, so existing tasks keep working.
+const DEFAULT_TASK_STATUSES = [
+  { key: TASK_STATUS.TODO, name: 'To do', color: '#8a94a6', group: STATUS_GROUP.TODO },
+  {
+    key: TASK_STATUS.IN_PROGRESS,
+    name: 'In progress',
+    color: '#3b82f6',
+    group: STATUS_GROUP.IN_PROGRESS,
+  },
+  {
+    key: TASK_STATUS.IN_REVIEW,
+    name: 'In review',
+    color: '#f59e0b',
+    group: STATUS_GROUP.IN_PROGRESS,
+  },
+  { key: TASK_STATUS.DONE, name: 'Done', color: '#22a06b', group: STATUS_GROUP.DONE },
+];
+
+// Kind of ticket (fixed list for now).
+const TASK_TYPE = {
+  TASK: 'TASK',
+  BUG: 'BUG',
+  FEATURE: 'FEATURE',
+  IMPROVEMENT: 'IMPROVEMENT',
+};
+
+// Estimates are stored in minutes; a working day is 8 hours.
+const MINUTES_PER_DAY = 8 * 60;
+const ESTIMATE_MAX_MINUTES = 1000 * 60;
+
 const TASK_PRIORITY = {
   LOW: 'LOW',
   MEDIUM: 'MEDIUM',
@@ -133,9 +177,41 @@ const TASK_PRIORITY = {
   URGENT: 'URGENT',
 };
 
+// Projects (Phase 1): containers for tickets, behind settings.projectsEnabled.
+const PROJECT_STATUS = {
+  ACTIVE: 'ACTIVE',
+  ARCHIVED: 'ARCHIVED',
+};
+
+// What a project posts to its home channel automatically.
+// PUBLIC: everyone active in the workspace is a member (now and later).
+// PRIVATE: only the people listed.
+const PROJECT_VISIBILITY = {
+  PUBLIC: 'PUBLIC',
+  PRIVATE: 'PRIVATE',
+};
+
+const PROJECT_UPDATES = {
+  OFF: 'OFF',
+  KEY: 'KEY',
+  SUMMARY: 'SUMMARY',
+};
+
+// Key of tasks that belong to no project (TASK-1, TASK-2, ...).
+const CHAT_TASK_KEY = 'TASK';
+
 module.exports = {
   AUDIT_ACTIONS,
+  PROJECT_STATUS,
+  PROJECT_UPDATES,
+  PROJECT_VISIBILITY,
+  CHAT_TASK_KEY,
   TASK_STATUS,
+  STATUS_GROUP,
+  DEFAULT_TASK_STATUSES,
+  TASK_TYPE,
+  MINUTES_PER_DAY,
+  ESTIMATE_MAX_MINUTES,
   TASK_PRIORITY,
   HUDDLE_STATUS,
   HUDDLE_INVITE_STATUS,

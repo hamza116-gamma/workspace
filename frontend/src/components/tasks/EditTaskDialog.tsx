@@ -5,21 +5,42 @@ import { Modal } from '@/components/ui/Modal';
 import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
 import { Dropdown } from '@/components/ui/Dropdown';
-import { deleteTask, listAssignable, updateTask, type TaskAccess } from '@/lib/tasks';
+import {
+  deleteTask,
+  listAssignable,
+  moveTaskToProject,
+  updateTask,
+  type TaskAccess,
+} from '@/lib/tasks';
+import { useProjects } from '@/hooks/useProjects';
+import { listMilestones } from '@/lib/projects';
+import type { Milestone } from '@/types/project';
+import { useProjectsEnabled } from '@/hooks/useProjectsEnabled';
 import { useAuth } from '@/hooks/useAuth';
 import { MentionInput } from './MentionText';
 import { LabelInput } from './LabelInput';
 import {
   TASK_PRIORITY_COLORS,
   TASK_PRIORITY_LABELS,
-  TASK_STATUS_COLORS,
-  TASK_STATUS_LABELS,
   type Task,
   type TaskPriority,
+  type TaskType,
+  TASK_TYPE_ICONS,
+  TASK_TYPE_LABELS,
+  formatEstimate,
   type TaskStatus,
+  type TaskStatusDef,
 } from '@/types/task';
 import type { User } from '@/types/user';
+import { useTaskStatuses } from '@/hooks/useTaskStatuses';
+import { Subtasks } from './Subtasks';
+import { TaskSteps, type TaskStep } from './TaskSteps';
 import styles from './Tasks.module.css';
+
+const TYPE_OPTIONS = (Object.keys(TASK_TYPE_LABELS) as TaskType[]).map((value) => ({
+  value,
+  label: `${TASK_TYPE_ICONS[value]}  ${TASK_TYPE_LABELS[value]}`,
+}));
 
 const PRIORITY_OPTIONS = (Object.keys(TASK_PRIORITY_LABELS) as TaskPriority[]).map((value) => ({
   value,
@@ -27,11 +48,9 @@ const PRIORITY_OPTIONS = (Object.keys(TASK_PRIORITY_LABELS) as TaskPriority[]).m
   color: TASK_PRIORITY_COLORS[value],
 }));
 
-const STATUS_OPTIONS = (Object.keys(TASK_STATUS_LABELS) as TaskStatus[]).map((value) => ({
-  value,
-  label: TASK_STATUS_LABELS[value],
-  color: TASK_STATUS_COLORS[value],
-}));
+// Status choices for a task: its project's statuses (or the defaults).
+const statusOptions = (statuses: TaskStatusDef[]) =>
+  statuses.map((status) => ({ value: status.key, label: status.name, color: status.color }));
 
 const DESCRIPTION_MAX = 4000;
 
@@ -66,9 +85,16 @@ export const EditTaskDialog = ({
   const [description, setDescription] = useState(task.description);
   const [labels, setLabels] = useState<string[]>(task.labels);
   const [priority, setPriority] = useState<TaskPriority>(task.priority);
+  const [type, setType] = useState<TaskType>(task.type ?? 'TASK');
+  const [estimate, setEstimate] = useState(formatEstimate(task.estimateMinutes));
   const [status, setStatus] = useState<TaskStatus>(task.status);
+  const { statusesFor } = useTaskStatuses();
   // Two-step delete: first click asks, second click deletes.
   const [confirmDelete, setConfirmDelete] = useState(false);
+  // Same three steps as Create, used as tabs; Save works from any of them.
+  const [step, setStep] = useState<TaskStep>(0);
+  // A task with subtasks: delete them too, or keep them as separate tasks.
+  const [subtaskChoice, setSubtaskChoice] = useState<'keep' | 'delete'>('keep');
   const [dueDate, setDueDate] = useState(toDateInput(task.dueDate));
   const [assignees, setAssignees] = useState<string[]>([]);
   const [people, setPeople] = useState<User[] | null>(null);
@@ -76,6 +102,31 @@ export const EditTaskDialog = ({
   const [error, setError] = useState('');
   const { user } = useAuth();
   const full = access === 'full';
+  // Project: an Unassigned task can go into a project; a project ticket can
+  // move to another project (not back to Unassigned: it has no chat).
+  const { projects } = useProjects();
+  const projectsOn = useProjectsEnabled();
+  const memberProjects = projects.filter((p) => p.isMember && !p.readOnly);
+  const [projectId, setProjectId] = useState(task.projectId ?? '');
+  const projectOptions = [
+    ...(task.projectId ? [] : [{ value: '', label: 'Unassigned' }]),
+    ...memberProjects.map((p) => ({ value: p.id, label: `${p.key} · ${p.name}` })),
+  ];
+  const projectChanged = projectId !== (task.projectId ?? '');
+  // Milestone (project tickets): the project's open milestones.
+  const [milestones, setMilestones] = useState<Milestone[]>([]);
+  const [milestoneId, setMilestoneId] = useState(task.milestoneId ?? '');
+  useEffect(() => {
+    if (!open || !task.projectId || !task.projectKey) return;
+    let alive = true;
+    listMilestones(task.projectKey).then(
+      (result) => alive && setMilestones(result.milestones),
+      () => alive && setMilestones([]),
+    );
+    return () => {
+      alive = false;
+    };
+  }, [open, task.projectId, task.projectKey]);
 
   useEffect(() => {
     if (!open) {
@@ -85,14 +136,21 @@ export const EditTaskDialog = ({
     setDescription(task.description);
     setLabels(task.labels);
     setPriority(task.priority);
+    setType(task.type ?? 'TASK');
+    setEstimate(formatEstimate(task.estimateMinutes));
     setStatus(task.status);
     setConfirmDelete(false);
+    setStep(0);
+    setProjectId(task.projectId ?? '');
+    setMilestoneId(task.milestoneId ?? '');
     setDueDate(toDateInput(task.dueDate));
     setAssignees(task.assignees.map((user) => user.id));
     setError('');
     setPeople(null);
     let alive = true;
-    listAssignable(task).then(
+    // By id only: a task also has projectKey (TASK for chat tasks), which
+    // would be read as a project lookup and find nothing.
+    listAssignable({ id: task.id, channelId: null, conversationId: null }).then(
       (users) => alive && setPeople(users),
       () => alive && setPeople([]),
     );
@@ -108,7 +166,7 @@ export const EditTaskDialog = ({
     setSaving(true);
     setError('');
     try {
-      await deleteTask(task.id);
+      await deleteTask(task.id, subtaskChoice);
       onClose();
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Could not delete the task');
@@ -133,19 +191,35 @@ export const EditTaskDialog = ({
       ...(title.trim() !== task.title ? { title: title.trim() } : {}),
       ...(description.trim() !== task.description ? { description: description.trim() } : {}),
       ...(priority !== task.priority ? { priority } : {}),
+      ...(type !== (task.type ?? 'TASK') ? { type } : {}),
+      ...(estimate.trim() !== formatEstimate(task.estimateMinutes)
+        ? { estimate: estimate.trim() }
+        : {}),
       ...(status !== task.status ? { status } : {}),
+      ...(milestoneId !== (task.milestoneId ?? '') ? { milestoneId } : {}),
       ...(labels.join(',') !== task.labels.join(',') ? { labels } : {}),
       ...(dueDate !== toDateInput(task.dueDate) ? { dueDate: nextDue } : {}),
       ...([...assignees].sort().join(',') !== before ? { assignees } : {}),
     };
-    if (Object.keys(changes).length === 0) {
+    if (Object.keys(changes).length === 0 && !projectChanged) {
       onClose();
       return;
     }
     setSaving(true);
     setError('');
     try {
-      const { task: updated } = await updateTask(task.id, changes);
+      let updated = task;
+      if (projectChanged && projectId) {
+        // Moving re-numbers it and picks the new project's status (same
+        // group) and members, so status / assignees edits are not re-sent.
+        ({ task: updated } = await moveTaskToProject(task.id, projectId));
+        delete (changes as { status?: string }).status;
+        delete (changes as { assignees?: string[] }).assignees;
+        delete (changes as { milestoneId?: string }).milestoneId;
+      }
+      if (Object.keys(changes).length) {
+        ({ task: updated } = await updateTask(task.id, changes));
+      }
       onSaved(updated);
       onClose();
     } catch (err) {
@@ -158,69 +232,167 @@ export const EditTaskDialog = ({
   return (
     <Modal open={open} title={`Edit ${task.key}`} onClose={onClose}>
       <form className={styles.form} onSubmit={(event) => void submit(event)}>
-        {!full && (
-          <p className={styles.muted}>
-            You can update the description. The title, priority, due date and assignees are set by
-            the task creator or a moderator; ask in the task thread to change them.
-          </p>
+        <TaskSteps
+          step={step}
+          onStep={setStep}
+          hints={[
+            undefined,
+            statusesFor(task.projectId).find((item) => item.key === status)?.name,
+            task.subtaskTotal ? `${task.subtaskDone} / ${task.subtaskTotal} done` : 'None yet',
+          ]}
+        />
+        {step === 0 && (
+          <>
+            {projectsOn && full && !task.parentId && !task.locked && projectOptions.length > 0 && (
+              <>
+                <Dropdown
+                  label="Project"
+                  options={projectOptions}
+                  value={projectId}
+                  onChange={setProjectId}
+                />
+                {projectChanged && (
+                  <p className={styles.muted}>
+                    It gets a new key in that project (the old one keeps working), the matching
+                    status there, and anyone outside the project is unassigned.
+                  </p>
+                )}
+              </>
+            )}
+            {!full && (
+              <p className={styles.muted}>
+                You can update the description. The title, priority, due date and assignees are set
+                by the task creator or a moderator; ask in the task thread to change them.
+              </p>
+            )}
+            <MentionInput
+              label="Title"
+              disabled={!full}
+              name="edit-task-title"
+              value={title}
+              names={mentionNames}
+              maxLength={200}
+              autoFocus
+              onChange={setTitle}
+            />
+            <div className={styles.mentionField}>
+              <label htmlFor="edit-task-description" className={styles.mentionLabel}>
+                Description <span className={styles.optional}>(optional)</span>
+              </label>
+              <textarea
+                id="edit-task-description"
+                className={styles.textarea}
+                rows={5}
+                maxLength={DESCRIPTION_MAX}
+                placeholder="Add details, steps, links…"
+                value={description}
+                onChange={(event) => setDescription(event.target.value)}
+              />
+            </div>
+          </>
         )}
-        <MentionInput
-          label="Title"
-          disabled={!full}
-          name="edit-task-title"
-          value={title}
-          names={mentionNames}
-          maxLength={200}
-          autoFocus
-          onChange={setTitle}
-        />
-        <div className={styles.mentionField}>
-          <label htmlFor="edit-task-description" className={styles.mentionLabel}>
-            Description <span className={styles.optional}>(optional)</span>
-          </label>
-          <textarea
-            id="edit-task-description"
-            className={styles.textarea}
-            rows={5}
-            maxLength={DESCRIPTION_MAX}
-            placeholder="Add details, steps, links…"
-            value={description}
-            onChange={(event) => setDescription(event.target.value)}
-          />
-        </div>
-        <Dropdown label="Status" options={STATUS_OPTIONS} value={status} onChange={setStatus} />
-        <div className={styles.row}>
-          <Dropdown
-            label="Priority"
-            disabled={!full}
-            options={PRIORITY_OPTIONS}
-            value={priority}
-            onChange={setPriority}
-          />
-          <Input
-            label="Due date"
-            name="edit-task-due"
-            disabled={!full}
-            type="date"
-            value={dueDate}
-            onChange={(event) => setDueDate(event.target.value)}
-          />
-        </div>
-        <LabelInput value={labels} disabled={!full} onChange={setLabels} />
-        <Dropdown
-          multiple
-          label="Assignees"
-          placeholder={people === null ? 'Loading people…' : 'Unassigned'}
-          disabled={people === null || access === 'progress'}
-          options={(people ?? [])
-            // Unassigned task: a member may only pick it up themselves.
-            .filter((person) => full || person.id === user?.id)
-            .map((person) => ({ value: person.id, label: person.fullName }))}
-          value={assignees}
-          onChange={setAssignees}
-        />
+        {step === 1 && (
+          <>
+            <Dropdown
+              label="Status"
+              options={statusOptions(statusesFor(task.projectId))}
+              value={status}
+              onChange={setStatus}
+            />
+            <Dropdown
+              multiple
+              label="Assignees"
+              placeholder={people === null ? 'Loading people…' : 'Unassigned'}
+              disabled={people === null || access === 'progress'}
+              options={(people ?? [])
+                // Unassigned task: a member may only pick it up themselves.
+                .filter((person) => full || person.id === user?.id)
+                .map((person) => ({ value: person.id, label: person.fullName }))}
+              value={assignees}
+              onChange={setAssignees}
+            />
+            <div className={styles.row}>
+              <Dropdown
+                label="Priority"
+                disabled={!full}
+                options={PRIORITY_OPTIONS}
+                value={priority}
+                onChange={setPriority}
+              />
+              <Input
+                label="Due date"
+                name="edit-task-due"
+                disabled={!full}
+                type="date"
+                value={dueDate}
+                onChange={(event) => setDueDate(event.target.value)}
+              />
+            </div>
+            <div className={styles.row}>
+              <Dropdown
+                label="Type"
+                disabled={!full}
+                options={TYPE_OPTIONS}
+                value={type}
+                onChange={setType}
+              />
+              <Input
+                label="Estimate"
+                name="edit-task-estimate"
+                disabled={!full}
+                placeholder="e.g. 30m, 2h, 1.5d"
+                value={estimate}
+                onChange={(event) => setEstimate(event.target.value)}
+              />
+            </div>
+            {task.projectId && !projectChanged && (
+              <Dropdown
+                label="Milestone"
+                disabled={!full}
+                options={[
+                  { value: '', label: 'No milestone' },
+                  ...milestones
+                    .filter((m) => m.status === 'OPEN' || m.id === task.milestoneId)
+                    .map((m) => ({ value: m.id, label: m.name })),
+                ]}
+                value={milestoneId}
+                onChange={setMilestoneId}
+              />
+            )}
+            <LabelInput value={labels} disabled={!full} onChange={setLabels} />
+          </>
+        )}
+        {step === 2 && (
+          <>
+            {/* Subtasks save on their own (add / tick right away). */}
+            {!task.locked && <Subtasks task={task} onNavigate={onClose} />}
+          </>
+        )}
+        {confirmDelete && task.subtaskTotal > 0 && (
+          <div className={styles.subtaskChoice} role="radiogroup" aria-label="Its subtasks">
+            <p className={styles.muted}>
+              It has {task.subtaskTotal} {task.subtaskTotal === 1 ? 'subtask' : 'subtasks'}:
+            </p>
+            <label>
+              <input
+                type="radio"
+                checked={subtaskChoice === 'keep'}
+                onChange={() => setSubtaskChoice('keep')}
+              />
+              Keep them as separate tasks
+            </label>
+            <label>
+              <input
+                type="radio"
+                checked={subtaskChoice === 'delete'}
+                onChange={() => setSubtaskChoice('delete')}
+              />
+              Delete them too
+            </label>
+          </div>
+        )}
         {error && <p className={styles.error}>{error}</p>}
-        <div className={styles.actions}>
+        <div className={`${styles.actions} ${styles.stickyFoot}`}>
           {full && (
             <Button
               variant="danger"

@@ -1,0 +1,138 @@
+.wrap {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  overflow-y: auto;
+  min-height: 0;
+}
+
+.add {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 170px auto;
+  align-items: end;
+  gap: 8px;
+  max-width: 720px;
+}
+
+.list {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+  gap: 12px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.card {
+  display: grid;
+  gap: 8px;
+  padding: 14px 16px;
+  border: 1px solid var(--line);
+  border-radius: var(--r-lg, 14px);
+  background: var(--paper, var(--surface-1));
+}
+
+.closed {
+  opacity: 0.65;
+}
+
+.top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.name {
+  min-width: 0;
+  overflow: hidden;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: var(--ink);
+  font: inherit;
+  font-size: 14.5px;
+  font-weight: 650;
+  text-align: left;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  cursor: pointer;
+}
+
+.name:hover {
+  text-decoration: underline;
+}
+
+.badge {
+  flex: none;
+  padding: 2px 8px;
+  border-radius: var(--r-pill, 99px);
+  font-size: 11px;
+  font-weight: 650;
+}
+
+.ok {
+  background: var(--info-soft, #eff8ff);
+  color: var(--info, #175cd3);
+}
+
+.late {
+  background: var(--danger-bg, #fef3f2);
+  color: var(--danger, #d92d20);
+}
+
+.done {
+  background: var(--pos-soft, #ecfdf3);
+  color: var(--pos, #12805c);
+}
+
+.closed .badge,
+.closedBadge {
+  background: var(--surface-2);
+  color: var(--ink-3);
+}
+
+.meta {
+  color: var(--ink-3);
+  font-size: 12px;
+}
+
+.bar {
+  height: 6px;
+  overflow: hidden;
+  border-radius: 99px;
+  background: var(--surface-3, var(--line));
+}
+
+.bar i {
+  display: block;
+  height: 100%;
+  border-radius: inherit;
+  background: var(--pos, #12b76a);
+}
+
+.actions {
+  display: flex;
+  gap: 12px;
+}
+
+.actions button {
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: var(--ink-2);
+  font: inherit;
+  font-size: 12px;
+  cursor: pointer;
+}
+
+.actions button:hover {
+  color: var(--ink);
+  text-decoration: underline;
+}
+
+@media (max-width: 640px) {
+  .add {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}

@@ -1,5 +1,7 @@
 const Attachment = require('../models/attachment.model');
 const Task = require('../models/task.model');
+const Project = require('../models/project.model');
+const projectService = require('./project.service');
 const OrganizationMember = require('../models/organizationMember.model');
 const { MEMBER_STATUS } = require('../config/constants');
 const { AppError } = require('../utils/AppError');
@@ -86,19 +88,51 @@ const searchFiles = async ({ organizationId, userId, scope, parsed, page, limit 
   };
 };
 
+// A ticket key term ("WEB-12", "web-12", an old TASK-n or a pre-rename key)
+// as query conditions; a bare "12" matches any ticket numbered 12.
+const keyConditions = async (organizationId, term) => {
+  if (/^\d+$/.test(term)) {
+    return [{ number: Number(term) }];
+  }
+  const match = /^([A-Za-z][A-Za-z0-9]{1,5})-(\d+)(?:\.(\d+))?$/.exec(term);
+  if (!match) {
+    return [];
+  }
+  const prefix = match[1].toUpperCase();
+  const number = Number(match[2]);
+  // "TP-2.1" is that subtask; "TP-2" is the parent only.
+  const subIndex = match[3] ? Number(match[3]) : null;
+  const key = `${prefix}-${number}${subIndex ? `.${subIndex}` : ''}`;
+  const conditions = [{ projectKey: prefix, number, subIndex }, { formerKeys: key }];
+  // Renamed project: QAW-1 is now QAT-1.
+  const renamed = await Project.findOne({ organization: organizationId, formerKeys: prefix });
+  if (renamed) {
+    conditions.push({ project: renamed._id, number, subIndex });
+  }
+  return conditions;
+};
+
 // Tasks in chats the user can read. Words match the title, description or a
-// label; "TASK-12" (or "12") matches the task number.
-const searchTasks = async ({ organizationId, scope, parsed, page, limit }) => {
+// label; a key ("WEB-12", "TASK-3", "12") matches that ticket.
+const searchTasks = async ({ organizationId, userId, scope, parsed, page, limit }) => {
+  // Readable chats, plus every project the user is a member of (direct,
+  // home or linked channel) - covers channel-free projects too.
+  const projectIds = await projectService.projectIdsForUser(organizationId, userId);
   const query = {
     organization: organizationId,
-    $or: [{ channel: { $in: scope.channelIds } }, { conversation: { $in: scope.conversationIds } }],
+    $or: [
+      { channel: { $in: scope.channelIds } },
+      { conversation: { $in: scope.conversationIds } },
+      { project: { $in: projectIds } },
+    ],
   };
-  const and = parsed.terms.map((term) => {
-    const number = /^(?:task-)?(\d+)$/i.exec(term);
-    const [regex] = termRegexes([term]);
-    const anyText = [{ title: regex }, { description: regex }, { labels: regex }];
-    return { $or: number ? [...anyText, { number: Number(number[1]) }] : anyText };
-  });
+  const and = await Promise.all(
+    parsed.terms.map(async (term) => {
+      const [regex] = termRegexes([term]);
+      const anyText = [{ title: regex }, { description: regex }, { labels: regex }];
+      return { $or: [...anyText, ...(await keyConditions(organizationId, term))] };
+    }),
+  );
   if (and.length > 0) {
     query.$and = and;
   }

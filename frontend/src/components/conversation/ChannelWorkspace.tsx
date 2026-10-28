@@ -33,6 +33,7 @@ import { ConversationHeader, type ConversationTab } from './ConversationHeader';
 import headerStyles from './ConversationHeader.module.css';
 import type { ChannelNotify } from '@/types/channel';
 import styles from './ChannelWorkspace.module.css';
+import { NotFoundState, isNotFound } from '@/components/ui/NotFoundState';
 
 type ChannelTab = 'messages' | 'files' | 'links' | 'pins' | 'tasks' | 'members';
 
@@ -173,7 +174,15 @@ export const ChannelWorkspace = ({ channelId }: { channelId: string }) => {
   }
 
   if (error || !channel) {
-    return <Alert>{error || 'Channel not found'}</Alert>;
+    return isNotFound(error) ? (
+      <NotFoundState
+        icon="hash"
+        title="Channel not found"
+        text="It may have been deleted or archived, or it's private and you're not a member. Ask someone in it to add you."
+      />
+    ) : (
+      <NotFoundState icon="info" title="Couldn’t load this channel" text={error ?? ''} />
+    );
   }
 
   const isArchived = channel.status === 'ARCHIVED';
@@ -330,7 +339,6 @@ export const ChannelWorkspace = ({ channelId }: { channelId: string }) => {
         channelId={channel.id}
         canModerate={canManage}
         canCreate={channel.isMember && !isArchived}
-        onOpenTask={(task) => openPinned(task.messageId)}
       />
     ) : tab === 'pins' ? (
       <ChannelPins onSelectMessage={openPinned} />

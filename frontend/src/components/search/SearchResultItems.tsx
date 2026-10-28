@@ -13,7 +13,8 @@ import { formatBytes } from '@/lib/attachments';
 import { formatFullTimestamp } from '@/lib/format';
 import { messageHref } from '@/lib/search';
 import type { SearchChannel, SearchFile, SearchMessage, SearchPerson } from '@/types/search';
-import { TASK_STATUS_LABELS, type Task } from '@/types/task';
+import type { Task } from '@/types/task';
+import { useTaskStatuses } from '@/hooks/useTaskStatuses';
 import styles from './SearchView.module.css';
 
 // Opening a result focuses the message; thread replies open their thread
@@ -143,6 +144,7 @@ export const FileResult = ({ file }: { file: SearchFile }) => {
 
 export const TaskResult = ({ task }: { task: Task }) => {
   const { focusMessage } = useFocusMessage();
+  const { statusOf } = useTaskStatuses();
   return (
     <li className={styles.item}>
       <Link
@@ -158,7 +160,7 @@ export const TaskResult = ({ task }: { task: Task }) => {
             {task.key} · {task.title}
           </span>
           <span className={styles.meta}>
-            {TASK_STATUS_LABELS[task.status]} ·{' '}
+            {statusOf(task).name} ·{' '}
             {task.assignees.length
               ? task.assignees.map((user) => user.fullName).join(', ')
               : 'Unassigned'}

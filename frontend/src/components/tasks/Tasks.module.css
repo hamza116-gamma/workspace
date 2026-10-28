@@ -72,17 +72,20 @@
 
 .cardHead {
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
-  gap: 8px;
+  gap: 6px 8px;
 }
 
 .key {
   font-size: 12px;
   font-weight: 700;
   color: var(--ink-3);
+  white-space: nowrap;
 }
 
 .priority {
+  white-space: nowrap;
   padding: 1px 6px;
   border-radius: 4px;
   font-size: 11px;
@@ -317,9 +320,27 @@
 }
 
 .board {
+  display: flex;
+  flex-direction: column;
   height: 100%;
-  overflow: auto;
-  padding: 16px 20px 32px;
+  min-height: 0;
+  overflow: hidden;
+  padding: 16px 20px 20px;
+}
+
+/* My tasks page: header + toolbar, then the board fills the rest. */
+.fillPage.fillPage {
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+/* Very short screens: let the page scroll instead of squashing the board. */
+@media (max-height: 640px) {
+  .fillPage.fillPage,
+  .board {
+    overflow: auto;
+  }
 }
 
 .boardHead {
@@ -755,4 +776,686 @@ button.open {
 
 .newTask {
   margin-left: auto;
+}
+
+/* ---- quiet chat: chip + key preview ------------------------------------ */
+.chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  max-width: 100%;
+  margin-top: 6px;
+  padding: 3px 10px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--surface-1);
+  color: var(--ink-2);
+  font: inherit;
+  font-size: 12.5px;
+  cursor: pointer;
+  transition: border-color var(--t) var(--ease);
+}
+
+.chip:hover {
+  border-color: var(--brand);
+}
+
+.chipKey {
+  color: var(--ink);
+  font-weight: 700;
+}
+
+.chipStatus {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  font-weight: 600;
+}
+
+.chipStatus i {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+}
+
+.chipWho {
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+.preview {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  width: min(420px, 100%);
+  margin-top: 6px;
+  padding: 8px 12px;
+  border: 1px solid var(--line);
+  border-left: 3px solid var(--brand);
+  border-radius: 10px;
+  background: var(--surface-1);
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.preview:hover {
+  box-shadow: 0 4px 12px rgba(16, 24, 40, 0.07);
+}
+
+.previewTop {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 12px;
+}
+
+.previewPrio {
+  font-weight: 650;
+}
+
+.previewTop .chipStatus {
+  margin-left: auto;
+}
+
+.previewTitle {
+  font-size: 13.5px;
+  font-weight: 620;
+  color: var(--ink);
+}
+
+.previewMeta {
+  font-size: 12px;
+  color: var(--ink-3);
+}
+
+/* Card key that opens the ticket panel. */
+.keyLink {
+  padding: 0;
+  border: 0;
+  background: none;
+  font: inherit;
+  font-size: 12px;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.keyLink:hover {
+  color: var(--brand-ink, var(--brand));
+  text-decoration: underline;
+}
+
+/* A project ticket's card for people outside the project. */
+.lockedTicket {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  max-width: 420px;
+  margin: 4px 0;
+  padding: 10px 12px;
+  border: 1px dashed var(--line-2);
+  border-radius: 10px;
+  color: var(--ink);
+}
+
+.lockedTicket small {
+  color: var(--muted);
+}
+
+/* "Move to project" under an unassigned task's thread header. */
+.moveRow {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: 8px;
+}
+
+.moveRow > :first-child {
+  flex: 1;
+  min-width: 160px;
+}
+
+/* ---- type, estimate, subtasks (chat card, board card, panel) ---- */
+.typeIcon {
+  display: inline-grid;
+  place-items: center;
+  width: 18px;
+  height: 18px;
+  border-radius: 5px;
+  background: var(--surface-2);
+  font-size: 11px;
+  line-height: 1;
+}
+
+.typeBUG {
+  background: var(--neg-soft, #fef3f2);
+}
+
+.typeFEATURE {
+  background: var(--brand-soft, #eef4ff);
+}
+
+.typeIMPROVEMENT {
+  background: var(--pos-soft, #ecfdf3);
+  color: var(--pos, #12805c);
+}
+
+.estimate {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  padding: 1px 7px;
+  border-radius: var(--r-pill, 99px);
+  background: var(--surface-2);
+  color: var(--ink-2);
+  font-size: 11px;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+.subtaskProgress {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  color: var(--ink-3);
+  font-size: 11px;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+.subtaskBar {
+  position: relative;
+  width: 36px;
+  height: 4px;
+  overflow: hidden;
+  border-radius: 99px;
+  background: var(--surface-3, var(--line));
+}
+
+.subtaskBar i {
+  position: absolute;
+  inset: 0 auto 0 0;
+  border-radius: inherit;
+  background: var(--pos, #12b76a);
+}
+
+.subtaskTag {
+  padding: 1px 6px;
+  border-radius: var(--r-pill, 99px);
+  background: var(--info-soft, var(--surface-2));
+  color: var(--ink-2);
+  font-size: 10.5px;
+}
+
+/* "More details" in the create dialog. */
+.moreToggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  align-self: flex-start;
+  padding: 2px 0;
+  border: 0;
+  background: transparent;
+  color: var(--ink-2);
+  font: inherit;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.moreSummary {
+  color: var(--ink-3);
+  font-weight: 400;
+}
+
+.subtaskChoice {
+  display: grid;
+  gap: 6px;
+  padding: 10px 12px;
+  border: 1px solid var(--line-2);
+  border-radius: var(--r-md, 10px);
+  font-size: 13px;
+}
+
+.subtaskChoice label {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  cursor: pointer;
+}
+
+/* Subtasks in a task's side panel. */
+.subtasks {
+  display: grid;
+  gap: 8px;
+  padding: 12px;
+  border: 1px solid var(--line);
+  border-radius: var(--r-md, 10px);
+  background: var(--paper, var(--surface-1));
+}
+
+.subtasksHead {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  font-size: 12px;
+  font-weight: 650;
+  letter-spacing: 0.03em;
+  text-transform: uppercase;
+  color: var(--ink-3);
+}
+
+.subtasksCount {
+  font-variant-numeric: tabular-nums;
+  letter-spacing: 0;
+}
+
+.subtaskList {
+  display: grid;
+  gap: 2px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.subtaskRow {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto auto;
+  align-items: center;
+  gap: 8px;
+  padding: 4px 6px;
+  margin: 0 -6px;
+  border-radius: 8px;
+}
+
+.subtaskRow:hover {
+  background: var(--surface-1);
+}
+
+.subtaskTitle {
+  min-width: 0;
+  overflow: hidden;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: var(--ink);
+  font: inherit;
+  font-size: 13px;
+  text-align: left;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  cursor: pointer;
+}
+
+.subtaskTitle:hover {
+  text-decoration: underline;
+}
+
+.subtaskDone {
+  color: var(--ink-3);
+  text-decoration: line-through;
+}
+
+.subtaskKey {
+  color: var(--ink-3);
+  font-size: 11.5px;
+  font-weight: 600;
+}
+
+.subtaskStatus {
+  font-size: 11px;
+  white-space: nowrap;
+}
+
+.subtaskInput {
+  height: 32px;
+  padding: 0 10px;
+  border: 1px dashed var(--line-2);
+  border-radius: 8px;
+  background: transparent;
+  color: var(--ink);
+  font: inherit;
+  font-size: 13px;
+}
+
+.subtaskInput:focus {
+  border-style: solid;
+  outline: 2px solid var(--brand, #2e90fa);
+  outline-offset: -1px;
+}
+
+.parentLink {
+  justify-self: start;
+  padding: 4px 10px;
+  border: 1px solid var(--line-2);
+  border-radius: var(--r-pill, 99px);
+  background: transparent;
+  color: var(--ink-2);
+  font: inherit;
+  font-size: 12px;
+  cursor: pointer;
+}
+
+/* ---- step header (create / edit task) ---- */
+.steps {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 6px;
+  margin: 0 0 4px;
+  padding: 0;
+  list-style: none;
+}
+
+.stepItem {
+  display: flex;
+  min-width: 0;
+}
+
+.step {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  height: 100%;
+  padding: 8px 10px;
+  border: 1px solid var(--line);
+  border-radius: var(--r-md, 10px);
+  background: transparent;
+  color: var(--ink-3);
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+  transition:
+    border-color 120ms var(--ease, ease),
+    background 120ms var(--ease, ease);
+}
+
+.step:disabled {
+  cursor: default;
+}
+
+.step:hover:not(:disabled) {
+  border-color: var(--line-2);
+}
+
+.step_current {
+  border-color: var(--brand, var(--ink));
+  background: var(--brand-soft, var(--surface-2));
+  color: var(--ink);
+}
+
+.step_done {
+  color: var(--ink-2);
+}
+
+.stepNum {
+  display: grid;
+  flex: none;
+  place-items: center;
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  background: var(--surface-2);
+  font-size: 11.5px;
+  font-weight: 700;
+}
+
+.step_current .stepNum {
+  background: var(--brand, var(--ink));
+  color: var(--on-brand, #fff);
+}
+
+.step_done .stepNum {
+  background: var(--pos-soft, #ecfdf3);
+  color: var(--pos, #12805c);
+}
+
+.stepText {
+  display: grid;
+  min-width: 0;
+}
+
+.stepLabel {
+  font-size: 12.5px;
+  font-weight: 650;
+}
+
+.stepHint {
+  overflow: hidden;
+  color: var(--ink-3);
+  font-size: 11px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* Footer: Back on the left; Next / Create on the right. */
+.stepActions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.stepActions .grow {
+  flex: 1;
+}
+
+/* Subtask titles typed while creating a task. */
+.draftList {
+  display: grid;
+  gap: 4px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.draftRow {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 10px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  font-size: 13px;
+}
+
+.draftRow span {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.draftRow button {
+  border: 0;
+  background: transparent;
+  color: var(--ink-3);
+  cursor: pointer;
+}
+
+@media (max-width: 520px) {
+  .stepHint {
+    display: none;
+  }
+}
+
+/* "View subtasks · 2 / 5" on a chat task card: opens the task's thread. */
+.viewSubtasks {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  align-self: flex-start;
+  margin-top: 6px;
+  padding: 4px 10px;
+  border: 1px solid var(--line-2);
+  border-radius: var(--r-pill, 99px);
+  background: var(--paper, transparent);
+  color: var(--ink-2);
+  font: inherit;
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.viewSubtasks:hover:not(:disabled) {
+  border-color: var(--brand, var(--ink-3));
+  color: var(--ink);
+}
+
+.viewSubtasks:disabled {
+  cursor: default;
+}
+
+/* Followers + history in a task's side panel. */
+.activity {
+  display: grid;
+  gap: 8px;
+  margin-top: 8px;
+}
+
+.followRow {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.followAvatars {
+  display: inline-flex;
+}
+
+.followAvatar + .followAvatar {
+  margin-left: -6px;
+}
+
+.followAvatar {
+  border-radius: 50%;
+  box-shadow: 0 0 0 2px var(--surface-2);
+}
+
+.followText {
+  flex: 1;
+  color: var(--ink-3);
+  font-size: 12px;
+}
+
+.followButton {
+  padding: 3px 10px;
+  border: 1px solid var(--line-2);
+  border-radius: var(--r-pill, 99px);
+  background: var(--paper, transparent);
+  color: var(--ink-2);
+  font: inherit;
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.followOn {
+  border-color: var(--brand, var(--ink));
+  background: var(--brand-soft, var(--surface-2));
+  color: var(--brand-ink, var(--ink));
+}
+
+.historyToggle {
+  justify-self: start;
+  padding: 2px 0;
+  border: 0;
+  background: transparent;
+  color: var(--ink-2);
+  font: inherit;
+  font-size: 12.5px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.history {
+  display: grid;
+  gap: 10px;
+  max-height: 260px;
+  margin: 0;
+  padding: 0 2px 4px 0;
+  overflow-y: auto;
+  list-style: none;
+}
+
+.historyItem {
+  display: grid;
+  grid-template-columns: 20px minmax(0, 1fr);
+  gap: 8px;
+}
+
+.historyLine {
+  margin: 0;
+  font-size: 12.5px;
+  line-height: 1.45;
+  color: var(--ink-2);
+  overflow-wrap: anywhere;
+}
+
+.historyTime {
+  color: var(--ink-3);
+  font-size: 11px;
+}
+
+/* "Shared in" channels of a ticket (side panel). */
+.shares {
+  display: grid;
+  gap: 6px;
+  margin-top: 8px;
+}
+
+.shareRow {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+}
+
+.shareLabel {
+  color: var(--ink-3);
+  font-weight: 600;
+}
+
+.shareChip {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 2px 4px 2px 8px;
+  border-radius: var(--r-pill, 99px);
+  background: var(--surface-1);
+  border: 1px solid var(--line);
+  color: var(--ink-2);
+}
+
+.shareChip button {
+  border: 0;
+  background: transparent;
+  color: var(--ink-3);
+  font-size: 11px;
+  cursor: pointer;
+}
+
+/* Create / edit task: step header and button row stay put; only the fields
+   between them scroll (the modal body is the scroll area, padded 18px). */
+.steps {
+  position: sticky;
+  top: -18px;
+  z-index: 3;
+  margin: -18px -18px 0;
+  padding: 18px 18px 12px;
+  background: var(--surface-1);
+  border-bottom: 1px solid var(--line);
+}
+
+.stickyFoot {
+  position: sticky;
+  bottom: -18px;
+  z-index: 3;
+  margin: 0 -18px -18px;
+  padding: 12px 18px 18px;
+  background: var(--surface-1);
+  border-top: 1px solid var(--line);
 }

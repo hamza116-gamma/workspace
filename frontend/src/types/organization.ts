@@ -9,6 +9,8 @@ export type OrgMemberStatus = 'ACTIVE' | 'DISABLED';
 
 export type OrganizationSettings = {
   allowMemberChannelCreation: boolean;
+  /** Feature switch: Projects (tickets, milestones). */
+  projectsEnabled?: boolean;
   defaultChannelType: ChannelType;
 };
 

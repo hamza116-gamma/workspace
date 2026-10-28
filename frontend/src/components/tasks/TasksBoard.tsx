@@ -51,14 +51,11 @@ export const TasksBoard = ({
   conversationId = null,
   canModerate = false,
   canCreate = true,
-  onOpenTask,
 }: {
   channelId?: string | null;
   conversationId?: string | null;
   canModerate?: boolean;
   canCreate?: boolean;
-  // Jump to the task card in the chat (Messages tab).
-  onOpenTask?: (task: Task) => void;
 }) => {
   const [tasks, setTasks] = useState<Task[]>([]);
   const [loading, setLoading] = useState(true);
@@ -169,7 +166,6 @@ export const TasksBoard = ({
           tasks={visible}
           canModerate={canModerate}
           onChange={(task) => setTasks((current) => upsert(current, task))}
-          onOpenTask={onOpenTask}
         />
       )}
 

@@ -1,0 +1,53 @@
+/* Same look as the project "not found" screen: a centred card. */
+.wrap {
+  display: grid;
+  flex: 1;
+  place-items: center;
+  height: 100%;
+  min-height: 0;
+  padding: 24px 16px;
+}
+
+.card {
+  display: grid;
+  justify-items: center;
+  gap: 8px;
+  max-width: 380px;
+  text-align: center;
+}
+
+.icon {
+  display: grid;
+  place-items: center;
+  width: 52px;
+  height: 52px;
+  margin-bottom: 4px;
+  border-radius: 16px;
+  background: var(--brand-soft);
+  color: var(--brand-ink);
+}
+
+.title {
+  margin: 0;
+  font-size: 17px;
+  font-weight: 650;
+  letter-spacing: var(--track-tight);
+  color: var(--ink);
+}
+
+.text {
+  margin: 0 0 8px;
+  font-size: 13px;
+  line-height: 1.5;
+  color: var(--ink-3);
+}
+
+.compact .icon {
+  width: 42px;
+  height: 42px;
+  border-radius: 13px;
+}
+
+.compact .title {
+  font-size: 15px;
+}

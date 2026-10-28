@@ -1,7 +1,9 @@
 'use client';
 
-import { useState } from 'react';
-import { updateChannel } from '@/lib/channels';
+import { useEffect, useState } from 'react';
+import { listChannelMembers, updateChannel } from '@/lib/channels';
+import { useAuth } from '@/hooks/useAuth';
+import type { User } from '@/types/user';
 import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
 import { Alert } from '@/components/ui/Alert';
@@ -30,6 +32,27 @@ export const ChannelAboutCard = ({
     (active?.role === 'OWNER' || active?.role === 'ADMIN') && !channel.isDefault;
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
+  const { user } = useAuth();
+  // Public -> private: current members, all ticked; untick who should go.
+  const [people, setPeople] = useState<User[] | null>(null);
+  const [keep, setKeep] = useState<string[]>([]);
+  const goingPrivate = type === 'PRIVATE' && channel.type === 'PUBLIC';
+  useEffect(() => {
+    if (!goingPrivate) return;
+    let alive = true;
+    listChannelMembers(channel.id).then(
+      (result) => {
+        if (!alive) return;
+        const users = result.members.map((member) => member.user);
+        setPeople(users);
+        setKeep(users.map((person) => person.id));
+      },
+      () => alive && setPeople([]),
+    );
+    return () => {
+      alive = false;
+    };
+  }, [goingPrivate, channel.id]);
 
   const onSave = async () => {
     setSaving(true);
@@ -40,6 +63,7 @@ export const ChannelAboutCard = ({
         topic,
         purpose,
         ...(type !== channel.type ? { type } : {}),
+        ...(type === 'PRIVATE' && channel.type === 'PUBLIC' ? { memberIds: keep } : {}),
       });
       setEditing(false);
       onChanged();
@@ -104,9 +128,40 @@ export const ChannelAboutCard = ({
             />
           )}
           {type === 'PRIVATE' && channel.type === 'PUBLIC' && (
-            <p className={styles.warning}>
-              People who aren't members will lose access to this channel.
-            </p>
+            <div className={styles.keepPeople}>
+              <p className={styles.warning}>
+                Pick who stays. Everyone else is removed from the channel and its tasks.
+              </p>
+              {people === null ? (
+                <p className={styles.keepHint}>Loading members…</p>
+              ) : (
+                <ul className={styles.keepList}>
+                  {people.map((person) => (
+                    <li key={person.id}>
+                      <label className={styles.keepRow}>
+                        <input
+                          type="checkbox"
+                          checked={keep.includes(person.id) || person.id === user?.id}
+                          disabled={person.id === user?.id}
+                          onChange={() =>
+                            setKeep((current) =>
+                              current.includes(person.id)
+                                ? current.filter((id) => id !== person.id)
+                                : [...current, person.id],
+                            )
+                          }
+                        />
+                        <span>{person.fullName}</span>
+                        {person.id === user?.id && <small className={styles.keepHint}>you</small>}
+                      </label>
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </div>
+          )}
+          {type === 'PUBLIC' && channel.type === 'PRIVATE' && (
+            <p className={styles.warning}>Everyone in the workspace will be added.</p>
           )}
           <div className={styles.formActions}>
             <Button variant="secondary" onClick={onCancel} disabled={saving}>

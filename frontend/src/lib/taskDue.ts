@@ -6,7 +6,7 @@ const formatDay = (date: Date) =>
   date.toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
 
 /** Due chip text + tone, shared by the chat card and the Kanban board. */
-export const dueChip = (task: Pick<Task, 'dueDate' | 'status'>) => {
+export const dueChip = (task: Pick<Task, 'dueDate' | 'statusGroup'>) => {
   if (!task.dueDate) {
     return null;
   }
@@ -15,7 +15,7 @@ export const dueChip = (task: Pick<Task, 'dueDate' | 'status'>) => {
     (new Date(due.toDateString()).getTime() - new Date(new Date().toDateString()).getTime()) /
       86400000,
   );
-  if (task.status === 'DONE') {
+  if (task.statusGroup === 'DONE') {
     return { tone: 'done' as DueTone, text: `Completed · due ${formatDay(due)}` };
   }
   if (days < 0) {

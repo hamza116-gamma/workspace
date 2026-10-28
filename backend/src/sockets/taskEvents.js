@@ -17,7 +17,16 @@ const emitTask = (io, task, event, extraUserIds = []) => {
     organizationId: idOf(task.organization),
     task: taskService.toPublicTask(task),
   };
-  const rooms = [chatRoomFor(task), `thread:${idOf(task.message)}`];
+  const rooms = [`thread:${idOf(task.message)}`];
+  // Project tickets stay out of chat rooms (not everyone there is a member).
+  if ((task.channel || task.conversation) && !task.project) {
+    rooms.push(chatRoomFor(task));
+  }
+  // Project boards (see project:join) and the project's previous board when
+  // a ticket leaves a project are kept in sync too.
+  if (task.project) {
+    rooms.push(`project:${idOf(task.project)}`);
+  }
   const userIds = new Set([...(task.assignees || []).map(idOf), ...extraUserIds.map(String)]);
   userIds.forEach((id) => rooms.push(`user:${id}`));
   io.to(rooms).emit(event, payload);
@@ -28,9 +37,16 @@ const emitCard = async (io, task) => {
   if (!io) {
     return;
   }
-  const root = await messageService.findByIdForOrg(task.message, task.organization);
-  if (root) {
-    emitToMessageRooms(io, root, 'message.updated', { message: await serializeLive(root) });
+  // The ticket's own thread root (a hidden anchor only reaches its thread
+  // room) and the chat message it was made from, whose chip shows the status.
+  const shared = (task.shares || []).map((share) => share.message);
+  for (const id of [task.message, task.sourceMessage, ...shared].filter(Boolean)) {
+    const message = await messageService.findByIdForOrg(id, task.organization);
+    if (message) {
+      emitToMessageRooms(io, message, 'message.updated', {
+        message: await serializeLive(message),
+      });
+    }
   }
 };
 
@@ -105,7 +121,23 @@ const notifyDue = async (io, task) => {
   );
 };
 
+// Lost project membership: unassign from its tickets with a note on each.
+const releaseProjectAssignee = async (io, projectId, userId, note) => {
+  const tasks = await taskService.unassignFromProject(projectId, userId);
+  for (const stale of tasks) {
+    const task = await taskService.findByIdForOrg(stale._id, stale.organization);
+    if (!task) {
+      continue;
+    }
+    const reply = await taskService.postActivity(task, userId, note);
+    await emitActivity(io, reply);
+    await emitCard(io, task);
+    emitTask(io, task, 'task.updated', [userId]);
+  }
+};
+
 module.exports = {
+  releaseProjectAssignee,
   emitTask,
   emitCard,
   emitActivity,

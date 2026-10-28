@@ -6,6 +6,7 @@ const { findActiveSession, findActiveSessionById } = require('../services/sessio
 const { readSocketTicket } = require('../utils/socketTicket');
 const presenceService = require('../services/presence.service');
 const channelService = require('../services/channel.service');
+const projectService = require('../services/project.service');
 const conversationService = require('../services/conversation.service');
 const messageService = require('../services/message.service');
 const { toPublicUser } = require('../services/user.service');
@@ -163,6 +164,25 @@ const createSocketServer = (server) => {
     });
 
     socket.on('channel:leave', (channelId) => socket.leave(roomFor('channel', channelId)));
+
+    // Project board viewers get every ticket change live, whichever channel
+    // the ticket's card lives in. Same visibility rule as the project page.
+    socket.on('project:join', async (projectId, ack) => {
+      try {
+        const project = await projectService.findById(organizationId, projectId);
+        if (!project) {
+          ack?.({ ok: false, error: 'Project not found' });
+          return;
+        }
+        await projectService.assertCanRead(project, user._id);
+        socket.join(roomFor('project', projectId));
+        ack?.({ ok: true });
+      } catch (error) {
+        ack?.({ ok: false, error: error.message });
+      }
+    });
+
+    socket.on('project:leave', (projectId) => socket.leave(roomFor('project', projectId)));
 
     socket.on('conversation:join', async (conversationId, ack) => {
       try {

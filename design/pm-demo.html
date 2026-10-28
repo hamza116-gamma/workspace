@@ -1,0 +1,444 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Circle Chat – Projects demo</title>
+<style>
+  :root {
+    --brand: #1d7a5f; --brand-ink: #155c48; --brand-soft: #e7f4ef; --rail: #173d33;
+    --ink: #101828; --ink-2: #475467; --ink-3: #98a2b3; --line: #eaecf0; --line-2: #d0d5dd;
+    --surface: #fff; --surface-2: #f9fafb; --hover: #f2f4f7;
+    --todo: #98a2b3; --doing: #2e90fa; --review: #f79009; --done: #12b76a;
+    --low: #98a2b3; --med: #2e90fa; --high: #f79009; --urgent: #f04438;
+    font-family: Inter, system-ui, -apple-system, "Segoe UI", sans-serif;
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: #eef1ee; color: var(--ink); font-size: 14px; }
+  button { font: inherit; cursor: pointer; }
+  .app { display: grid; grid-template-columns: 64px 240px 1fr; height: 100vh; gap: 10px; padding: 10px; }
+
+  /* rail + sidebar */
+  .rail { background: var(--rail); border-radius: 18px; display: flex; flex-direction: column; align-items: center; padding: 12px 0; gap: 10px; }
+  .rail .ws { width: 40px; height: 40px; border-radius: 12px; background: #d1ece2; color: var(--brand-ink); display: grid; place-items: center; font-weight: 800; }
+  .rail .rb { width: 40px; height: 40px; border-radius: 12px; display: grid; place-items: center; color: #a6c9bc; }
+  .side { background: var(--surface); border-radius: 18px; padding: 14px 10px; overflow: auto; }
+  .side h1 { font-size: 16px; margin: 2px 8px 2px; }
+  .side .sub { font-size: 12px; color: var(--ink-3); margin: 0 8px 12px; }
+  .label { font-size: 10.5px; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; color: var(--ink-3); margin: 14px 8px 6px; display: flex; justify-content: space-between; }
+  .nav { display: flex; align-items: center; gap: 8px; width: 100%; border: 0; background: none; padding: 7px 10px; border-radius: 9px; color: var(--ink-2); text-align: left; }
+  .nav:hover { background: var(--hover); }
+  .nav.on { background: var(--brand-soft); color: var(--brand-ink); font-weight: 650; }
+  .nav .key { font-size: 10.5px; font-weight: 700; padding: 1px 6px; border-radius: 6px; background: var(--hover); color: var(--ink-2); }
+  .nav .count { margin-left: auto; font-size: 11px; background: var(--brand); color: #fff; border-radius: 999px; padding: 0 7px; }
+
+  /* main */
+  .main { background: var(--surface); border-radius: 18px; display: flex; flex-direction: column; min-width: 0; overflow: hidden; position: relative; }
+  .head { display: flex; align-items: center; gap: 12px; padding: 14px 20px 0; }
+  .head h2 { margin: 0; font-size: 18px; }
+  .head .meta { color: var(--ink-3); font-size: 12.5px; }
+  .head .sp { flex: 1; }
+  .tabs { display: flex; gap: 2px; padding: 10px 20px 0; border-bottom: 1px solid var(--line); }
+  .tab { border: 0; background: none; padding: 9px 12px; color: var(--ink-2); border-bottom: 2px solid transparent; font-weight: 560; }
+  .tab.on { color: var(--brand-ink); border-bottom-color: var(--brand); }
+  .content { flex: 1; overflow: auto; padding: 18px 20px; }
+  .btn { border: 1px solid var(--line-2); background: var(--surface); border-radius: 9px; padding: 7px 12px; font-weight: 600; color: var(--ink); }
+  .btn.primary { background: var(--brand); color: #fff; border-color: transparent; }
+  .btn.sm { padding: 4px 9px; font-size: 12.5px; }
+  .pill { display: inline-flex; align-items: center; gap: 5px; padding: 1px 8px; border-radius: 999px; font-size: 11.5px; font-weight: 650; }
+  .dot { width: 7px; height: 7px; border-radius: 50%; display: inline-block; }
+  .av { width: 22px; height: 22px; border-radius: 50%; display: inline-grid; place-items: center; font-size: 10px; font-weight: 700; color: #1d2939; border: 2px solid #fff; margin-left: -6px; }
+  .av:first-child { margin-left: 0; }
+  .muted { color: var(--ink-3); }
+  .tip { background: #fffaeb; border: 1px solid #fedf89; color: #93370d; border-radius: 10px; padding: 9px 12px; font-size: 12.5px; margin-bottom: 14px; }
+  .tip b { color: #7a2e0e; }
+
+  /* chat */
+  .msg { display: flex; gap: 10px; padding: 8px 10px; border-radius: 10px; position: relative; }
+  .msg:hover { background: var(--surface-2); }
+  .msg .ava { width: 34px; height: 34px; border-radius: 9px; display: grid; place-items: center; font-weight: 700; flex: none; }
+  .msg .who b { margin-right: 6px; }
+  .msg .who span { font-size: 11.5px; color: var(--ink-3); }
+  .msg .tools { position: absolute; right: 10px; top: -10px; display: none; background: #fff; border: 1px solid var(--line); border-radius: 8px; box-shadow: 0 4px 10px rgba(16,24,40,.1); }
+  .msg:hover .tools { display: flex; }
+  .msg .tools button { border: 0; background: none; padding: 4px 9px; font-size: 12.5px; }
+  .msg .tools button:hover { background: var(--brand-soft); color: var(--brand-ink); }
+  .chip { display: inline-flex; align-items: center; gap: 6px; margin-top: 6px; padding: 3px 9px; border: 1px solid var(--line); border-radius: 8px; font-size: 12px; color: var(--ink-2); background: #fff; cursor: pointer; }
+  .chip:hover { border-color: var(--brand); }
+  .chip b { color: var(--ink); }
+  .mention-card { margin-top: 6px; max-width: 420px; border: 1px solid var(--line); border-left: 3px solid var(--brand); border-radius: 10px; padding: 8px 10px; background: #fff; cursor: pointer; }
+  .tk { color: var(--brand-ink); font-weight: 650; cursor: pointer; text-decoration: underline dotted; }
+  .bot .ava { background: var(--brand-soft); color: var(--brand); }
+  .summary { margin-top: 4px; border: 1px solid var(--line); border-radius: 10px; padding: 8px 12px; background: var(--surface-2); font-size: 13px; }
+  .composer { margin: 0 20px 16px; border: 1px solid var(--line-2); border-radius: 12px; padding: 10px 12px; color: var(--ink-3); display: flex; gap: 8px; align-items: center; }
+  .composer input { flex: 1; border: 0; outline: 0; font: inherit; }
+
+  /* projects overview */
+  .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 14px; }
+  .pcard { border: 1px solid var(--line); border-radius: 14px; padding: 16px; cursor: pointer; transition: box-shadow .15s; }
+  .pcard:hover { box-shadow: 0 6px 18px rgba(16,24,40,.08); }
+  .bar { height: 7px; border-radius: 999px; background: var(--hover); overflow: hidden; }
+  .bar i { display: block; height: 100%; background: var(--brand); border-radius: 999px; }
+
+  /* board */
+  .cols { display: grid; grid-auto-flow: column; grid-auto-columns: minmax(250px, 1fr); gap: 12px; height: 100%; }
+  .col { background: var(--surface-2); border: 1px solid var(--line); border-radius: 12px; display: flex; flex-direction: column; min-height: 0; }
+  .col.over { border: 1px dashed var(--brand); background: var(--brand-soft); }
+  .colh { display: flex; align-items: center; gap: 8px; padding: 11px 12px; border-bottom: 1px solid var(--line); font-weight: 650; }
+  .colh .n { margin-left: auto; font-size: 11.5px; color: var(--ink-3); border: 1px solid var(--line); border-radius: 999px; padding: 0 7px; background: #fff; }
+  .cards { padding: 10px; display: flex; flex-direction: column; gap: 8px; overflow: auto; flex: 1; }
+  .card { background: #fff; border: 1px solid var(--line); border-left: 3px solid var(--line); border-radius: 9px; padding: 9px 11px; cursor: grab; box-shadow: 0 1px 2px rgba(16,24,40,.05); }
+  .card:hover { box-shadow: 0 4px 10px rgba(16,24,40,.08); }
+  .card .top { display: flex; gap: 6px; align-items: center; font-size: 11.5px; color: var(--ink-3); font-weight: 700; }
+  .card .ttl { font-weight: 620; margin: 5px 0 7px; }
+  .card .foot { display: flex; align-items: center; justify-content: space-between; font-size: 11.5px; color: var(--ink-3); }
+  .type { font-size: 12px; }
+  .ms { font-size: 11px; padding: 1px 6px; border-radius: 6px; background: #f4ebff; color: #6941c6; font-weight: 600; }
+  .sub { font-size: 11px; color: var(--ink-3); }
+
+  /* list */
+  table { width: 100%; border-collapse: collapse; }
+  th { text-align: left; font-size: 11.5px; text-transform: uppercase; letter-spacing: .05em; color: var(--ink-3); padding: 8px 10px; border-bottom: 1px solid var(--line); cursor: pointer; user-select: none; }
+  td { padding: 9px 10px; border-bottom: 1px solid var(--line); }
+  tr.row:hover td { background: var(--surface-2); cursor: pointer; }
+  .filters { display: flex; gap: 8px; margin-bottom: 12px; flex-wrap: wrap; }
+  .filters input, .filters select { border: 1px solid var(--line-2); border-radius: 8px; padding: 6px 10px; font: inherit; font-size: 13px; background: #fff; }
+
+  /* milestones */
+  .mrow { border: 1px solid var(--line); border-radius: 12px; padding: 14px 16px; margin-bottom: 12px; }
+  .mrow .mh { display: flex; align-items: center; gap: 10px; margin-bottom: 10px; }
+  .mrow h3 { margin: 0; font-size: 15px; }
+  .mticks { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 10px; }
+  .mticks span { font-size: 12px; border: 1px solid var(--line); border-radius: 7px; padding: 2px 8px; cursor: pointer; }
+  .mticks span.done { text-decoration: line-through; color: var(--ink-3); }
+
+  /* panel */
+  .scrim { position: absolute; inset: 0; background: rgba(16,24,40,.25); display: none; }
+  .scrim.on { display: block; }
+  .panel { position: absolute; top: 0; right: 0; bottom: 0; width: min(760px, 100%); background: #fff; box-shadow: -20px 0 40px rgba(16,24,40,.15); transform: translateX(100%); transition: transform .22s; display: flex; flex-direction: column; }
+  .panel.on { transform: none; }
+  .ph { display: flex; align-items: center; gap: 10px; padding: 14px 18px; border-bottom: 1px solid var(--line); }
+  .pb { flex: 1; overflow: auto; display: grid; grid-template-columns: 1fr 230px; }
+  .pmain { padding: 18px; border-right: 1px solid var(--line); }
+  .pmain h2 { margin: 0 0 10px; font-size: 19px; }
+  .pside { padding: 16px; display: flex; flex-direction: column; gap: 12px; background: var(--surface-2); }
+  .f label { display: block; font-size: 11px; text-transform: uppercase; letter-spacing: .06em; color: var(--ink-3); font-weight: 700; margin-bottom: 4px; }
+  .f select, .f input { width: 100%; border: 1px solid var(--line-2); border-radius: 8px; padding: 6px 8px; font: inherit; font-size: 13px; background: #fff; }
+  .h4 { font-size: 12px; text-transform: uppercase; letter-spacing: .06em; color: var(--ink-3); font-weight: 700; margin: 18px 0 8px; }
+  .check { display: flex; align-items: center; gap: 8px; padding: 5px 0; }
+  .comment { display: flex; gap: 9px; margin-bottom: 10px; }
+  .comment .ava { width: 28px; height: 28px; border-radius: 8px; display: grid; place-items: center; font-weight: 700; font-size: 12px; flex: none; }
+  .comment .body { background: var(--surface-2); border-radius: 10px; padding: 7px 10px; flex: 1; }
+  .comment.act .body { background: none; padding: 4px 0; color: var(--ink-3); font-size: 12.5px; }
+  .addc { display: flex; gap: 8px; margin-top: 8px; }
+  .addc input { flex: 1; border: 1px solid var(--line-2); border-radius: 9px; padding: 8px 10px; font: inherit; }
+  .link { font-size: 12.5px; padding: 4px 0; }
+  .link b { color: #b42318; }
+
+  /* modal */
+  .modal { position: fixed; inset: 0; background: rgba(16,24,40,.4); display: none; place-items: center; z-index: 20; }
+  .modal.on { display: grid; }
+  .mbox { background: #fff; border-radius: 16px; width: min(480px, 92vw); padding: 18px; box-shadow: 0 24px 60px rgba(16,24,40,.3); }
+  .mbox h3 { margin: 0 0 12px; }
+  .mbox .f { margin-bottom: 10px; }
+  .mbox .two { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+  .mbox .act { display: flex; justify-content: flex-end; gap: 8px; margin-top: 14px; }
+  .toast { position: fixed; bottom: 18px; left: 50%; transform: translateX(-50%); background: var(--ink); color: #fff; padding: 9px 14px; border-radius: 10px; font-size: 13px; opacity: 0; transition: opacity .2s; pointer-events: none; z-index: 30; }
+  .toast.on { opacity: 1; }
+  .seg { display: inline-flex; border: 1px solid var(--line-2); border-radius: 9px; overflow: hidden; }
+  .seg button { border: 0; background: #fff; padding: 6px 10px; font-size: 12.5px; color: var(--ink-2); }
+  .seg button.on { background: var(--brand); color: #fff; }
+  @media (max-width: 900px) { .app { grid-template-columns: 1fr; } .rail, .side { display: none; } .pb { grid-template-columns: 1fr; } }
+</style>
+</head>
+<body>
+<div class="app">
+  <nav class="rail"><div class="ws">T</div><div class="rb">💬</div><div class="rb">🔔</div><div class="rb">👥</div></nav>
+  <aside class="side">
+    <h1>Test workspace</h1><div class="sub">● 3 members online</div>
+    <button class="nav" data-go="mytickets">☑ My tickets <span class="count" id="myCount">0</span></button>
+    <div class="label">Projects <span>+</span></div>
+    <button class="nav" data-go="projects">▦ All projects</button>
+    <div id="projNav"></div>
+    <div class="label">Channels</div>
+    <button class="nav" data-go="chat:web-team"># web-team</button>
+    <button class="nav" data-go="chat:general"># general</button>
+  </aside>
+  <main class="main" id="main"></main>
+</div>
+
+<div class="modal" id="modal"><div class="mbox" id="mbox"></div></div>
+<div class="toast" id="toast"></div>
+
+<script>
+/* ------------------------------------------------------------------ data */
+const PEOPLE = { H: { n: 'Hamza', c: '#d1ece2' }, A: { n: 'Ali', c: '#dbeafe' }, S: { n: 'Sara', c: '#fef0c7' }, O: { n: 'Omar', c: '#fce7f6' } };
+const ME = 'H';
+const STATUSES = [['todo', 'To do', 'var(--todo)'], ['doing', 'In progress', 'var(--doing)'], ['review', 'In review', 'var(--review)'], ['done', 'Done', 'var(--done)']];
+const PRIOS = { low: ['Low', 'var(--low)'], med: ['Medium', 'var(--med)'], high: ['High', 'var(--high)'], urgent: ['Urgent', 'var(--urgent)'] };
+const TYPES = { bug: '🐞 Bug', feature: '✨ Feature', task: '☑ Task', improve: '📈 Improvement' };
+
+const state = {
+  view: 'chat:web-team', projectTab: 'board',
+  projects: [
+    { key: 'WEB', name: 'Website', channel: 'web-team', seq: 14, updates: 'off' },
+    { key: 'API', name: 'Backend API', channel: 'general', seq: 6, updates: 'key' },
+  ],
+  milestones: [
+    { id: 'm1', project: 'WEB', name: 'v1.2 launch', due: '2026-11-15' },
+    { id: 'm2', project: 'WEB', name: 'Mobile polish', due: '2026-12-05' },
+    { id: 'm3', project: 'API', name: 'Auth hardening', due: '2026-11-20' },
+  ],
+  tickets: [
+    t('WEB', 12, 'Fix login bug on Safari', 'bug', 'urgent', 'doing', ['A'], 'm1', 3, '2026-10-30', 'Users on Safari 17 are logged out after refresh. Repro: log in, refresh twice.', [['Reproduce on Safari 17', true], ['Fix cookie SameSite', false], ['Add regression test', false]], [['blocks', 'WEB-9']], [['S', '@Ali can you check this today?'], ['A', 'On it, looks like a cookie issue.']]),
+    t('WEB', 9, 'Release v1.2 to production', 'task', 'high', 'todo', ['H'], 'm1', 2, '2026-11-14', 'Ship after all v1.2 tickets are done.', [], [['blocked by', 'WEB-12']], []),
+    t('WEB', 7, 'New pricing page', 'feature', 'med', 'review', ['S', 'O'], 'm1', 5, '2026-11-05', 'Design is in Figma. Three tiers, yearly toggle.', [['Hero section', true], ['Pricing cards', true], ['FAQ', false]], [], [['O', 'Pushed the first version for review.']]),
+    t('WEB', 5, 'Improve page load time', 'improve', 'med', 'done', ['A'], 'm1', 3, null, 'Lazy-load images, split bundles.', [], [], []),
+    t('WEB', 11, 'Dark mode for settings', 'feature', 'low', 'todo', [], 'm2', 2, null, '', [], [], []),
+    t('WEB', 13, 'Tablet layout for dashboard', 'improve', 'med', 'todo', ['S'], 'm2', 3, '2026-12-01', '', [], [], []),
+    t('WEB', 14, 'Footer links broken', 'bug', 'low', 'todo', [], null, 1, null, 'Spotted in chat.', [], [], []),
+    t('API', 6, 'Rate limit login endpoint', 'task', 'high', 'doing', ['H'], 'm3', 2, '2026-11-02', '', [], [], []),
+    t('API', 4, 'Rotate session secrets', 'task', 'med', 'done', ['O'], 'm3', 1, null, '', [], [], []),
+  ],
+  chat: {
+    'web-team': [
+      { who: 'S', time: '9:12 AM', text: 'Morning! Anyone else seeing logouts on Safari?' },
+      { who: 'A', time: '9:15 AM', text: 'Yes, I can reproduce it. Turning it into a ticket.', chip: 'WEB-12' },
+      { who: 'O', time: '9:40 AM', text: 'Pricing page is ready for review, see WEB-7 👀' },
+      { who: 'H', time: '10:02 AM', text: 'Great work. Footer links look broken too btw' },
+    ],
+    general: [{ who: 'H', time: '8:55 AM', text: 'Welcome everyone 👋' }],
+  },
+  open: null,
+};
+function t(project, n, title, type, prio, status, who, milestone, est, due, desc, subtasks, links, comments) {
+  return { project, key: `${project}-${n}`, title, type, prio, status, who, milestone, est, due, desc,
+    subtasks: subtasks.map(([text, done]) => ({ text, done })), links: links.map(([kind, key]) => ({ kind, key })),
+    comments: comments.map(([w, text]) => ({ who: w, text })), history: [] };
+}
+
+/* --------------------------------------------------------------- helpers */
+const $ = (s, el = document) => el.querySelector(s);
+const esc = (s) => String(s).replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+const find = (key) => state.tickets.find((x) => x.key === key);
+const proj = (key) => state.projects.find((p) => p.key === key);
+const stat = (id) => STATUSES.find((s) => s[0] === id);
+const avs = (who) => who.length ? `<span style="display:inline-flex">${who.map((w) => `<span class="av" style="background:${PEOPLE[w].c}" title="${PEOPLE[w].n}">${w}</span>`).join('')}</span>` : '<span class="muted" style="font-size:11.5px">Unassigned</span>';
+const prioPill = (p) => `<span class="pill" style="background:color-mix(in srgb, ${PRIOS[p][1]} 14%, transparent);color:${PRIOS[p][1]}"><i class="dot" style="background:${PRIOS[p][1]}"></i>${PRIOS[p][0]}</span>`;
+const statPill = (s) => `<span class="pill" style="background:color-mix(in srgb, ${stat(s)[2]} 14%, transparent);color:${stat(s)[2]}"><i class="dot" style="background:${stat(s)[2]}"></i>${stat(s)[1]}</span>`;
+const msName = (id) => state.milestones.find((m) => m.id === id)?.name;
+const fmtDate = (d) => d ? new Date(d + 'T12:00').toLocaleDateString(undefined, { month: 'short', day: 'numeric' }) : '';
+function toast(text) { const el = $('#toast'); el.textContent = text; el.classList.add('on'); clearTimeout(toast.t); toast.t = setTimeout(() => el.classList.remove('on'), 2200); }
+function linkTickets(text) { return esc(text).replace(/\b([A-Z]{2,5}-\d+)\b/g, (m) => find(m) ? `<span class="tk" data-open="${m}">${m}</span>` : m); }
+
+/* Channel feed: only what the project's "Post updates" setting allows. */
+function postUpdate(ticket, text, kind) {
+  const p = proj(ticket.project);
+  if (p.updates === 'off') return;
+  if (p.updates === 'key' && !['created-high', 'done', 'milestone'].includes(kind)) return;
+  if (p.updates === 'summary') return; // summarised once a day instead
+  (state.chat[p.channel] ||= []).push({ who: 'bot', time: 'now', text });
+}
+function log(ticket, text) { ticket.history.push({ who: ME, text }); }
+
+/* ----------------------------------------------------------------- views */
+function render() {
+  $('#projNav').innerHTML = state.projects.map((p) => `<button class="nav" data-go="project:${p.key}"><span class="key">${p.key}</span>${p.name}</button>`).join('');
+  document.querySelectorAll('.nav').forEach((b) => b.classList.toggle('on', b.dataset.go === state.view || (state.view.startsWith('project:') && b.dataset.go === state.view)));
+  $('#myCount').textContent = state.tickets.filter((x) => x.who.includes(ME) && x.status !== 'done').length;
+  const [kind, id] = state.view.split(':');
+  const main = $('#main');
+  if (kind === 'chat') main.innerHTML = chatView(id);
+  else if (kind === 'projects') main.innerHTML = projectsView();
+  else if (kind === 'project') main.innerHTML = projectView(id);
+  else if (kind === 'mytickets') main.innerHTML = myTicketsView();
+  main.insertAdjacentHTML('beforeend', `<div class="scrim ${state.open ? 'on' : ''}" data-close></div><div class="panel ${state.open ? 'on' : ''}">${state.open ? panelView(find(state.open)) : ''}</div>`);
+  bindBoard();
+}
+
+function chatView(ch) {
+  const p = state.projects.find((x) => x.channel === ch);
+  const msgs = state.chat[ch] || [];
+  return `<div class="head"><h2># ${ch}</h2><span class="meta">${p ? `Home channel of <b>${p.key} · ${p.name}</b> · updates: ${({ off: 'Off', key: 'Key moments', summary: 'Daily summary' })[p.updates]}` : ''}</span><span class="sp"></span>${p ? `<button class="btn sm" data-go="project:${p.key}">Open ${p.key} board →</button>` : ''}</div>
+  <div class="content">
+    <div class="tip"><b>Quiet by default:</b> tickets created in Projects never post here. A message only gets a small chip when someone deliberately turns it into a ticket. Typing a key like <b>WEB-7</b> shows a live preview. Hover a message → <b>Create ticket</b> to try it.</div>
+    ${msgs.map((m, i) => msgView(m, i, ch)).join('')}
+    ${p && p.updates === 'summary' ? `<div class="msg bot"><div class="ava">🤖</div><div><div class="who"><b>Projects</b><span>Daily summary · 9:00 AM</span></div><div class="summary">Yesterday in <b>${p.key}</b>: 2 created · 3 moved · 1 done · milestone <b>v1.2 launch</b> is ${msProgress('m1')}% complete</div></div></div>` : ''}
+  </div>
+  <div class="composer">＋ <input placeholder="Message #${ch} — try typing WEB-12 or /ticket" id="composer" /><button class="btn sm primary" data-send="${ch}">Send</button></div>`;
+}
+function msgView(m, i, ch) {
+  if (m.who === 'bot') return `<div class="msg bot"><div class="ava">🤖</div><div><div class="who"><b>Projects</b><span>${m.time}</span></div><div>${linkTickets(m.text)}</div></div></div>`;
+  const P = PEOPLE[m.who];
+  const keys = [...m.text.matchAll(/\b([A-Z]{2,5}-\d+)\b/g)].map((x) => x[1]).filter((k) => find(k) && k !== m.chip);
+  return `<div class="msg"><div class="ava" style="background:${P.c}">${m.who}</div><div style="flex:1"><div class="who"><b>${P.n}</b><span>${m.time}</span></div><div>${linkTickets(m.text)}</div>
+    ${m.chip ? chipView(m.chip) : ''}
+    ${keys.map((k) => { const x = find(k); return `<div class="mention-card" data-open="${k}"><div style="display:flex;gap:6px;align-items:center;font-size:11.5px"><b class="muted">${k}</b>${prioPill(x.prio)}<span style="margin-left:auto">${statPill(x.status)}</span></div><div style="font-weight:620;margin-top:4px">${esc(x.title)}</div><div class="muted" style="font-size:12px;margin-top:4px">${x.who.map((w) => PEOPLE[w].n).join(', ') || 'Unassigned'}${x.milestone ? ' · ' + msName(x.milestone) : ''}</div></div>`; }).join('')}
+  </div>${m.chip ? '' : `<div class="tools"><button data-make="${ch}:${i}">☑ Create ticket</button><button>😀</button><button>⋯</button></div>`}</div>`;
+}
+function chipView(key) { const x = find(key); return `<div class="chip" data-open="${key}">→ <b>${key}</b> · ${stat(x.status)[1]} ${x.who.length ? '· ' + x.who.map((w) => PEOPLE[w].n).join(', ') : ''}</div>`; }
+
+function msProgress(id) { const ts = state.tickets.filter((x) => x.milestone === id); return ts.length ? Math.round((ts.filter((x) => x.status === 'done').length / ts.length) * 100) : 0; }
+
+function projectsView() {
+  return `<div class="head"><h2>Projects</h2><span class="sp"></span><button class="btn primary sm" data-newticket>+ New ticket</button></div><div class="content"><div class="grid">${state.projects.map((p) => {
+    const ts = state.tickets.filter((x) => x.project === p.key); const done = ts.filter((x) => x.status === 'done').length; const pct = ts.length ? Math.round((done / ts.length) * 100) : 0;
+    return `<div class="pcard" data-go="project:${p.key}"><div style="display:flex;gap:8px;align-items:center"><span class="key" style="font-weight:800;color:var(--brand)">${p.key}</span><b>${p.name}</b></div><div class="muted" style="margin:6px 0 12px;font-size:12.5px"># ${p.channel} · ${ts.length} tickets · ${state.milestones.filter((m) => m.project === p.key).length} milestones</div><div class="bar"><i style="width:${pct}%"></i></div><div class="muted" style="font-size:12px;margin-top:6px">${pct}% done</div></div>`;
+  }).join('')}</div></div>`;
+}
+
+function projectView(key) {
+  const p = proj(key); const tabs = [['board', 'Board'], ['list', 'List'], ['milestones', 'Milestones'], ['backlog', 'Backlog'], ['settings', 'Settings']];
+  const ts = state.tickets.filter((x) => x.project === key);
+  let body = '';
+  if (state.projectTab === 'board') body = boardView(ts.filter((x) => x.milestone));
+  if (state.projectTab === 'list') body = listView(ts);
+  if (state.projectTab === 'milestones') body = milestonesView(key);
+  if (state.projectTab === 'backlog') body = `<div class="tip" style="background:var(--brand-soft);border-color:#b7e3d2;color:var(--brand-ink)">Backlog = tickets not planned into a milestone yet. Drag-free: open one and pick a milestone.</div>` + listView(ts.filter((x) => !x.milestone));
+  if (state.projectTab === 'settings') body = settingsView(p);
+  return `<div class="head"><h2><span style="color:var(--brand)">${p.key}</span> · ${p.name}</h2><span class="meta">Home channel # ${p.channel}</span><span class="sp"></span><button class="btn primary sm" data-newticket="${key}">+ New ticket</button></div>
+  <div class="tabs">${tabs.map(([id, l]) => `<button class="tab ${state.projectTab === id ? 'on' : ''}" data-ptab="${id}">${l}</button>`).join('')}</div>
+  <div class="content" style="${state.projectTab === 'board' ? 'overflow:hidden' : ''}">${body}</div>`;
+}
+
+function cardView(x) {
+  const done = x.subtasks.filter((s) => s.done).length;
+  return `<div class="card" draggable="true" data-key="${x.key}" data-open="${x.key}" style="border-left-color:${PRIOS[x.prio][1]}">
+    <div class="top"><span>${x.key}</span><span class="type">${TYPES[x.type].split(' ')[0]}</span>${x.links.some((l) => l.kind === 'blocked by') ? '<span class="pill" style="background:#fee4e2;color:#b42318">Blocked</span>' : ''}<span style="margin-left:auto">${x.est ? x.est + ' pt' : ''}</span></div>
+    <div class="ttl">${esc(x.title)}</div>
+    <div class="foot"><span>${x.milestone ? `<span class="ms">${msName(x.milestone)}</span>` : ''} ${x.subtasks.length ? `<span class="sub">☑ ${done}/${x.subtasks.length}</span>` : ''} ${x.comments.length ? `<span class="sub">💬 ${x.comments.length}</span>` : ''}</span>${avs(x.who)}</div></div>`;
+}
+function boardView(ts) {
+  return `<div class="cols">${STATUSES.map(([id, l, c]) => { const items = ts.filter((x) => x.status === id);
+    return `<section class="col" data-col="${id}"><div class="colh"><i class="dot" style="background:${c}"></i>${l}<span class="n">${items.length}</span></div><div class="cards">${items.map(cardView).join('') || '<div class="muted" style="text-align:center;padding:16px;font-size:12.5px">Drop here</div>'}</div></section>`; }).join('')}</div>`;
+}
+function listView(ts) {
+  const f = state.filter || { q: '', who: '', sort: 'key' };
+  let rows = ts.filter((x) => (!f.q || (x.key + x.title).toLowerCase().includes(f.q.toLowerCase())) && (!f.who || x.who.includes(f.who)));
+  rows = [...rows].sort((a, b) => f.sort === 'prio' ? Object.keys(PRIOS).indexOf(b.prio) - Object.keys(PRIOS).indexOf(a.prio) : f.sort === 'status' ? STATUSES.findIndex((s) => s[0] === a.status) - STATUSES.findIndex((s) => s[0] === b.status) : a.key.localeCompare(b.key, undefined, { numeric: true }));
+  return `<div class="filters"><input placeholder="Search tickets" value="${esc(f.q)}" data-filter="q" /><select data-filter="who"><option value="">Anyone</option>${Object.entries(PEOPLE).map(([k, v]) => `<option value="${k}" ${f.who === k ? 'selected' : ''}>${v.n}</option>`).join('')}</select><span class="muted" style="align-self:center;font-size:12px">Click a column header to sort</span></div>
+  <table><thead><tr><th data-sort="key">Key</th><th>Title</th><th>Type</th><th data-sort="status">Status</th><th data-sort="prio">Priority</th><th>Assignees</th><th>Milestone</th><th>Due</th></tr></thead><tbody>
+  ${rows.map((x) => `<tr class="row" data-open="${x.key}"><td><b>${x.key}</b></td><td>${esc(x.title)}</td><td>${TYPES[x.type]}</td><td>${statPill(x.status)}</td><td>${prioPill(x.prio)}</td><td>${avs(x.who)}</td><td>${x.milestone ? `<span class="ms">${msName(x.milestone)}</span>` : '<span class="muted">Backlog</span>'}</td><td>${fmtDate(x.due)}</td></tr>`).join('') || '<tr><td colspan="8" class="muted">No tickets</td></tr>'}
+  </tbody></table>`;
+}
+function milestonesView(key) {
+  return state.milestones.filter((m) => m.project === key).map((m) => { const ts = state.tickets.filter((x) => x.milestone === m.id); const pct = msProgress(m.id); const pts = ts.reduce((a, x) => a + (x.est || 0), 0);
+    return `<div class="mrow"><div class="mh"><h3>🎯 ${m.name}</h3><span class="muted">due ${fmtDate(m.due)} · ${ts.length} tickets · ${pts} pts</span><span class="sp" style="flex:1"></span><b style="color:var(--brand)">${pct}%</b></div><div class="bar"><i style="width:${pct}%"></i></div>
+    <div class="mticks">${ts.map((x) => `<span class="${x.status === 'done' ? 'done' : ''}" data-open="${x.key}">${x.key} ${esc(x.title)}</span>`).join('')}</div></div>`; }).join('') + `<button class="btn sm" data-newms="${key}">+ New milestone</button>`;
+}
+function settingsView(p) {
+  const opts = [['off', 'Off (default)', 'Nothing posts to the channel automatically.'], ['key', 'Key moments', 'Urgent/High tickets created, tickets done, milestones reached.'], ['summary', 'Daily summary', 'One message a day with the project’s progress.']];
+  return `<div style="max-width:560px"><h3 style="margin-top:0">Post updates to # ${p.channel}</h3><p class="muted">Controls how much of this project shows up in chat. Ticket comments and history always stay on the ticket.</p>
+  ${opts.map(([id, l, d]) => `<label style="display:flex;gap:10px;padding:10px 12px;border:1px solid ${p.updates === id ? 'var(--brand)' : 'var(--line)'};border-radius:10px;margin-bottom:8px;cursor:pointer;background:${p.updates === id ? 'var(--brand-soft)' : '#fff'}"><input type="radio" name="upd" value="${id}" ${p.updates === id ? 'checked' : ''} data-updates="${p.key}"><span><b>${l}</b><br><span class="muted" style="font-size:12.5px">${d}</span></span></label>`).join('')}
+  <h3>Create tickets from chat</h3><p class="muted">Members can turn a message in # ${p.channel} into a ${p.key} ticket (leaves a small chip on the message).</p><div class="seg"><button class="on">Allowed</button><button>Off</button></div></div>`;
+}
+function myTicketsView() {
+  const ts = state.tickets.filter((x) => x.who.includes(ME));
+  return `<div class="head"><h2>My tickets</h2><span class="meta">Across all projects</span></div><div class="content" style="overflow:hidden">${boardView(ts)}</div>`;
+}
+
+function panelView(x) {
+  const p = proj(x.project);
+  const thread = [...x.comments.map((c) => ({ ...c, act: false })), ...x.history.map((h) => ({ ...h, act: true }))];
+  return `<div class="ph"><b style="color:var(--brand)">${x.key}</b>${statPill(x.status)}<span class="muted" style="font-size:12.5px">${p.name}</span><span style="flex:1"></span><button class="btn sm" data-share="${x.key}">Share to # ${p.channel}</button><button class="btn sm" data-close>✕</button></div>
+  <div class="pb"><div class="pmain">
+    <h2>${esc(x.title)}</h2>
+    <div style="white-space:pre-wrap;color:var(--ink-2)">${esc(x.desc) || '<span class="muted">No description</span>'}</div>
+    <div class="h4">Subtasks ${x.subtasks.length ? `(${x.subtasks.filter((s) => s.done).length}/${x.subtasks.length})` : ''}</div>
+    ${x.subtasks.map((s, i) => `<label class="check"><input type="checkbox" ${s.done ? 'checked' : ''} data-sub="${x.key}:${i}"> <span style="${s.done ? 'text-decoration:line-through;color:var(--ink-3)' : ''}">${esc(s.text)}</span></label>`).join('')}
+    <div class="addc"><input placeholder="Add a subtask and press Enter" data-addsub="${x.key}" /></div>
+    ${x.links.length ? `<div class="h4">Links</div>${x.links.map((l) => `<div class="link"><b>${l.kind}</b> <span class="tk" data-open="${l.key}">${l.key}</span> ${esc(find(l.key)?.title || '')}</div>`).join('')}` : ''}
+    <div class="h4">Comments & activity <span class="muted" style="text-transform:none;letter-spacing:0;font-weight:400">— lives on the ticket, not in the channel</span></div>
+    ${thread.map((c) => `<div class="comment ${c.act ? 'act' : ''}">${c.act ? '<span style="width:28px;text-align:center">•</span>' : `<span class="ava" style="background:${PEOPLE[c.who].c}">${c.who}</span>`}<div class="body">${c.act ? `${PEOPLE[c.who].n} ${esc(c.text)}` : `<b>${PEOPLE[c.who].n}</b><br>${linkTickets(c.text)}`}</div></div>`).join('') || '<div class="muted" style="font-size:13px">No comments yet</div>'}
+    <div class="addc"><input placeholder="Write a comment… (@mention, WEB-12)" data-comment="${x.key}" /><button class="btn primary sm" data-postc="${x.key}">Comment</button></div>
+  </div>
+  <div class="pside">
+    ${field('Status', `<select data-set="status">${STATUSES.map(([id, l]) => `<option value="${id}" ${x.status === id ? 'selected' : ''}>${l}</option>`).join('')}</select>`)}
+    ${field('Assignees', `<select data-set="who"><option value="">Unassigned</option>${Object.entries(PEOPLE).map(([k, v]) => `<option value="${k}" ${x.who[0] === k ? 'selected' : ''}>${v.n}</option>`).join('')}</select>`)}
+    ${field('Type', `<select data-set="type">${Object.entries(TYPES).map(([k, v]) => `<option value="${k}" ${x.type === k ? 'selected' : ''}>${v}</option>`).join('')}</select>`)}
+    ${field('Priority', `<select data-set="prio">${Object.entries(PRIOS).map(([k, v]) => `<option value="${k}" ${x.prio === k ? 'selected' : ''}>${v[0]}</option>`).join('')}</select>`)}
+    ${field('Milestone', `<select data-set="milestone"><option value="">Backlog</option>${state.milestones.filter((m) => m.project === x.project).map((m) => `<option value="${m.id}" ${x.milestone === m.id ? 'selected' : ''}>${m.name}</option>`).join('')}</select>`)}
+    ${field('Estimate (points)', `<input type="number" min="0" value="${x.est || ''}" data-set="est">`)}
+    ${field('Due date', `<input type="date" value="${x.due || ''}" data-set="due">`)}
+    <div class="muted" style="font-size:12px">MCP preview: an AI agent calls <code>update_ticket("${x.key}", …)</code> and the same fields change, with the same permissions.</div>
+  </div></div>`;
+}
+const field = (l, ctl) => `<div class="f"><label>${l}</label>${ctl}</div>`;
+
+/* --------------------------------------------------------------- actions */
+function go(view) { state.view = view; state.open = null; state.filter = null; if (view.startsWith('project:')) state.projectTab = 'board'; render(); }
+
+function ticketModal({ project = 'WEB', title = '', fromMsg = null } = {}) {
+  $('#mbox').innerHTML = `<h3>${fromMsg ? 'Create ticket from message' : 'New ticket'}</h3>
+  ${field('Project', `<select id="nt-p">${state.projects.map((p) => `<option ${p.key === project ? 'selected' : ''}>${p.key}</option>`).join('')}</select>`)}
+  ${field('Title', `<input id="nt-t" value="${esc(title)}">`)}
+  <div class="two">${field('Type', `<select id="nt-type">${Object.entries(TYPES).map(([k, v]) => `<option value="${k}">${v}</option>`).join('')}</select>`)}${field('Priority', `<select id="nt-prio">${Object.entries(PRIOS).map(([k, v]) => `<option value="${k}" ${k === 'med' ? 'selected' : ''}>${v[0]}</option>`).join('')}</select>`)}</div>
+  <div class="two">${field('Assignee', `<select id="nt-who"><option value="">Unassigned</option>${Object.entries(PEOPLE).map(([k, v]) => `<option value="${k}">${v.n}</option>`).join('')}</select>`)}${field('Milestone', `<select id="nt-ms"><option value="">Backlog</option>${state.milestones.map((m) => `<option value="${m.id}">${m.project} · ${m.name}</option>`).join('')}</select>`)}</div>
+  <div class="muted" style="font-size:12.5px">${fromMsg ? 'The message gets a small chip linking to the ticket — no big card in chat.' : 'Created in the project only — nothing is posted to chat (unless the project’s updates setting says so).'}</div>
+  <div class="act"><button class="btn" data-mclose>Cancel</button><button class="btn primary" id="nt-go">Create ticket</button></div>`;
+  $('#modal').classList.add('on'); $('#nt-t').focus();
+  $('#nt-go').onclick = () => {
+    const p = proj($('#nt-p').value); p.seq += 1;
+    const x = t(p.key, p.seq, $('#nt-t').value.trim() || 'Untitled', $('#nt-type').value, $('#nt-prio').value, 'todo', $('#nt-who').value ? [$('#nt-who').value] : [], $('#nt-ms').value || null, null, null, fromMsg ? 'Created from a chat message.' : '', [], [], []);
+    log(x, 'created this ticket'); state.tickets.push(x);
+    if (fromMsg) { const [ch, i] = fromMsg; state.chat[ch][i].chip = x.key; }
+    postUpdate(x, `🆕 ${x.key} ${x.title} (${PRIOS[x.prio][0]})`, ['high', 'urgent'].includes(x.prio) ? 'created-high' : 'created');
+    $('#modal').classList.remove('on'); toast(`${x.key} created${fromMsg ? ' — chip added to the message' : ''}`); render();
+  };
+}
+
+document.addEventListener('click', (e) => {
+  const el = (s) => e.target.closest(s);
+  if (el('[data-mclose]')) return $('#modal').classList.remove('on');
+  if (el('[data-close]')) { state.open = null; return render(); }
+  if (el('[data-go]') && !el('[data-open]')) return go(el('[data-go]').dataset.go);
+  if (el('[data-ptab]')) { state.projectTab = el('[data-ptab]').dataset.ptab; state.filter = null; return render(); }
+  if (el('[data-open]')) { state.open = el('[data-open]').dataset.open; return render(); }
+  if (el('[data-newticket]') !== null && el('[data-newticket]')) return ticketModal({ project: el('[data-newticket]').dataset.newticket || 'WEB' });
+  if (el('[data-make]')) { const [ch, i] = el('[data-make]').dataset.make.split(':'); const m = state.chat[ch][i]; const p = state.projects.find((x) => x.channel === ch) || state.projects[0]; return ticketModal({ project: p.key, title: m.text.replace(/btw$/, '').trim(), fromMsg: [ch, Number(i)] }); }
+  if (el('[data-send]')) { const ch = el('[data-send]').dataset.send; const v = $('#composer').value.trim(); if (!v) return;
+    const m = /^\/ticket\s+([A-Z]+)?\s*(.*)$/i.exec(v); if (m) { $('#composer').value = ''; return ticketModal({ project: (m[1] || 'WEB').toUpperCase(), title: m[2] }); }
+    state.chat[ch].push({ who: ME, time: 'now', text: v }); return render(); }
+  if (el('[data-share]')) { const x = find(el('[data-share]').dataset.share); state.chat[proj(x.project).channel].push({ who: ME, time: 'now', text: `Sharing ${x.key} for visibility` }); toast(`Shared ${x.key} to # ${proj(x.project).channel}`); return; }
+  if (el('[data-postc]')) { const key = el('[data-postc]').dataset.postc; const inp = $(`[data-comment="${key}"]`); if (!inp.value.trim()) return; find(key).comments.push({ who: ME, text: inp.value.trim() }); return render(); }
+  if (el('[data-sort]')) { state.filter = { ...(state.filter || { q: '', who: '' }), sort: el('[data-sort]').dataset.sort }; return render(); }
+  if (el('[data-newms]')) { const name = prompt('Milestone name', 'v1.3'); if (name) { state.milestones.push({ id: 'm' + Date.now(), project: el('[data-newms]').dataset.newms, name, due: '2026-12-31' }); render(); } }
+  if (e.target === $('#modal')) $('#modal').classList.remove('on');
+});
+document.addEventListener('change', (e) => {
+  const x = state.open && find(state.open);
+  if (e.target.dataset.set && x) {
+    const k = e.target.dataset.set; let v = e.target.value;
+    if (k === 'who') v = v ? [v] : []; if (k === 'est') v = Number(v) || null; if (k === 'milestone' || k === 'due') v = v || null;
+    const label = { status: () => `moved this to ${stat(v)[1]}`, who: () => v.length ? `assigned ${PEOPLE[v[0]].n}` : 'cleared the assignee', type: () => `changed type to ${TYPES[v]}`, prio: () => `set priority to ${PRIOS[v][0]}`, milestone: () => v ? `added to ${msName(v)}` : 'moved to Backlog', est: () => `estimated ${v || 0} pts`, due: () => v ? `set due ${fmtDate(v)}` : 'removed the due date' }[k]();
+    x[k] = v; log(x, label);
+    if (k === 'status' && v === 'done') { postUpdate(x, `✅ ${x.key} ${x.title} is done`, 'done'); if (x.milestone && msProgress(x.milestone) === 100) postUpdate(x, `🎉 Milestone ${msName(x.milestone)} completed`, 'milestone'); }
+    return render();
+  }
+  if (e.target.dataset.sub) { const [key, i] = e.target.dataset.sub.split(':'); const s = find(key).subtasks[i]; s.done = e.target.checked; log(find(key), `${s.done ? 'completed' : 'reopened'} subtask “${s.text}”`); return render(); }
+  if (e.target.dataset.updates) { proj(e.target.dataset.updates).updates = e.target.value; toast('Channel updates: ' + ({ off: 'Off', key: 'Key moments', summary: 'Daily summary' })[e.target.value]); return render(); }
+  if (e.target.dataset.filter === 'who') { state.filter = { ...(state.filter || { q: '', sort: 'key' }), who: e.target.value }; return render(); }
+});
+document.addEventListener('input', (e) => {
+  if (e.target.dataset.filter === 'q') { state.filter = { ...(state.filter || { who: '', sort: 'key' }), q: e.target.value }; const pos = e.target.selectionStart; render(); const inp = $('[data-filter="q"]'); inp.focus(); inp.setSelectionRange(pos, pos); }
+});
+document.addEventListener('keydown', (e) => {
+  if (e.key === 'Escape') { $('#modal').classList.remove('on'); if (state.open) { state.open = null; render(); } }
+  if (e.key === 'Enter' && e.target.dataset.addsub) { const v = e.target.value.trim(); if (v) { const x = find(e.target.dataset.addsub); x.subtasks.push({ text: v, done: false }); log(x, `added subtask “${v}”`); render(); } }
+  if (e.key === 'Enter' && e.target.dataset.comment) $(`[data-postc="${e.target.dataset.comment}"]`).click();
+  if (e.key === 'Enter' && e.target.id === 'composer') $('[data-send]').click();
+});
+
+/* Drag cards between columns (board + My tickets). */
+function bindBoard() {
+  document.querySelectorAll('.card').forEach((c) => c.addEventListener('dragstart', (e) => e.dataTransfer.setData('text', c.dataset.key)));
+  document.querySelectorAll('.col').forEach((col) => {
+    col.addEventListener('dragover', (e) => { e.preventDefault(); col.classList.add('over'); });
+    col.addEventListener('dragleave', () => col.classList.remove('over'));
+    col.addEventListener('drop', (e) => { e.preventDefault(); const x = find(e.dataTransfer.getData('text')); const to = col.dataset.col; if (x && x.status !== to) { x.status = to; log(x, `moved this to ${stat(to)[1]}`); if (to === 'done') postUpdate(x, `✅ ${x.key} ${x.title} is done`, 'done'); toast(`${x.key} → ${stat(to)[1]}`); } render(); });
+  });
+}
+render();
+</script>
+</body>
+</html>

@@ -107,7 +107,8 @@ const searchMessages = async ({ organizationId, userId, scope, parsed, page, lim
     parsed,
   );
   const where = [{ channel: { $in: channelIds } }, { conversation: { $in: conversationIds } }];
-  const and = [{ $or: where }];
+  // Ticket comments are not channel messages (found via ticket search).
+  const and = [{ $or: where }, { ticketThread: { $ne: true } }];
   termRegexes(parsed.terms).forEach((regex) => and.push({ content: regex }));
   if (parsed.from.length > 0) {
     and.push({ sender: { $in: await resolveFrom(organizationId, userId, parsed.from) } });

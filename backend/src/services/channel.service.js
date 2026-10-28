@@ -342,6 +342,66 @@ const listCandidates = async (channel) => {
     .sort({ createdAt: 1 });
 };
 
+/**
+ * Public channels include everyone active in the workspace: adds (or
+ * revives) a membership for each. Returns the ids of people newly added.
+ */
+const addEveryone = async (channel) => {
+  const people = await OrganizationMember.find({
+    organization: channel.organization,
+    status: MEMBER_STATUS.ACTIVE,
+  }).select('user');
+  const active = new Set(
+    (await ChannelMember.find({ channel: channel._id, ...activeFilter }).select('user')).map(
+      (row) => String(row.user),
+    ),
+  );
+  const missing = people.map((row) => row.user).filter((id) => !active.has(String(id)));
+  if (missing.length) {
+    await ChannelMember.bulkWrite(
+      missing.map((userId) => ({
+        updateOne: {
+          filter: { channel: channel._id, user: userId },
+          update: {
+            $set: { status: CHANNEL_MEMBER_STATUS.ACTIVE, joinedAt: new Date() },
+            $setOnInsert: {
+              organization: channel.organization,
+              role: CHANNEL_ROLES.MEMBER,
+              notifyPreference: CHANNEL_NOTIFY.ALL,
+            },
+          },
+          upsert: true,
+        },
+      })),
+    );
+  }
+  return missing.map(String);
+};
+
+/** Someone joined the workspace: they join every active public channel. */
+const joinPublicChannels = async (organizationId, userId) => {
+  const channels = await Channel.find({
+    organization: organizationId,
+    type: CHANNEL_TYPES.PUBLIC,
+    status: CHANNEL_STATUS.ACTIVE,
+  }).select('_id organization');
+  for (const channel of channels) {
+    await ChannelMember.updateOne(
+      { channel: channel._id, user: userId },
+      {
+        $set: { status: CHANNEL_MEMBER_STATUS.ACTIVE },
+        $setOnInsert: {
+          organization: organizationId,
+          role: CHANNEL_ROLES.MEMBER,
+          notifyPreference: CHANNEL_NOTIFY.ALL,
+          joinedAt: new Date(),
+        },
+      },
+      { upsert: true },
+    );
+  }
+};
+
 const addMembers = async (channel, userIds) => {
   if (!Array.isArray(userIds) || userIds.length === 0) {
     throw new AppError(400, 'A list of user ids is required');
@@ -453,6 +513,8 @@ const setMyPreferences = async (channel, userId, payload = {}) => {
 };
 
 module.exports = {
+  addEveryone,
+  joinPublicChannels,
   normalizeChannelName,
   toMembership,
   toPublicChannel,

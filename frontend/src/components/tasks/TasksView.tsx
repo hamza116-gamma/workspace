@@ -1,7 +1,6 @@
 'use client';
 
 import { useCallback, useEffect, useState } from 'react';
-import { useRouter } from 'next/navigation';
 import { Spinner } from '@/components/ui/Spinner';
 import { Icon } from '@/components/ui/Icon';
 import { Dropdown } from '@/components/ui/Dropdown';
@@ -29,12 +28,8 @@ const PRIORITY_FILTERS: { value: PriorityFilter; label: string; color?: string }
   })),
 ];
 
-const locationFor = (task: Task) =>
-  `${task.channelId ? `/channels/${task.channelId}` : `/dm/${task.conversationId}`}?message=${task.messageId}`;
-
 /** "My tasks": every task assigned to the viewer, as a Kanban board. */
 export const TasksView = () => {
-  const router = useRouter();
   const { user } = useAuth();
   const [tasks, setTasks] = useState<Task[]>([]);
   const [loading, setLoading] = useState(true);
@@ -43,6 +38,8 @@ export const TasksView = () => {
 
   // Live: newly assigned tasks appear, unassigned / deleted ones leave.
   useTaskEvents((task, deleted) => {
+    // A locked chat copy has no assignees; the full update comes separately.
+    if (task.locked) return;
     const mine = !deleted && task.assignees.some((assignee) => assignee.id === user?.id);
     setTasks((current) => {
       const index = current.findIndex((item) => item.id === task.id);
@@ -80,10 +77,10 @@ export const TasksView = () => {
         task.title.toLowerCase().includes(needle) ||
         task.key.toLowerCase().includes(needle)),
   );
-  const open = tasks.filter((task) => task.status !== 'DONE').length;
+  const open = tasks.filter((task) => task.statusGroup !== 'DONE').length;
 
   return (
-    <div className={page.page}>
+    <div className={`${page.page} ${styles.fillPage}`}>
       <header className={page.header}>
         <span className={page.eyebrow}>Work</span>
         <h1 className={page.title}>My tasks</h1>
@@ -133,7 +130,6 @@ export const TasksView = () => {
           onChange={(task) =>
             setTasks((current) => current.map((item) => (item.id === task.id ? task : item)))
           }
-          onOpenTask={(task) => router.push(locationFor(task))}
         />
       )}
     </div>

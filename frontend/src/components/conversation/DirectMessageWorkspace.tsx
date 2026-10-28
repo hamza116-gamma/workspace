@@ -22,13 +22,13 @@ import { MemberFacepile } from './MemberFacepile';
 import { HuddleStartButton } from '@/components/huddle/HuddleStartButton';
 import { ConversationView } from './ConversationView';
 import { ConversationHeader, type ConversationTab } from './ConversationHeader';
-import { useFocusMessage } from '@/hooks/useFocusMessage';
 import { TasksBoard } from '@/components/tasks/TasksBoard';
 import { FilesLinks } from './FilesLinks';
 import headerStyles from './ConversationHeader.module.css';
 import { MemberPickerDialog } from './MemberPickerDialog';
 import type { PresenceState } from '@/types/user';
 import styles from './DirectMessageWorkspace.module.css';
+import { NotFoundState, isNotFound } from '@/components/ui/NotFoundState';
 
 const PRESENCE_LABEL: Record<PresenceState, string> = {
   ACTIVE: 'Active',
@@ -64,7 +64,6 @@ export const DirectMessageWorkspace = ({ conversationId }: { conversationId: str
   const [addOpen, setAddOpen] = useState(false);
   const { isMuted, setMuted } = useConversationMute();
   const [tab, setTab] = useState<'messages' | 'files' | 'links' | 'tasks'>('messages');
-  const { focusMessage } = useFocusMessage();
   const markedRef = useRef<string | null>(null);
 
   useEffect(() => {
@@ -119,7 +118,17 @@ export const DirectMessageWorkspace = ({ conversationId }: { conversationId: str
   }
 
   if (error || !conversation) {
-    return <Alert>{error || 'Conversation not found'}</Alert>;
+    return isNotFound(error) ? (
+      <NotFoundState
+        icon="message"
+        title="Conversation not found"
+        text="It may have been removed, or you're not part of it. Start a new message instead."
+        actionLabel="New message"
+        actionHref="/dm/new"
+      />
+    ) : (
+      <NotFoundState icon="info" title="Couldn’t load this conversation" text={error ?? ''} />
+    );
   }
 
   const single = others.length === 1 ? others[0] : null;
@@ -227,13 +236,7 @@ export const DirectMessageWorkspace = ({ conversationId }: { conversationId: str
               loading={filesLoading || linksLoading}
             />
           ) : tab === 'tasks' ? (
-            <TasksBoard
-              conversationId={conversation.id}
-              onOpenTask={(task) => {
-                setTab('messages');
-                focusMessage(task.messageId);
-              }}
-            />
+            <TasksBoard conversationId={conversation.id} />
           ) : undefined
         }
       />

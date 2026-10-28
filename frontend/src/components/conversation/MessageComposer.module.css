@@ -407,3 +407,14 @@
     display: none;
   }
 }
+
+/* Short windows: a slimmer compose area leaves room to read the chat. */
+@media (max-height: 760px) {
+  .bar {
+    padding: 2px 12px 10px;
+  }
+  .box {
+    gap: 4px;
+    padding: 6px;
+  }
+}

@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useRef } from 'react';
+import { createPortal } from 'react-dom';
 import styles from './Modal.module.css';
 
 export const Modal = ({
@@ -41,11 +42,14 @@ export const Modal = ({
     };
   }, [open]);
 
-  if (!open) {
+  if (!open || typeof document === 'undefined') {
     return null;
   }
 
-  return (
+  // Rendered on <body>: a dialog opened from inside a message row or panel
+  // would otherwise sit in that element's stacking context and slide under
+  // the sticky channel header.
+  return createPortal(
     <div className={styles.overlay} onClick={onClose}>
       <div
         className={`${styles.dialog} ${wide ? styles.wide : ''}`}
@@ -62,6 +66,7 @@ export const Modal = ({
         </div>
         <div className={styles.body}>{children}</div>
       </div>
-    </div>
+    </div>,
+    document.body,
   );
 };

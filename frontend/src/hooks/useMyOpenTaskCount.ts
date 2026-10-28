@@ -21,7 +21,7 @@ export const useMyOpenTaskCount = () => {
     listMyTasks().then(
       ({ tasks }) =>
         alive &&
-        setOpen(Object.fromEntries(tasks.map((task) => [task.id, task.status !== 'DONE']))),
+        setOpen(Object.fromEntries(tasks.map((task) => [task.id, task.statusGroup !== 'DONE']))),
       () => alive && setOpen({}),
     );
     return () => {
@@ -30,11 +30,14 @@ export const useMyOpenTaskCount = () => {
   }, [active?.id]);
 
   useTaskEvents((task, deleted) => {
+    // A locked chat copy (project ticket seen in chat) has no assignees:
+    // nothing to learn from it here.
+    if (task.locked) return;
     const mine = !deleted && task.assignees.some((assignee) => assignee.id === user?.id);
     setOpen((current) => {
       const next = { ...current };
       if (mine) {
-        next[task.id] = task.status !== 'DONE';
+        next[task.id] = task.statusGroup !== 'DONE';
       } else {
         delete next[task.id];
       }

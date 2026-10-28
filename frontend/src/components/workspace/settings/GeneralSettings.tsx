@@ -17,6 +17,7 @@ export const GeneralSettings = () => {
   const [name, setName] = useState('');
   const [allowCreate, setAllowCreate] = useState(true);
   const [defaultType, setDefaultType] = useState<ChannelType>('PUBLIC');
+  const [projects, setProjects] = useState(false);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
   const [saved, setSaved] = useState(false);
@@ -26,6 +27,7 @@ export const GeneralSettings = () => {
       setName(active.name);
       setAllowCreate(active.settings.allowMemberChannelCreation);
       setDefaultType(active.settings.defaultChannelType);
+      setProjects(Boolean(active.settings.projectsEnabled));
     }
   }, [active]);
 
@@ -36,7 +38,8 @@ export const GeneralSettings = () => {
   const dirty =
     name.trim() !== active.name ||
     allowCreate !== active.settings.allowMemberChannelCreation ||
-    defaultType !== active.settings.defaultChannelType;
+    defaultType !== active.settings.defaultChannelType ||
+    projects !== Boolean(active.settings.projectsEnabled);
 
   const onSubmit = async (event: React.FormEvent) => {
     event.preventDefault();
@@ -46,7 +49,11 @@ export const GeneralSettings = () => {
     try {
       await updateOrganization(active.id, {
         name: name.trim(),
-        settings: { allowMemberChannelCreation: allowCreate, defaultChannelType: defaultType },
+        settings: {
+          allowMemberChannelCreation: allowCreate,
+          defaultChannelType: defaultType,
+          projectsEnabled: projects,
+        },
       });
       await refresh();
       setSaved(true);
@@ -90,6 +97,14 @@ export const GeneralSettings = () => {
           <option value="PUBLIC">Public</option>
           <option value="PRIVATE">Private</option>
         </Select>
+        <label className={styles.toggleRow}>
+          <span>Projects (beta): tickets, milestones and boards</span>
+          <input
+            type="checkbox"
+            checked={projects}
+            onChange={(event) => setProjects(event.target.checked)}
+          />
+        </label>
         <div className={styles.actions}>
           <Button type="submit" loading={saving} disabled={!dirty || !name.trim()}>
             Save changes

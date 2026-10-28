@@ -39,6 +39,13 @@ const messageSchema = new mongoose.Schema(
     huddle: { type: mongoose.Schema.Types.ObjectId, ref: 'Huddle', default: null },
     // Task card (the message is the task's root; its thread is the discussion).
     task: { type: mongoose.Schema.Types.ObjectId, ref: 'Task', default: null },
+    // A ticket's own thread (its hidden anchor and every reply under it). Never
+    // shown in the channel, counted as unread or found by message search.
+    ticketThread: { type: Boolean, default: false },
+    // Ticket threads of a project without a channel live on the project.
+    project: { type: mongoose.Schema.Types.ObjectId, ref: 'Project', default: null },
+    // Chip on a chat message that was turned into a ticket ("-> WEB-12").
+    taskRef: { type: mongoose.Schema.Types.ObjectId, ref: 'Task', default: null },
     editedAt: { type: Date, default: null },
     deletedAt: { type: Date, default: null },
   },
@@ -48,6 +55,11 @@ const messageSchema = new mongoose.Schema(
 messageSchema.pre('validate', function ensureSingleTarget(next) {
   const hasChannel = Boolean(this.channel);
   const hasConversation = Boolean(this.conversation);
+  // A ticket thread of a channel-free project belongs to that project only.
+  if (!hasChannel && !hasConversation && this.ticketThread && this.project) {
+    next();
+    return;
+  }
   if (hasChannel === hasConversation) {
     next(new Error('A message must reference exactly one channel or conversation'));
     return;

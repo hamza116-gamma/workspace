@@ -4,6 +4,8 @@ import Link from 'next/link';
 import { useParams } from 'next/navigation';
 import { OPEN_QUICK_SEARCH } from '@/components/search/QuickSearch';
 import { useMyOpenTaskCount } from '@/hooks/useMyOpenTaskCount';
+import { useProjectsEnabled } from '@/hooks/useProjectsEnabled';
+import { useProjects } from '@/hooks/useProjects';
 import { useDrafts } from '@/hooks/useDrafts';
 import { useOnlineCount } from '@/hooks/useOnlineCount';
 import { useMemo, useRef, useState } from 'react';
@@ -89,6 +91,8 @@ export const ChannelPanel = () => {
   const params = useParams<{ channelId?: string; conversationId?: string }>();
   const { pendingDrafts } = useDrafts();
   const openTasks = useMyOpenTaskCount();
+  const projectsEnabled = useProjectsEnabled();
+  const { projects } = useProjects();
   const online = useOnlineCount();
   const [channelDialogOpen, setChannelDialogOpen] = useState(false);
 
@@ -186,6 +190,38 @@ export const ChannelPanel = () => {
       </nav>
 
       <div className={styles.scroll}>
+        {projectsEnabled && (
+          <div className={styles.section}>
+            <div className={styles.sectionHeader}>
+              <span className={styles.sectionLabel}>
+                <Icon name="task" size={14} />
+                <span>Projects</span>
+              </span>
+              <Link href="/projects" className={styles.sectionLink}>
+                All
+              </Link>
+            </div>
+            <div className={styles.list}>
+              <Link
+                href="/projects/TASK"
+                className={`${styles.quickItem} ${styles.quickLink}`}
+              >
+                <span className={styles.projectKey}>TASK</span>
+                <span>Unassigned</span>
+              </Link>
+              {projects.map((project) => (
+                <Link
+                  key={project.id}
+                  href={`/projects/${project.key}`}
+                  className={`${styles.quickItem} ${styles.quickLink}`}
+                >
+                  <span className={styles.projectKey}>{project.key}</span>
+                  <span>{project.name}</span>
+                </Link>
+              ))}
+            </div>
+          </div>
+        )}
         {starred.length > 0 && (
           <div className={styles.section}>
             <div className={styles.sectionHeader}>

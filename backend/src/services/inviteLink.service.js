@@ -92,6 +92,8 @@ const joinByToken = async (user, token) => {
     status: MEMBER_STATUS.ACTIVE,
   });
   await joinDefaultChannel(organization._id, user._id);
+  // Public channels include everyone in the workspace.
+  await require('./channel.service').joinPublicChannels(organization._id, user._id);
   return { organization, membership, joined: true };
 };
 

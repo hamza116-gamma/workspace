@@ -13,7 +13,10 @@ import { Spinner } from '@/components/ui/Spinner';
 import { MessageActions } from './MessageActions';
 import { CreateTaskDialog } from '@/components/tasks/CreateTaskDialog';
 import { TaskCard } from '@/components/tasks/TaskCard';
+import { ChatTicketCard } from '@/components/tasks/ChatTicketCard';
 import { tokensToDisplay } from '@/lib/mentions';
+import { TicketPreview, ticketKeysIn } from '@/components/tasks/TicketPreview';
+import { useThreadPanel } from '@/hooks/useThreadPanel';
 import { MessageContent } from './MessageContent';
 import { HuddleSummary } from '@/components/huddle/HuddleSummary';
 import { MessageEditor } from './editor/MessageEditor';
@@ -139,6 +142,7 @@ export const MessageList = ({
   canModerate = false,
   editRequest = 0,
   separatorAfter,
+  ownTicketKey,
 }: {
   messages: Message[];
   loading: boolean;
@@ -175,8 +179,11 @@ export const MessageList = ({
   editRequest?: number;
   /** Divider (e.g. "3 replies") after this message; it also ends its group. */
   separatorAfter?: { messageId: string; label: string };
+  // In a ticket's own panel: don't preview that same ticket again.
+  ownTicketKey?: string;
 }) => {
   const { user } = useAuth();
+  const { openThread } = useThreadPanel();
   const { marks } = useUnread();
   const { channelId: pinsChannelId, pinnedIds, togglePin } = usePins();
   const { savedIds, toggleSave } = useSaved();
@@ -645,11 +652,21 @@ export const MessageList = ({
                                 <HuddleSummary message={message} />
                               ) : (
                                 <>
-                                  {message.task && (
+                                  {message.task?.locked && (
+                                    <ChatTicketCard
+                                      task={message.task}
+                                      canModerate={canModerate}
+                                      mentionNames={message.mentions.map((user) => user.fullName)}
+                                      onOpen={(task) => openThread(task.messageId)}
+                                    />
+                                  )}
+                                  {message.task && !message.task.locked && (
                                     <TaskCard
                                       task={message.task}
                                       canModerate={canModerate}
                                       mentionNames={message.mentions.map((user) => user.fullName)}
+                                      // Comments / history live in the ticket panel.
+                                      onOpen={() => openThread(message.task!.messageId)}
                                     />
                                   )}
                                   {/* The card already shows the text when it is the task title. */}
@@ -666,6 +683,15 @@ export const MessageList = ({
                                       senderId={message.sender.id}
                                     />
                                   )}
+                                  {ticketKeysIn(message.content, message.task?.key)
+                                    .filter((key) => key !== ownTicketKey)
+                                    .map((key) => (
+                                      <TicketPreview
+                                        key={key}
+                                        ticketKey={key}
+                                        onOpen={(task) => openThread(task.messageId)}
+                                      />
+                                    ))}
                                   <MessageAttachments
                                     attachments={message.attachments}
                                     compact={compact}
@@ -700,6 +726,20 @@ export const MessageList = ({
                               {message.replyCount} {message.replyCount === 1 ? 'reply' : 'replies'}
                             </button>
                           )}
+                          {/* A ticket card (shared, or made from a message): its replies
+                              live in the ticket's own thread. Same link, opens that. */}
+                          {message.replyCount === 0 &&
+                            (message.task?.commentCount ?? 0) > 0 &&
+                            !message.parentMessageId && (
+                              <button
+                                type="button"
+                                className={styles.threadLink}
+                                onClick={() => openThread(message.task!.messageId)}
+                              >
+                                {message.task!.commentCount}{' '}
+                                {message.task!.commentCount === 1 ? 'reply' : 'replies'}
+                              </button>
+                            )}
                         </div>
 
                         {!isDeleted && onReact && !compact && editingId !== message.id && (

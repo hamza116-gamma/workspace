@@ -4,25 +4,19 @@ import { useLayoutEffect, useRef, useState } from 'react';
 import { Dropdown } from '@/components/ui/Dropdown';
 import { useAuth } from '@/hooks/useAuth';
 import { taskAccess, updateTask } from '@/lib/tasks';
-import {
-  TASK_PRIORITY_LABELS,
-  TASK_STATUS_COLORS,
-  TASK_STATUS_LABELS,
-  type Task,
-  type TaskStatus,
-} from '@/types/task';
+import { TASK_PRIORITY_LABELS, type Task, type TaskStatus, type TaskStatusDef } from '@/types/task';
+import { useTaskStatuses } from '@/hooks/useTaskStatuses';
 import { MentionText } from './MentionText';
 import { dueChip } from '@/lib/taskDue';
 import { EditTaskDialog } from './EditTaskDialog';
 import { Icon } from '@/components/ui/Icon';
 import { Avatar } from '@/components/ui/Avatar';
+import { EstimateChip, SubtaskProgress, TypeIcon } from './TaskMeta';
 import styles from './Tasks.module.css';
 
-const STATUS_OPTIONS = (Object.keys(TASK_STATUS_LABELS) as TaskStatus[]).map((value) => ({
-  value,
-  label: TASK_STATUS_LABELS[value],
-  color: TASK_STATUS_COLORS[value],
-}));
+// Status choices for a task: its project's statuses (or the defaults).
+const statusOptions = (statuses: TaskStatusDef[]) =>
+  statuses.map((status) => ({ value: status.key, label: status.name, color: status.color }));
 
 export const DUE_CLASS = {
   later: 'dueLater',
@@ -43,6 +37,7 @@ export const TaskCard = ({
   canModerate = false,
   mentionNames = [],
   readOnly = false,
+  onOpen,
 }: {
   task: Task;
   canModerate?: boolean;
@@ -50,6 +45,8 @@ export const TaskCard = ({
   mentionNames?: string[];
   // Static preview (e.g. the delete dialog): no status change, no edit.
   readOnly?: boolean;
+  // Opens the ticket (comments, history) in the side panel.
+  onOpen?: () => void;
 }) => {
   const [task, setTask] = useState(incoming);
   const [syncedAt, setSyncedAt] = useState(incoming.updatedAt);
@@ -62,6 +59,8 @@ export const TaskCard = ({
   const { user } = useAuth();
   const [status, setStatus] = useState<TaskStatus>(task.status);
   const [synced, setSynced] = useState<TaskStatus>(task.status);
+  const { statusesFor, statusOf } = useTaskStatuses();
+  const current = statusOf({ ...task, status });
   const [error, setError] = useState('');
   const [expanded, setExpanded] = useState(false);
   const [overflowing, setOverflowing] = useState(false);
@@ -96,21 +95,34 @@ export const TaskCard = ({
     }
   };
 
-  const due = dueChip({ dueDate: task.dueDate, status });
+  const due = dueChip({ dueDate: task.dueDate, statusGroup: current.group });
 
   return (
-    <div className={`${styles.card} ${status === 'DONE' ? styles.done : ''}`}>
+    <div className={`${styles.card} ${current.group === 'DONE' ? styles.done : ''}`}>
       <div className={styles.cardHead}>
-        <span className={styles.key}>{task.key}</span>
+        <TypeIcon task={task} />
+        {onOpen ? (
+          <button
+            type="button"
+            className={`${styles.key} ${styles.keyLink}`}
+            onClick={onOpen}
+            title={`Open ${task.key}: comments and history`}
+          >
+            {task.key}
+          </button>
+        ) : (
+          <span className={styles.key}>{task.key}</span>
+        )}
         <span className={`${styles.priority} ${styles[`p${task.priority}`] ?? ''}`}>
           {TASK_PRIORITY_LABELS[task.priority]}
         </span>
+        <EstimateChip task={task} />
         <span className={styles.status}>
           <Dropdown
             size="sm"
             ariaLabel="Task status"
-            options={STATUS_OPTIONS}
-            value={status}
+            options={statusOptions(statusesFor(task.projectId))}
+            value={current.key}
             disabled={!canManage}
             onChange={(next) => void changeStatus(next)}
           />
@@ -148,6 +160,13 @@ export const TaskCard = ({
             </button>
           )}
         </>
+      )}
+      {task.subtaskTotal > 0 && (
+        // Opens the task's thread, which lists every subtask.
+        <button type="button" className={styles.viewSubtasks} onClick={onOpen} disabled={!onOpen}>
+          View subtasks
+          <SubtaskProgress task={task} />
+        </button>
       )}
       {task.labels.length > 0 && (
         <div className={styles.tcLabels}>
