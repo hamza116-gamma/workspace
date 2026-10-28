@@ -1,6 +1,7 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
+import { useTaskEvents } from '@/hooks/useTaskEvents';
 import { Dropdown } from '@/components/ui/Dropdown';
 import { useChannels } from '@/hooks/useChannels';
 import { shareTask, unshareTask } from '@/lib/tasks';
@@ -15,20 +16,30 @@ export const TicketShares = ({ task }: { task: Task }) => {
   const { channels } = useChannels();
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
+  // Kept here: the panel's task only refreshes on some events, so the list
+  // follows our own share / unshare replies and live updates of this task.
+  const [shares, setShares] = useState(task.shares ?? []);
+  // Only reset when another ticket is shown (a stale parent copy of this
+  // ticket must not overwrite a newer list).
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  useEffect(() => setShares(task.shares ?? []), [task.id]);
+  useTaskEvents((next, deleted) => {
+    if (!deleted && next.id === task.id && next.shares) setShares(next.shares);
+  });
   if (!task.projectId) return null;
 
-  const shares = task.shares ?? [];
   const sharedIds = new Set(shares.map((share) => share.channelId));
   const nameOf = (id: string) => channels.find((c) => c.id === id)?.name ?? 'a channel';
   const options = channels
     .filter((c) => c.isMember && c.status === 'ACTIVE' && !sharedIds.has(c.id))
     .map((c) => ({ value: c.id, label: `${c.type === 'PRIVATE' ? '🔒 ' : '# '}${c.name}` }));
 
-  const run = async (action: () => Promise<unknown>) => {
+  const run = async (action: () => Promise<{ task: Task }>) => {
     setBusy(true);
     setError('');
     try {
-      await action();
+      const { task: saved } = await action();
+      setShares(saved.shares ?? []);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Something went wrong');
     } finally {
@@ -63,7 +74,19 @@ export const TicketShares = ({ task }: { task: Task }) => {
           options={options}
           value=""
           disabled={busy}
-          onChange={(channelId) => void run(() => shareTask(task.id, channelId))}
+          onChange={(channelId) => {
+            // Shown at once (posting the card takes a moment); the reply,
+            // or an error, settles it.
+            const before = shares;
+            setShares([...before, { channelId, messageId: '' }]);
+            void run(() => shareTask(task.id, channelId)).then(() =>
+              setShares((current) =>
+                current.some((share) => share.channelId === channelId && share.messageId)
+                  ? current
+                  : before,
+              ),
+            );
+          }}
         />
       )}
       {error && <p className={styles.error}>{error}</p>}
