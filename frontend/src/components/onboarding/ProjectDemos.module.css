@@ -24,9 +24,9 @@
 .column {
   display: grid;
   align-content: start;
-  gap: 4px;
+  gap: 6px;
   min-width: 0;
-  min-height: 84px;
+  min-height: 88px;
   padding: 5px;
   border-radius: 7px;
   background: #f2f4f7;
@@ -80,7 +80,7 @@
    "Done" (columns are 92px wide with a 6px gap: one step is 98px). */
 .moving {
   position: absolute;
-  top: 54px;
+  top: 63px; /* first card at 34px, 23px tall, then a 6px gap */
   left: 13px;
   width: 82px;
   border-left-color: #f79009;
