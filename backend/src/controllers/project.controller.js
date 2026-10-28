@@ -196,4 +196,58 @@ const listTasks = asyncHandler(async (req, res) => {
   success(res, { tasks: tasks.map(taskService.toPublicTask) });
 });
 
-module.exports = { list, get, create, update, archive, restore, remove, listTasks };
+// ---- milestones (lead / admins manage; members read) -------------------------
+
+const milestoneService = require('../services/milestone.service');
+
+const listMilestones = asyncHandler(async (req, res) => {
+  const project = await loadVisible(req);
+  success(res, { milestones: await milestoneService.list(project) });
+});
+
+const manageMilestones = async (req) => {
+  const project = await loadVisible(req);
+  if (!(await projectService.canManage(project, req.user._id, orgRole(req)))) {
+    throw new AppError(403, 'Only the project lead or an admin can change milestones');
+  }
+  return project;
+};
+
+const createMilestone = asyncHandler(async (req, res) => {
+  const project = await manageMilestones(req);
+  const milestone = await milestoneService.create(project, req.user._id, req.body || {});
+  emitChanged(req, project);
+  success(res, { milestone: milestoneService.toPublicMilestone(milestone) }, 201);
+});
+
+const updateMilestone = asyncHandler(async (req, res) => {
+  const project = await manageMilestones(req);
+  const milestone = await milestoneService.update(project, req.params.milestoneId, req.body || {});
+  emitChanged(req, project);
+  const counts = await milestoneService.countsFor(project._id);
+  success(res, {
+    milestone: milestoneService.toPublicMilestone(milestone, counts.get(String(milestone._id))),
+  });
+});
+
+const removeMilestone = asyncHandler(async (req, res) => {
+  const project = await manageMilestones(req);
+  await milestoneService.remove(project, req.params.milestoneId);
+  emitChanged(req, project);
+  success(res, { id: req.params.milestoneId });
+});
+
+module.exports = {
+  listMilestones,
+  createMilestone,
+  updateMilestone,
+  removeMilestone,
+  list,
+  get,
+  create,
+  update,
+  archive,
+  restore,
+  remove,
+  listTasks,
+};

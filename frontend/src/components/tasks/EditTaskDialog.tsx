@@ -13,6 +13,8 @@ import {
   type TaskAccess,
 } from '@/lib/tasks';
 import { useProjects } from '@/hooks/useProjects';
+import { listMilestones } from '@/lib/projects';
+import type { Milestone } from '@/types/project';
 import { useProjectsEnabled } from '@/hooks/useProjectsEnabled';
 import { useAuth } from '@/hooks/useAuth';
 import { MentionInput } from './MentionText';
@@ -111,6 +113,20 @@ export const EditTaskDialog = ({
     ...memberProjects.map((p) => ({ value: p.id, label: `${p.key} · ${p.name}` })),
   ];
   const projectChanged = projectId !== (task.projectId ?? '');
+  // Milestone (project tickets): the project's open milestones.
+  const [milestones, setMilestones] = useState<Milestone[]>([]);
+  const [milestoneId, setMilestoneId] = useState(task.milestoneId ?? '');
+  useEffect(() => {
+    if (!open || !task.projectId || !task.projectKey) return;
+    let alive = true;
+    listMilestones(task.projectKey).then(
+      (result) => alive && setMilestones(result.milestones),
+      () => alive && setMilestones([]),
+    );
+    return () => {
+      alive = false;
+    };
+  }, [open, task.projectId, task.projectKey]);
 
   useEffect(() => {
     if (!open) {
@@ -126,6 +142,7 @@ export const EditTaskDialog = ({
     setConfirmDelete(false);
     setStep(0);
     setProjectId(task.projectId ?? '');
+    setMilestoneId(task.milestoneId ?? '');
     setDueDate(toDateInput(task.dueDate));
     setAssignees(task.assignees.map((user) => user.id));
     setError('');
@@ -179,6 +196,7 @@ export const EditTaskDialog = ({
         ? { estimate: estimate.trim() }
         : {}),
       ...(status !== task.status ? { status } : {}),
+      ...(milestoneId !== (task.milestoneId ?? '') ? { milestoneId } : {}),
       ...(labels.join(',') !== task.labels.join(',') ? { labels } : {}),
       ...(dueDate !== toDateInput(task.dueDate) ? { dueDate: nextDue } : {}),
       ...([...assignees].sort().join(',') !== before ? { assignees } : {}),
@@ -197,6 +215,7 @@ export const EditTaskDialog = ({
         ({ task: updated } = await moveTaskToProject(task.id, projectId));
         delete (changes as { status?: string }).status;
         delete (changes as { assignees?: string[] }).assignees;
+        delete (changes as { milestoneId?: string }).milestoneId;
       }
       if (Object.keys(changes).length) {
         ({ task: updated } = await updateTask(task.id, changes));
@@ -326,6 +345,20 @@ export const EditTaskDialog = ({
                 onChange={(event) => setEstimate(event.target.value)}
               />
             </div>
+            {task.projectId && !projectChanged && (
+              <Dropdown
+                label="Milestone"
+                disabled={!full}
+                options={[
+                  { value: '', label: 'No milestone' },
+                  ...milestones
+                    .filter((m) => m.status === 'OPEN' || m.id === task.milestoneId)
+                    .map((m) => ({ value: m.id, label: m.name })),
+                ]}
+                value={milestoneId}
+                onChange={setMilestoneId}
+              />
+            )}
             <LabelInput value={labels} disabled={!full} onChange={setLabels} />
           </>
         )}

@@ -75,3 +75,16 @@ export const peopleLabel = (project: Project) => {
   const people = `${count} ${count === 1 ? 'person' : 'people'}`;
   return project.visibility === 'PUBLIC' ? `Public · ${people}` : `🔒 Private · ${people}`;
 };
+
+// A project goal with a due date; progress counts its tickets.
+export type Milestone = {
+  id: string;
+  projectId: string;
+  name: string;
+  description: string;
+  dueDate: string | null;
+  status: 'OPEN' | 'CLOSED';
+  total: number;
+  done: number;
+  createdAt: string;
+};

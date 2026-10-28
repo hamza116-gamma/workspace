@@ -61,6 +61,9 @@ export type Task = {
   // Set on a subtask (one level only).
   parentId: string | null;
   subtaskTotal: number;
+  // Phase 5: project milestone, and "kept off the board" (backlog).
+  milestoneId?: string | null;
+  backlog?: boolean;
   // Channels the ticket's card was shared to (project tickets).
   shares?: { channelId: string; messageId: string }[];
   // Comments in the ticket's thread (on chat cards).
@@ -90,6 +93,8 @@ export type TaskInput = {
   status?: TaskStatus;
   priority?: TaskPriority;
   type?: TaskType;
+  milestoneId?: string;
+  backlog?: boolean;
   // "30m", "2h", "1.5d", "1d 4h"; '' clears it.
   estimate?: string;
   assignees?: string[];

@@ -70,6 +70,9 @@ const taskSchema = new mongoose.Schema(
         sharedAt: { type: Date, default: Date.now },
       },
     ],
+    // Phase 5: project goal this ticket belongs to, and "not on the board yet".
+    milestone: { type: ObjectId, ref: 'Milestone', default: null },
+    backlog: { type: Boolean, default: false },
     subtaskTotal: { type: Number, default: 0 },
     subtaskDone: { type: Number, default: 0 },
     // Always members of the task's channel / participants of its conversation.
@@ -150,6 +153,7 @@ taskSchema.statics.recountSubtasks = async function recountSubtasks(parentId) {
 };
 
 taskSchema.index({ parent: 1 });
+taskSchema.index({ milestone: 1 });
 taskSchema.index({ 'shares.message': 1 });
 taskSchema.index({ message: 1 }, { unique: true });
 taskSchema.index({ sourceMessage: 1 }, { sparse: true });

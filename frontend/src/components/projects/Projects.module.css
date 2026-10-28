@@ -352,3 +352,13 @@
   font-size: 12.5px;
   cursor: pointer;
 }
+
+/* Small count on a tab (Backlog 3). */
+.tabCount {
+  margin-left: 6px;
+  padding: 0 6px;
+  border-radius: var(--r-pill, 99px);
+  background: var(--surface-2);
+  color: var(--ink-3);
+  font-size: 11px;
+}

@@ -19,5 +19,9 @@ router.post('/:key/archive', projectController.archive);
 router.post('/:key/restore', projectController.restore);
 router.get('/:key/tasks', projectController.listTasks);
 router.post('/:key/tasks', taskController.createInProject);
+router.get('/:key/milestones', projectController.listMilestones);
+router.post('/:key/milestones', projectController.createMilestone);
+router.patch('/:key/milestones/:milestoneId', projectController.updateMilestone);
+router.delete('/:key/milestones/:milestoneId', projectController.removeMilestone);
 
 module.exports = router;

@@ -10,11 +10,13 @@ import { useTaskEvents } from '@/hooks/useTaskEvents';
 import { useSocket } from '@/hooks/useSocket';
 import { watchProject } from '@/components/tasks/TicketPreview';
 import { rememberProjectStatuses } from '@/hooks/useTaskStatuses';
-import { getProject, listProjectTasks } from '@/lib/projects';
+import { getProject, listMilestones, listProjectTasks } from '@/lib/projects';
+import { TaskTable } from './TaskTable';
+import { MilestonesView } from './MilestonesView';
 import { KanbanBoard } from '@/components/tasks/KanbanBoard';
 import { CreateTaskDialog } from '@/components/tasks/CreateTaskDialog';
 import { ProjectSettings } from './ProjectSettings';
-import { peopleLabel, UNASSIGNED_KEY, type Project } from '@/types/project';
+import { peopleLabel, UNASSIGNED_KEY, type Milestone, type Project } from '@/types/project';
 import type { Task } from '@/types/task';
 import styles from './Projects.module.css';
 import { NotFoundState, isNotFound } from '@/components/ui/NotFoundState';
@@ -27,6 +29,15 @@ const upsert = (tasks: Task[], task: Task) => {
   return next;
 };
 
+type Tab = 'board' | 'list' | 'backlog' | 'milestones' | 'settings';
+const TABS: [Tab, string][] = [
+  ['board', 'Board'],
+  ['list', 'List'],
+  ['backlog', 'Backlog'],
+  ['milestones', 'Milestones'],
+  ['settings', 'Settings'],
+];
+
 /** One project: its board (live) and settings. */
 export const ProjectView = ({ projectKey }: { projectKey: string }) => {
   const router = useRouter();
@@ -34,7 +45,10 @@ export const ProjectView = ({ projectKey }: { projectKey: string }) => {
   const [project, setProject] = useState<Project | null>(null);
   const [tasks, setTasks] = useState<Task[]>([]);
   const [error, setError] = useState('');
-  const [tab, setTab] = useState<'board' | 'settings'>('board');
+  const [tab, setTab] = useState<Tab>('board');
+  const [milestones, setMilestones] = useState<Milestone[]>([]);
+  // Milestones tab -> List tab filtered on that milestone.
+  const [milestoneFocus, setMilestoneFocus] = useState('');
   // Subtasks are on the board too; hidden by default to keep it calm.
   const [showSubtasks, setShowSubtasks] = useState(false);
   // Stable object: the dialog reloads its people list when this changes.
@@ -43,6 +57,7 @@ export const ProjectView = ({ projectKey }: { projectKey: string }) => {
     channelId: null;
     conversationId: null;
     projectKey: string;
+    backlog?: boolean;
   } | null>(null);
 
   const load = useCallback(async () => {
@@ -54,8 +69,12 @@ export const ProjectView = ({ projectKey }: { projectKey: string }) => {
       }
       setProject(result.project);
       rememberProjectStatuses(result.project);
-      const list = await listProjectTasks(result.project.key);
+      const [list, ms] = await Promise.all([
+        listProjectTasks(result.project.key),
+        listMilestones(result.project.key),
+      ]);
       setTasks(list.tasks);
+      setMilestones(ms.milestones);
       setError('');
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Project not found');
@@ -127,6 +146,8 @@ export const ProjectView = ({ projectKey }: { projectKey: string }) => {
     );
   }
 
+  const backlogCount = tasks.filter((task) => task.backlog).length;
+
   const canAdd = project.isMember && !project.readOnly;
 
   return (
@@ -144,14 +165,19 @@ export const ProjectView = ({ projectKey }: { projectKey: string }) => {
             {tasks.length === 1 ? 'ticket' : 'tickets'}
           </p>
         </div>
-        {canAdd && tab === 'board' && (
+        {canAdd && tab !== 'settings' && tab !== 'milestones' && (
           <Button
             size="sm"
             onClick={() =>
-              setCreateTarget({ channelId: null, conversationId: null, projectKey: project.key })
+              setCreateTarget({
+                channelId: null,
+                conversationId: null,
+                projectKey: project.key,
+                ...(tab === 'backlog' ? { backlog: true } : {}),
+              })
             }
           >
-            + New ticket
+            {tab === 'backlog' ? '+ Add to backlog' : '+ New ticket'}
           </Button>
         )}
       </header>
@@ -165,23 +191,54 @@ export const ProjectView = ({ projectKey }: { projectKey: string }) => {
       )}
 
       <nav className={styles.tabs}>
-        <button
-          type="button"
-          className={tab === 'board' ? styles.tabOn : ''}
-          onClick={() => setTab('board')}
-        >
-          Board
-        </button>
-        <button
-          type="button"
-          className={tab === 'settings' ? styles.tabOn : ''}
-          onClick={() => setTab('settings')}
-        >
-          Settings
-        </button>
+        {TABS.map(([value, label]) => (
+          <button
+            key={value}
+            type="button"
+            className={tab === value ? styles.tabOn : ''}
+            onClick={() => {
+              setMilestoneFocus('');
+              setTab(value);
+            }}
+          >
+            {label}
+            {value === 'backlog' && backlogCount > 0 && (
+              <span className={styles.tabCount}>{backlogCount}</span>
+            )}
+          </button>
+        ))}
       </nav>
 
-      {tab === 'board' ? (
+      {tab === 'list' || tab === 'backlog' ? (
+        <div className={styles.boardArea}>
+          <TaskTable
+            key={`${tab}-${milestoneFocus}`}
+            project={project}
+            tasks={tasks.filter((task) => Boolean(task.backlog) === (tab === 'backlog'))}
+            milestones={milestones}
+            mode={tab}
+            initialMilestone={milestoneFocus}
+            onChange={(task) => setTasks((current) => upsert(current, task))}
+            emptyText={
+              tab === 'backlog'
+                ? 'The backlog is empty. Tickets moved here stay off the board until you move them back.'
+                : 'No tickets on the board yet.'
+            }
+          />
+        </div>
+      ) : tab === 'milestones' ? (
+        <MilestonesView
+          project={project}
+          milestones={milestones}
+          onChanged={() =>
+            void listMilestones(project.key).then((r) => setMilestones(r.milestones))
+          }
+          onOpen={(milestone) => {
+            setMilestoneFocus(milestone.id);
+            setTab('list');
+          }}
+        />
+      ) : tab === 'board' ? (
         <div className={styles.boardArea}>
           <label className={styles.boardFilter}>
             <input
@@ -192,7 +249,7 @@ export const ProjectView = ({ projectKey }: { projectKey: string }) => {
             Show subtasks
           </label>
           <KanbanBoard
-            tasks={showSubtasks ? tasks : tasks.filter((task) => !task.parentId)}
+            tasks={tasks.filter((task) => !task.backlog && (showSubtasks || !task.parentId))}
             statuses={project.statuses}
             onChange={(task) => setTasks((current) => upsert(current, task))}
           />

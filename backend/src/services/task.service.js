@@ -79,6 +79,8 @@ const toPublicTask = (task) => ({
     channelId: idOf(share.channel),
     messageId: idOf(share.message),
   })),
+  milestoneId: task.milestone ? idOf(task.milestone) : null,
+  backlog: Boolean(task.backlog),
   subtaskTotal: task.subtaskTotal || 0,
   subtaskDone: task.subtaskDone || 0,
   assignees: (task.assignees || []).map((user) =>
@@ -382,6 +384,24 @@ const formatEstimate = (minutes) => {
   return minutes > 60 ? `${Math.floor(minutes / 60)}h ${minutes % 60}m` : `${minutes}m`;
 };
 
+// A milestone of this project (or none). '' / null clears it.
+const assertMilestone = async (project, milestoneId) => {
+  if (!milestoneId) {
+    return null;
+  }
+  if (!project) {
+    throw new AppError(400, 'Only project tickets can have a milestone');
+  }
+  const Milestone = require('../models/milestone.model');
+  const milestone = mongoose.isValidObjectId(milestoneId)
+    ? await Milestone.findOne({ _id: milestoneId, project: project._id })
+    : null;
+  if (!milestone) {
+    throw new AppError(400, 'That milestone is not in this project');
+  }
+  return milestone._id;
+};
+
 // Validates create input up front, so a new task's card message is only
 // posted once everything is known to be valid.
 const prepareFields = async (
@@ -405,6 +425,8 @@ const prepareFields = async (
     dueDate: payload.dueDate ? assertDueDate(payload.dueDate) : null,
     labels: payload.labels ? assertLabels(payload.labels) : [],
     type: payload.type ? assertEnum(payload.type, TASK_TYPE, 'type') : TASK_TYPE.TASK,
+    backlog: Boolean(project && payload.backlog),
+    milestone: project ? await assertMilestone(project, payload.milestoneId) : null,
     estimateMinutes: parseEstimate(payload.estimate ?? payload.estimateMinutes),
   };
 };
@@ -718,6 +740,35 @@ const updateTask = async (task, payload = {}) => {
       );
     }
   }
+  if (payload.milestoneId !== undefined) {
+    const project = await projectOf(task);
+    const milestone = await assertMilestone(project, payload.milestoneId);
+    if (idOf(milestone) !== idOf(task.milestone)) {
+      const Milestone = require('../models/milestone.model');
+      const name = async (id) => (id ? ((await Milestone.findById(id))?.name ?? '') : '');
+      diff.push({
+        field: 'milestone',
+        from: await name(task.milestone),
+        to: await name(milestone),
+      });
+      task.milestone = milestone;
+      changes.push(
+        milestone ? `set the milestone to ${await name(milestone)}` : 'removed the milestone',
+      );
+    }
+  }
+  if (payload.backlog !== undefined && Boolean(payload.backlog) !== Boolean(task.backlog)) {
+    if (!task.project) {
+      throw new AppError(400, 'Only project tickets have a backlog');
+    }
+    task.backlog = Boolean(payload.backlog);
+    diff.push({
+      field: 'backlog',
+      from: task.backlog ? 'board' : 'backlog',
+      to: task.backlog ? 'backlog' : 'board',
+    });
+    changes.push(task.backlog ? 'moved this to the backlog' : 'moved this to the board');
+  }
   if (payload.priority !== undefined) {
     const priority = assertEnum(payload.priority, TASK_PRIORITY, 'priority');
     if (priority !== task.priority) {
@@ -1006,6 +1057,7 @@ const moveOne = async (task, project, members, sharedNumber = null) => {
         project: project._id,
         projectKey: project.key,
         number,
+        milestone: null,
         // Same group in the new project's statuses ("In review" -> its
         // first "in progress" status).
         status: firstStatus(statusesOf(project), task.statusGroup || STATUS_GROUP.TODO).key,

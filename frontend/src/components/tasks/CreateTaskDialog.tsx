@@ -81,6 +81,8 @@ export const CreateTaskDialog = ({
     conversationId: string | null;
     projectKey?: string;
     pickChannel?: boolean;
+    // Project board's Backlog tab: the ticket starts in the backlog.
+    backlog?: boolean;
     title?: string;
   } | null;
   onClose: () => void;
@@ -247,6 +249,7 @@ export const CreateTaskDialog = ({
         created = await createProjectTask(target.projectKey, {
           ...fields,
           ...(channelId ? { channelId } : {}),
+          ...(target.backlog ? { backlog: true } : {}),
         });
       } else if (target?.pickChannel && chosenProject) {
         // A project picked on the Unassigned board: it goes on that board.
