@@ -68,6 +68,8 @@ export type Message = {
   taskId?: string | null;
   // Part of a ticket's own thread (hidden anchor + comments).
   ticketThread?: boolean;
+  // App-written note in a task thread ("moved this to Done").
+  activity?: boolean;
   task?: Task | null;
   editedAt: string | null;
   deletedAt: string | null;

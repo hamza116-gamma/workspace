@@ -5,11 +5,7 @@ import { getTaskByKey } from '@/lib/projects';
 import { useTaskEvents } from '@/hooks/useTaskEvents';
 import { useSocket } from '@/hooks/useSocket';
 import type { Socket } from 'socket.io-client';
-import {
-  TASK_PRIORITY_COLORS,
-  TASK_PRIORITY_LABELS,
-  type Task,
-} from '@/types/task';
+import { TASK_PRIORITY_COLORS, TASK_PRIORITY_LABELS, type Task } from '@/types/task';
 import { useTaskStatuses } from '@/hooks/useTaskStatuses';
 import styles from './Tasks.module.css';
 
@@ -105,9 +101,12 @@ export const useTicketByKey = (ticketKey: string) => {
 export const TicketPreview = ({
   ticketKey,
   onOpen,
+  slim = false,
 }: {
   ticketKey: string;
   onOpen: (task: Task) => void;
+  // One line (key, title, status), for activity notes in a ticket thread.
+  slim?: boolean;
 }) => {
   const task = useTicketByKey(ticketKey);
   const { statusOf } = useTaskStatuses();
@@ -115,6 +114,18 @@ export const TicketPreview = ({
     return null;
   }
   const status = statusOf(task);
+  if (slim) {
+    return (
+      <button type="button" className={styles.previewSlim} onClick={() => onOpen(task)}>
+        <b className={styles.chipKey}>{task.key}</b>
+        <span className={styles.previewSlimTitle}>{task.title}</span>
+        <span className={styles.chipStatus} style={{ color: status.color }}>
+          <i style={{ background: status.color }} />
+          {status.name}
+        </span>
+      </button>
+    );
+  }
   return (
     <button type="button" className={styles.preview} onClick={() => onOpen(task)}>
       <span className={styles.previewTop}>

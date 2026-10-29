@@ -46,6 +46,9 @@ const messageSchema = new mongoose.Schema(
     project: { type: mongoose.Schema.Types.ObjectId, ref: 'Project', default: null },
     // Chip on a chat message that was turned into a ticket ("-> WEB-12").
     taskRef: { type: mongoose.Schema.Types.ObjectId, ref: 'Task', default: null },
+    // Written by the app in a task's thread ("moved this to Done"); shown as
+    // a quiet one-line note instead of a full message.
+    activity: { type: Boolean, default: false },
     editedAt: { type: Date, default: null },
     deletedAt: { type: Date, default: null },
   },

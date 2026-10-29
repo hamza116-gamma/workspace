@@ -584,9 +584,39 @@ export const MessageList = ({
                 )}
 
                 {group.items.map((message, itemIndex) => {
-                  const first = itemIndex === 0;
+                  // A message after an activity note gets its own header again.
+                  const first = itemIndex === 0 || Boolean(group.items[itemIndex - 1]?.activity);
                   const isDeleted = Boolean(message.deletedAt);
                   const pinned = pinnedIds.has(message.id);
+
+                  // App-written note ("created TP-2", "moved this to Done"):
+                  // one quiet line; a ticket it names is a slim live row.
+                  if (message.activity && !isDeleted) {
+                    return (
+                      <div
+                        key={message.id}
+                        data-message-id={message.id}
+                        className={styles.activity}
+                      >
+                        <p className={styles.activityLine}>
+                          <b>{message.sender.fullName}</b>{' '}
+                          {tokensToDisplay(message.content, message.mentions)}
+                          <span className={styles.activityTime}>
+                            {' '}
+                            · {formatTime(message.createdAt)}
+                          </span>
+                        </p>
+                        {ticketKeysIn(message.content, ownTicketKey).map((key) => (
+                          <TicketPreview
+                            key={key}
+                            slim
+                            ticketKey={key}
+                            onOpen={(task) => openThread(task.messageId)}
+                          />
+                        ))}
+                      </div>
+                    );
+                  }
 
                   return (
                     <div key={message.id} data-message-id={message.id}>

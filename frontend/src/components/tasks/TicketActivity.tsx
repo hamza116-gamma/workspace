@@ -52,14 +52,18 @@ export const TicketActivity = ({
   task,
   following,
   onToggleFollow,
+  part = 'all',
 }: {
   task: Task;
   following: boolean;
   onToggleFollow: () => void;
+  // Panel tabs: Details shows the followers, History the change list.
+  part?: 'all' | 'followers' | 'history';
 }) => {
   const [followers, setFollowers] = useState<User[]>([]);
   const [events, setEvents] = useState<TaskHistoryEvent[] | null>(null);
-  const [showHistory, setShowHistory] = useState(false);
+  const [historyOpen, setShowHistory] = useState(false);
+  const showHistory = part === 'history' || historyOpen;
 
   const loadFollowers = useCallback(() => {
     listTaskFollowers(task.id).then(
@@ -87,36 +91,40 @@ export const TicketActivity = ({
 
   return (
     <section className={styles.activity} aria-label="Followers and history">
-      <div className={styles.followRow}>
-        <span className={styles.followAvatars}>
-          {followers.slice(0, 5).map((user) => (
-            <span key={user.id} className={styles.followAvatar} title={user.fullName}>
-              <Avatar name={user.fullName} src={user.avatarUrl} size={22} />
-            </span>
-          ))}
-        </span>
-        <span className={styles.followText}>
-          {followers.length ? `${followers.length} following` : 'Nobody follows this yet'}
-        </span>
+      {part !== 'history' && (
+        <div className={styles.followRow}>
+          <span className={styles.followAvatars}>
+            {followers.slice(0, 5).map((user) => (
+              <span key={user.id} className={styles.followAvatar} title={user.fullName}>
+                <Avatar name={user.fullName} src={user.avatarUrl} size={22} />
+              </span>
+            ))}
+          </span>
+          <span className={styles.followText}>
+            {followers.length ? `${followers.length} following` : 'Nobody follows this yet'}
+          </span>
+          <button
+            type="button"
+            className={`${styles.followButton} ${following ? styles.followOn : ''}`}
+            aria-pressed={following}
+            onClick={onToggleFollow}
+          >
+            {following ? 'Following' : 'Follow'}
+          </button>
+        </div>
+      )}
+
+      {part === 'all' && (
         <button
           type="button"
-          className={`${styles.followButton} ${following ? styles.followOn : ''}`}
-          aria-pressed={following}
-          onClick={onToggleFollow}
+          className={styles.historyToggle}
+          aria-expanded={showHistory}
+          onClick={() => setShowHistory((open) => !open)}
         >
-          {following ? 'Following' : 'Follow'}
+          {showHistory ? '▾' : '▸'} History
         </button>
-      </div>
-
-      <button
-        type="button"
-        className={styles.historyToggle}
-        aria-expanded={showHistory}
-        onClick={() => setShowHistory((open) => !open)}
-      >
-        {showHistory ? '▾' : '▸'} History
-      </button>
-      {showHistory && (
+      )}
+      {part !== 'followers' && showHistory && (
         <ol className={styles.history}>
           {events === null && <li className={styles.muted}>Loading…</li>}
           {events?.length === 0 && <li className={styles.muted}>No changes yet.</li>}
