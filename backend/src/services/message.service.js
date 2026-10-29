@@ -55,6 +55,7 @@ const toPublicMessage = (message, reactions = [], attachments = [], task = null)
       ? String(message.taskRef._id ?? message.taskRef)
       : null,
   ticketThread: Boolean(message.ticketThread),
+  activity: Boolean(message.activity),
   task,
   reactions,
   attachments,

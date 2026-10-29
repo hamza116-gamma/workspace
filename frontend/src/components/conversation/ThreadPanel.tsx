@@ -17,14 +17,13 @@ import { MoveToProject } from '@/components/tasks/MoveToProject';
 import { Subtasks } from '@/components/tasks/Subtasks';
 import { TicketActivity } from '@/components/tasks/TicketActivity';
 import { TicketShares } from '@/components/tasks/TicketShares';
-import { TicketFold } from './TicketFold';
-import { listAssignable } from '@/lib/tasks';
+import { getTask, listAssignable } from '@/lib/tasks';
 import type { User } from '@/types/user';
 import styles from './ThreadPanel.module.css';
 import { NotFoundState, isNotFound } from '@/components/ui/NotFoundState';
 
 export const ThreadPanel = () => {
-  const { rootId, closeThread } = useThreadPanel();
+  const { rootId, closeThread, openThread } = useThreadPanel();
   const {
     root,
     replies,
@@ -41,6 +40,9 @@ export const ThreadPanel = () => {
     toggleFollow,
   } = useThread(rootId);
   const [alsoSend, setAlsoSend] = useState(false);
+  type Tab = 'comments' | 'subtasks' | 'details' | 'history';
+  const [tab, setTab] = useState<Tab>('comments');
+  useEffect(() => setTab('comments'), [rootId]);
   const ticket = Boolean(root?.ticketThread);
   const { channel } = useActiveChannel();
   const { active } = useOrg();
@@ -120,55 +122,115 @@ export const ThreadPanel = () => {
         </div>
       ) : (
         <>
-          {ticket && root.task && (
-            <TicketFold task={root.task}>
-              <TaskCard task={root.task} canModerate={canModerate} />
+          {root.task && (
+            <div className={styles.ticketTop}>
+              {root.task.parentId && (
+                <button
+                  type="button"
+                  className={styles.backBar}
+                  onClick={() =>
+                    void getTask(root.task!.parentId as string).then(({ task }) =>
+                      openThread(task.messageId),
+                    )
+                  }
+                >
+                  ← {root.task.key.split('.')[0]} · subtask of parent
+                </button>
+              )}
+              {ticket && (
+                <TaskCard
+                  task={root.task}
+                  canModerate={canModerate}
+                  compact
+                  onSubtasks={() => setTab('subtasks')}
+                />
+              )}
+            </div>
+          )}
+          {root.task && !root.task.locked && (
+            <div className={styles.tabs} role="tablist">
+              {(
+                [
+                  ['comments', 'Comments'],
+                  [
+                    'subtasks',
+                    root.task.subtaskTotal > 0
+                      ? `Subtasks ${root.task.subtaskDone ?? 0}/${root.task.subtaskTotal}`
+                      : 'Subtasks',
+                  ],
+                  ['details', 'Details'],
+                  ['history', 'History'],
+                ] as [Tab, string][]
+              )
+                .filter(([key]) => key !== 'subtasks' || !root.task?.parentId)
+                .map(([key, label]) => (
+                  <button
+                    key={key}
+                    type="button"
+                    role="tab"
+                    aria-selected={tab === key}
+                    className={`${styles.tab} ${tab === key ? styles.tabActive : ''}`}
+                    onClick={() => setTab(key)}
+                  >
+                    {label}
+                  </button>
+                ))}
+            </div>
+          )}
+          {root.task && tab === 'subtasks' && (
+            <div className={styles.tabBody}>
               <Subtasks task={root.task} />
-              <TicketShares task={root.task} />
+            </div>
+          )}
+          {root.task && tab === 'details' && (
+            <div className={styles.tabBody}>
+              {ticket ? <TicketShares task={root.task} /> : <MoveToProject task={root.task} />}
               <TicketActivity
                 task={root.task}
                 following={following}
                 onToggleFollow={() => void toggleFollow()}
+                part="followers"
               />
-              <p className={styles.ticketHint}>
-                Comments and activity stay on this ticket; they are not posted to the channel.
-              </p>
-            </TicketFold>
+            </div>
           )}
-          {!ticket && root.task && (
-            <TicketFold task={root.task} label="Subtasks and project">
-              <MoveToProject task={root.task} />
-              {!root.task.locked && <Subtasks task={root.task} />}
-              {!root.task.locked && (
-                <TicketActivity
-                  task={root.task}
-                  following={following}
-                  onToggleFollow={() => void toggleFollow()}
-                />
-              )}
-            </TicketFold>
+          {root.task && tab === 'history' && (
+            <div className={styles.tabBody}>
+              <TicketActivity
+                task={root.task}
+                following={following}
+                onToggleFollow={() => void toggleFollow()}
+                part="history"
+              />
+            </div>
           )}
-          <MessageList
-            messages={messages}
-            loading={false}
-            onReact={react}
-            onEdit={edit}
-            onDelete={remove}
-            canModerate={canModerate}
-            ownTicketKey={ticket ? root.task?.key : undefined}
-            separatorAfter={
-              root && !ticket && replies.length > 0
-                ? {
-                    messageId: root.id,
-                    label: `${replies.length} ${replies.length === 1 ? 'reply' : 'replies'}`,
-                  }
-                : undefined
-            }
-          />
+          {ticket && tab === 'comments' && (
+            <p className={styles.ticketHint}>
+              Comments and activity stay on this ticket; they are not posted to the channel.
+            </p>
+          )}
+          {tab === 'comments' && (
+            <MessageList
+              messages={messages}
+              loading={false}
+              onReact={react}
+              onEdit={edit}
+              onDelete={remove}
+              canModerate={canModerate}
+              ownTicketKey={ticket ? root.task?.key : undefined}
+              separatorAfter={
+                root && !ticket && replies.length > 0
+                  ? {
+                      messageId: root.id,
+                      label: `${replies.length} ${replies.length === 1 ? 'reply' : 'replies'}`,
+                    }
+                  : undefined
+              }
+            />
+          )}
         </>
       )}
 
-      {root?.channelId && !ticket && (
+      {root?.channelId && !ticket && tab === 'comments' && (
         <label className={styles.also}>
           <input
             type="checkbox"
@@ -179,7 +241,7 @@ export const ThreadPanel = () => {
         </label>
       )}
 
-      {root && (
+      {root && tab === 'comments' && (
         <>
           <TypingIndicator users={typingUsers} recording={recordingUsers} />
           <MessageComposer

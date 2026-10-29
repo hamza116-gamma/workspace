@@ -640,6 +640,7 @@ const postActivity = async (task, actorId, content) => {
     sender: actorId,
     content,
     parentMessageId: rootId,
+    activity: true,
     // Notes in a ticket's own thread stay hidden from the chat too.
     ticketThread: Boolean(root?.ticketThread),
     project: task.project || null,

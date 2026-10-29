@@ -1459,3 +1459,63 @@ button.open {
   background: var(--surface-1);
   border-top: 1px solid var(--line);
 }
+
+/* Ticket panel: the same card in three tight rows. */
+.compact {
+  padding: 10px 12px;
+  gap: 4px;
+}
+.compact .cardHead {
+  flex-wrap: nowrap;
+}
+.compact .cardTitle {
+  margin: 0;
+}
+.compact .cardMeta {
+  margin-top: 2px;
+}
+.compact .tcDue {
+  margin-left: 0;
+}
+.descToggle {
+  margin-left: auto;
+  display: inline-flex;
+  align-items: center;
+  border: none;
+  background: transparent;
+  color: var(--ink-3);
+  cursor: pointer;
+  padding: 2px;
+  border-radius: 4px;
+}
+.descToggle[aria-expanded='true'] {
+  transform: rotate(180deg);
+}
+.descToggle:hover {
+  color: var(--ink);
+}
+
+/* One-line ticket row under an activity note. */
+.previewSlim {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  margin: 2px 0 0;
+  padding: 4px 8px;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  background: transparent;
+  font: inherit;
+  font-size: 12px;
+  color: var(--ink-2);
+  cursor: pointer;
+  text-align: left;
+}
+.previewSlimTitle {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}

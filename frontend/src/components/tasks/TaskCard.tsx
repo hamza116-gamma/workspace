@@ -38,8 +38,14 @@ export const TaskCard = ({
   mentionNames = [],
   readOnly = false,
   onOpen,
+  compact = false,
+  onSubtasks,
 }: {
   task: Task;
+  // Ticket panel: same card in three tight rows; description behind ⌄.
+  compact?: boolean;
+  // Compact: "Subtasks 1 / 2" opens the panel's Subtasks tab.
+  onSubtasks?: () => void;
   canModerate?: boolean;
   // Names mentioned in the card's message (highlighted in the title).
   mentionNames?: string[];
@@ -56,6 +62,7 @@ export const TaskCard = ({
     setTask(incoming);
   }
   const [editing, setEditing] = useState(false);
+  const [showDescription, setShowDescription] = useState(false);
   const { user } = useAuth();
   const [status, setStatus] = useState<TaskStatus>(task.status);
   const [synced, setSynced] = useState<TaskStatus>(task.status);
@@ -98,7 +105,11 @@ export const TaskCard = ({
   const due = dueChip({ dueDate: task.dueDate, statusGroup: current.group });
 
   return (
-    <div className={`${styles.card} ${current.group === 'DONE' ? styles.done : ''}`}>
+    <div
+      className={`${styles.card} ${current.group === 'DONE' ? styles.done : ''} ${
+        compact ? styles.compact : ''
+      }`}
+    >
       <div className={styles.cardHead}>
         <TypeIcon task={task} />
         {onOpen ? (
@@ -142,7 +153,7 @@ export const TaskCard = ({
       <div className={styles.cardTitle}>
         <MentionText text={task.title} names={mentionNames} />
       </div>
-      {task.description && (
+      {task.description && (!compact || showDescription) && (
         <>
           <div
             ref={descriptionRef}
@@ -161,7 +172,7 @@ export const TaskCard = ({
           )}
         </>
       )}
-      {task.subtaskTotal > 0 && (
+      {!compact && task.subtaskTotal > 0 && (
         // Opens the task's thread, which lists every subtask.
         <button type="button" className={styles.viewSubtasks} onClick={onOpen} disabled={!onOpen}>
           View subtasks
@@ -178,6 +189,17 @@ export const TaskCard = ({
         </div>
       )}
       <div className={styles.cardMeta}>
+        {compact && task.subtaskTotal > 0 && (
+          <button
+            type="button"
+            className={styles.viewSubtasks}
+            onClick={onSubtasks}
+            disabled={!onSubtasks}
+          >
+            Subtasks
+            <SubtaskProgress task={task} />
+          </button>
+        )}
         <span className={styles.tcPeople}>
           {task.assignees.length === 0 ? (
             <>
@@ -202,8 +224,19 @@ export const TaskCard = ({
         {due && (
           <span className={`${styles.tcDue} ${styles[DUE_CLASS[due.tone]]}`}>
             <Icon name={due.tone === 'done' ? 'checkCircle' : 'clock'} size={12} />
-            {due.text}
+            {compact ? due.text.replace(/^Due /, '') : due.text}
           </span>
+        )}
+        {compact && task.description && (
+          <button
+            type="button"
+            className={styles.descToggle}
+            aria-expanded={showDescription}
+            title={showDescription ? 'Hide description' : 'Show description'}
+            onClick={() => setShowDescription((value) => !value)}
+          >
+            <Icon name="chevron-down" size={14} />
+          </button>
         )}
       </div>
       {error && <p className={styles.error}>{error}</p>}
