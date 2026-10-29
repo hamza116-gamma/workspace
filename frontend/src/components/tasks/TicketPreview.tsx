@@ -68,7 +68,21 @@ export const useTicketByKey = (ticketKey: string) => {
 
   useEffect(() => {
     let alive = true;
+    const cached = cache.has(ticketKey);
     void loadByKey(ticketKey).then((found) => alive && setTask(found));
+    // A preview shown again (e.g. back from a subtask's panel) may have
+    // missed live updates while it was gone: show the cached copy at once,
+    // then refresh it.
+    if (cached) {
+      const fresh = getTaskByKey(ticketKey).then(
+        (result) => result.task,
+        () => null,
+      );
+      void fresh.then((found) => {
+        cache.set(ticketKey, Promise.resolve(found));
+        if (alive) setTask(found);
+      });
+    }
     return () => {
       alive = false;
     };
